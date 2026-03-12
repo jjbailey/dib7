@@ -1,0 +1,142 @@
+# Disk Image Builder configuration for EFI-enabled system with LVM
+# This config creates a GPT partitioned image with EFI support and logical volumes for system directories
+
+- local_loop:
+    name: image0
+
+- partitioning:
+    base: image0
+    label: gpt
+    partitions:
+      - name: ESP
+        type: "EF00" # EFI System Partition
+        size: 512MiB
+        mkfs:
+          type: vfat
+          mount:
+            mount_point: /boot/efi
+            fstab:
+              options: "defaults,noexec,nodev,nosuid"
+              dump-freq: 0
+              fsck-passno: 0
+
+      - name: BSP
+        type: "EF02" # BIOS Boot Partition (for legacy compatibility)
+        size: 8MiB
+
+      - name: root
+        flags: ["boot"]
+        label: root
+        size: 100% # Use remaining space for LVM
+
+- lvm:
+    name: lvm
+    base: ["root"]
+    pvs:
+      - name: pv1
+        base: root
+        options: ["--force"]
+
+    vgs:
+      - name: vg1
+        base: ["pv1"]
+        options: ["--force"]
+
+    lvs:
+      - name: lv_root
+        base: vg1
+        size: 6GiB
+
+      - name: lv_tmp
+        base: vg1
+        size: 4GiB
+
+      - name: lv_home
+        base: vg1
+        size: 4GiB
+
+      - name: lv_var
+        base: vg1
+        size: 4GiB
+
+      - name: lv_log
+        base: vg1
+        size: 4GiB
+
+      - name: lv_audit
+        base: vg1
+        size: 2GiB
+
+- mkfs:
+    name: fs_root
+    base: lv_root
+    type: ext4
+    label: root
+    mount:
+      mount_point: /
+      fstab:
+        options: "defaults,noatime,commit=60"
+        dump-freq: 1
+        fsck-passno: 1 # Root filesystem checked first
+
+- mkfs:
+    name: fs_tmp
+    base: lv_tmp
+    type: ext4
+    label: tmp
+    mount:
+      mount_point: /tmp
+      fstab:
+        options: "defaults,noatime,nodev,nosuid,noexec,commit=60" # Security hardening for /tmp
+        dump-freq: 1
+        fsck-passno: 2
+
+- mkfs:
+    name: fs_home
+    base: lv_home
+    type: ext4
+    label: home
+    mount:
+      mount_point: /home
+      fstab:
+        options: "defaults,noatime,commit=60"
+        dump-freq: 1
+        fsck-passno: 2
+
+- mkfs:
+    name: fs_var
+    base: lv_var
+    type: ext4
+    label: var
+    mount:
+      mount_point: /var
+      fstab:
+        options: "defaults,noatime,commit=60"
+        dump-freq: 1
+        fsck-passno: 2
+
+- mkfs:
+    name: fs_log
+    base: lv_log
+    type: ext4
+    label: log
+    mount:
+      mount_point: /var/log
+      fstab:
+        options: "defaults,noatime,commit=60"
+        dump-freq: 1
+        fsck-passno: 2
+
+- mkfs:
+    name: fs_audit
+    base: lv_audit
+    type: ext4
+    label: audit
+    mount:
+      mount_point: /var/log/audit
+      fstab:
+        options: "defaults,noatime,commit=60"
+        dump-freq: 1
+        fsck-passno: 2
+
+# vim: set tabstop=2 shiftwidth=2 expandtab:

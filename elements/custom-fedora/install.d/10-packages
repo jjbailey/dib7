@@ -1,0 +1,23 @@
+#!/bin/bash
+# 10-packages
+# vim: set tabstop=4 shiftwidth=4 expandtab:
+
+# Make your life easier. Install these. YMMV.
+# Many/most/all of these may be already installed.
+
+[ ${DIB_DEBUG_TRACE:-0} -gt 0 ] && set -x
+
+PACKAGES="
+    cloud-init
+    cloud-utils-growpart
+    dnf-utils
+    lvm2
+    openssh-server
+    open-vm-tools
+    parted
+    qemu-guest-agent
+"
+
+dnf -y install $PACKAGES
+
+exit 0

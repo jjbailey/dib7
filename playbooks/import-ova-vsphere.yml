@@ -1,0 +1,52 @@
+---
+# playbooks/import-ova-vsphere.yml
+# vim: set tabstop=2 shiftwidth=2 expandtab:
+
+# Playbook to import an OVA file to a vSphere content library.
+# VMDK must be streamOptimized.
+
+- name: Import OVA to vSphere
+  hosts: "{{ target_hosts | default('all') }}"
+  gather_facts: false
+  serial: 1
+
+  tasks:
+    - name: Include common setup tasks
+      ansible.builtin.include_tasks: common-setup.yml
+
+    - name: Include vSphere vault variables
+      ansible.builtin.include_vars:
+        file: "../vaults/vsphere.yml"
+
+    - name: Verify source OVA file exists
+      ansible.builtin.stat:
+        path: "{{ build_dir }}/{{ ova_file }}"
+      register: ova_stat
+      failed_when: not ova_stat.stat.exists
+
+    - name: Import OVA to vSphere content library
+      block:
+        - name: Initiate import process
+          ansible.builtin.command:
+            argv:
+              - pwsh
+              - "{{ playbook_dir }}/../bin/import-ova-vsphere.ps1"
+              - "-library"
+              - "{{ vsphere_content_library }}"
+              - "-ova"
+              - "{{ build_dir }}/{{ ova_file }}"
+          delegate_to: localhost
+          register: import_result
+          changed_when: import_result.rc == 0
+          no_log: true
+          environment:
+            vcenter_hostname: "{{ vcenter_hostname }}"
+            vcenter_username: "{{ vcenter_username }}"
+            vcenter_password: "{{ vcenter_password }}"
+
+      always:
+        - name: Display import result
+          ansible.builtin.debug:
+            msg: "OVA import exited with return code {{ import_result.rc }}"
+          when: import_result is defined
+

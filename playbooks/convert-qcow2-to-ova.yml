@@ -1,0 +1,114 @@
+---
+# playbooks/convert-qcow2-to-ova.yml
+# vim: set tabstop=2 shiftwidth=2 expandtab:
+
+# Playbook to convert QCOW2 images to OVA format for vSphere deployment.
+# VMDK must be streamOptimized.
+
+- name: Convert QCOW2 to OVA for vSphere
+  hosts: "{{ target_hosts | default('all') }}"
+  gather_facts: true
+  serial: 1
+
+  pre_tasks:
+    # Validate required tools are available
+    - name: Verify qemu-img is available
+      ansible.builtin.command:
+        cmd: qemu-img --version
+      register: qemu_check
+      failed_when: qemu_check.rc != 0
+      changed_when: false
+
+    - name: Verify ovftool is available
+      ansible.builtin.command:
+        cmd: ovftool --version
+      register: ovftool_check
+      failed_when: ovftool_check.rc != 0
+      changed_when: false
+
+  tasks:
+    - name: Include common setup tasks
+      ansible.builtin.include_tasks: common-setup.yml
+
+    # Validate inputs and prepare environment
+    - name: Verify source file exists
+      ansible.builtin.stat:
+        path: "{{ build_dir }}/{{ qcow2_file }}"
+      register: qcow2_stat
+
+    - name: Fail if source file does not exist
+      ansible.builtin.fail:
+        msg: "Source QCOW2 file {{ build_dir }}/{{ qcow2_file }} does not exist"
+      when: not qcow2_stat.stat.exists
+
+    - name: Ensure output directory exists
+      ansible.builtin.file:
+        path: "{{ build_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Set build date fact
+      ansible.builtin.set_fact:
+        build_date: "{{ lookup('ansible.builtin.pipe', 'date +%y%m%d') }}"
+
+    # Conversion process
+    - name: Check VMDK file status
+      ansible.builtin.stat:
+        path: "{{ build_dir }}/{{ vmdk_file }}"
+      register: vmdk_check_stat
+
+    - name: Convert QCOW2 to VMDK format
+      ansible.builtin.command:
+        cmd: qemu-img convert -f qcow2 -O vmdk -o subformat=streamOptimized "{{ qcow2_file }}" "{{ vmdk_file }}"
+        chdir: "{{ build_dir }}"
+      register: conversion_result
+      retries: 3
+      delay: 5
+      until: conversion_result.rc == 0
+      when: not vmdk_check_stat.stat.exists or (qcow2_stat.stat.mtime > vmdk_check_stat.stat.mtime)
+
+    - name: Retrieve VMDK file size
+      ansible.builtin.stat:
+        path: "{{ build_dir }}/{{ vmdk_file }}"
+      register: vmdk_stat
+      failed_when: not vmdk_stat.stat.exists
+
+    - name: Generate OVF descriptor
+      ansible.builtin.template:
+        src: ../templates/ovf-file.j2
+        dest: "{{ build_dir }}/{{ ovf_file }}"
+        mode: "0644"
+      vars:
+        vmdk_size_bytes: "{{ vmdk_stat.stat.size }}"
+
+    - name: Create OVA package
+      ansible.builtin.command:
+        argv:
+          - ovftool
+          - --lax
+          - --acceptAllEulas
+          - --skipManifestCheck
+          - --shaAlgorithm=SHA256
+          - --diskMode=thin
+          - --noNvramFile
+          - --allowExtraConfig
+          - --X:injectOvfEnv
+          - --overwrite
+          - "{{ ovf_file }}"
+          - "{{ ova_file }}"
+        chdir: "{{ build_dir }}"
+      register: ova_result
+      retries: 3
+      delay: 5
+      until: ova_result.rc == 0
+
+    - name: Set OVA file permissions
+      ansible.builtin.file:
+        path: "{{ build_dir }}/{{ ova_file }}"
+        mode: "0644"
+
+    # Final reporting
+    - name: Report conversion completion
+      ansible.builtin.debug:
+        msg: "OVA package ready: {{ build_dir }}/{{ ova_file }}"
+

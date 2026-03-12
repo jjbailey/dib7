@@ -1,0 +1,21 @@
+---
+# group_vars/all/main.yml
+# vim: set tabstop=2 shiftwidth=2 expandtab:
+
+# group_vars/<group>/main.yml can override these
+
+image_arch: "amd64"
+image_name: "{{ inventory_hostname }}-base"
+image_size: "35"
+image_type: "qcow2"
+
+mf_file: "{{ image_name }}.mf"
+ova_file: "{{ image_name }}.ova"
+ovf_file: "{{ image_name }}.ovf"
+qcow2_file: "{{ image_name }}.qcow2"
+vmdk_file: "{{ image_name }}.vmdk"
+
+dpkg_opts: "-o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold"
+debian_frontend: "noninteractive"
+needrestart_mode: "a"
+

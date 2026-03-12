@@ -1,0 +1,36 @@
+---
+# group_vars/ubuntu/main.yml
+# vim: set tabstop=2 shiftwidth=2 expandtab:
+
+# first include group_vars/all/main.yml
+
+venv_bin: "{{ ansible_env.HOME }}/venvs/diskimage-builder/venv/bin"
+path: "{{ venv_bin }}:{{ ansible_env.PATH }}"
+build_dir: "/work/dib-builds"
+
+dib_block_device: "gpt"
+dib_block_device_config: "{{ lookup('ansible.builtin.file', '../block-device-config/block-device-efi-config.yml') }}"
+dib_openssh_server_hardening: "0"
+dib_cloud_init_datasources: "None"
+dib_bootloader_default_cmdline: "biosdevname=0 iommu=on ipv6.disable=1 net.ifnames=0 dm_mod.use_blk_mq=Y scsi_mod.use_blk_mq=Y"
+
+elements_base: "bootloader block-device-efi-lvm ubuntu-minimal"
+elements_path: "../elements"
+elements_custom: "custom-{{ target_group }}"
+
+vm_memory_mb: "4096"
+vm_cpus: "4"
+vm_os_type: "ubuntu64Guest"
+
+add_swap: true
+swap_device: "/dev/mapper/vg1-lv_swap"
+swap_size: "4096"
+
+# vmware
+vm_network: "VM Network"
+vm_os_description: "Ubuntu Linux (64-bit)"
+vsphere_content_library: "RSF_Content_Library"
+
+# gcp
+gcp_import_image: "ubuntu-2204"
+

@@ -1,0 +1,232 @@
+---
+# playbooks/import-qcow2-gcp.yml
+# vim: set tabstop=2 shiftwidth=2 expandtab:
+
+# Import QCOW2 file to GCP.
+
+- name: Import QCOW2 to GCP Compute Image
+  hosts: "{{ target_hosts | default('all') }}"
+  gather_facts: true
+  serial: 1
+
+  tasks:
+    - name: Import and process image
+      block:
+        - name: Include common setup tasks
+          ansible.builtin.include_tasks: common-setup.yml
+
+        - name: Include GCP vault variables
+          ansible.builtin.include_vars:
+            file: "../vaults/gcp.yml"
+
+        - name: Create temp file for service account key
+          ansible.builtin.tempfile:
+            state: file
+            suffix: .json
+          register: sa_key_file
+
+        - name: Write service account key to temp file
+          ansible.builtin.copy:
+            content: "{{ service_account_key }}"
+            dest: "{{ sa_key_file.path }}"
+            mode: "0600"
+
+        - name: Activate service account for gcloud commands
+          ansible.builtin.command:
+            argv:
+              - gcloud
+              - auth
+              - activate-service-account
+              - --key-file
+              - "{{ sa_key_file.path }}"
+          register: gcloud_auth
+          changed_when: false
+
+        - name: Verify source file exists
+          ansible.builtin.stat:
+            path: "{{ build_dir }}/{{ qcow2_file }}"
+          register: qcow2_stat
+          failed_when: not qcow2_stat.stat.exists
+
+        # Step 1: always ensure QCOW2 is in GCS
+        - name: Check if QCOW2 exists in GCS
+          ansible.builtin.command: "gcloud storage ls gs://{{ gcs_bucket }}/{{ qcow2_file }}"
+          register: gcs_file_check
+          failed_when: false
+          changed_when: false
+
+        - name: Upload QCOW2 to GCS
+          google.cloud.gcp_storage_object:
+            auth_kind: serviceaccount
+            service_account_contents: "{{ service_account_key }}"
+            bucket: "{{ gcs_bucket }}"
+            dest: "{{ qcow2_file }}"
+            src: "{{ build_dir }}/{{ qcow2_file }}"
+            project: "{{ gcp_project }}"
+          register: gcs_upload
+          when: gcs_file_check.rc != 0
+          no_log: true
+
+        - name: Confirm QCOW2 upload to GCS
+          ansible.builtin.debug:
+            msg: "QCOW2 uploaded to gs://{{ gcs_bucket }}/{{ qcow2_file }}"
+          when: gcs_upload is not skipped
+
+        # Step 2: check if image already exists — skip import if so
+        - name: Check if Compute Image already exists
+          ansible.builtin.command:
+            argv:
+              - gcloud
+              - compute
+              - images
+              - describe
+              - "{{ image_name }}"
+              - "--project={{ gcp_project }}"
+              - "--format=value(selfLink)"
+          register: existing_image_check
+          changed_when: false
+          failed_when: false
+
+        # Step 3: import; step 4: delete QCOW2 on success
+        - name: Import image (skipped if image already exists)
+          when: existing_image_check.stdout.strip() == ''
+          block:
+            - name: Check for stale import job
+              ansible.builtin.command:
+                argv:
+                  - gcloud
+                  - migration
+                  - vms
+                  - image-imports
+                  - describe
+                  - "{{ image_name }}"
+                  - "--location={{ gcs_location }}"
+                  - "--project={{ gcp_project }}"
+                  - "--format=value(name)"
+              register: stale_import_check
+              changed_when: false
+              failed_when: false
+
+            - name: Delete stale import job if present
+              ansible.builtin.command:
+                argv:
+                  - gcloud
+                  - migration
+                  - vms
+                  - image-imports
+                  - delete
+                  - "{{ image_name }}"
+                  - "--location={{ gcs_location }}"
+                  - "--project={{ gcp_project }}"
+                  - --quiet
+              when: stale_import_check.rc == 0
+
+            - name: Initiate import process
+              ansible.builtin.command:
+                argv:
+                  - gcloud
+                  - migration
+                  - vms
+                  - image-imports
+                  - create
+                  - "{{ image_name }}"
+                  - --location
+                  - "{{ gcs_location }}"
+                  - --source-file
+                  - "gs://{{ gcs_bucket }}/{{ qcow2_file }}"
+                  - --project
+                  - "{{ gcp_project }}"
+                  - --quiet
+              register: image_creation
+              changed_when: true
+
+            - name: Display import status
+              ansible.builtin.debug:
+                msg: "Image import started: {{ image_creation.stdout }}"
+
+            - name: Poll image import job status
+              ansible.builtin.command:
+                argv:
+                  - gcloud
+                  - migration
+                  - vms
+                  - image-imports
+                  - describe
+                  - "{{ image_name }}"
+                  - "--location={{ gcs_location }}"
+                  - "--project={{ gcp_project }}"
+                  - "--format=value(recentImageImportJobs[0].state)"
+              register: import_job_state
+              until: >
+                import_job_state.rc != 0 or
+                import_job_state.stdout.strip() in ['SUCCEEDED', 'FAILED', 'CANCELLED']
+              retries: 60
+              delay: 30
+              changed_when: false
+              failed_when: >
+                import_job_state.rc != 0 or
+                import_job_state.stdout.strip() in ['FAILED', 'CANCELLED']
+
+            - name: Fail if import job did not succeed
+              ansible.builtin.fail:
+                msg: >-
+                  Image import job ended with state: {{ import_job_state.stdout.strip() }}.
+                  To retry, re-run the playbook (the stale import job will be cleaned up automatically).
+              when: import_job_state.stdout.strip() != 'SUCCEEDED'
+
+            - name: Remove QCOW2 from GCS after successful import
+              google.cloud.gcp_storage_object:
+                auth_kind: serviceaccount
+                service_account_contents: "{{ service_account_key }}"
+                bucket: "{{ gcs_bucket }}"
+                src: "{{ qcow2_file }}"
+                action: delete
+                project: "{{ gcp_project }}"
+              ignore_errors: true
+              no_log: true
+
+        - name: Retrieve Compute Image selfLink
+          ansible.builtin.command:
+            argv:
+              - gcloud
+              - compute
+              - images
+              - describe
+              - "{{ image_name }}"
+              - "--project={{ gcp_project }}"
+              - "--format=value(selfLink)"
+          register: image_selflink_raw
+          changed_when: false
+          failed_when: image_selflink_raw.rc != 0
+
+        - name: Record new image selfLink
+          ansible.builtin.set_fact:
+            new_image_selflink: "{{ image_selflink_raw.stdout.strip() }}"
+
+        - name: Display new image selfLink
+          ansible.builtin.debug:
+            msg: "Import complete! Image selfLink: {{ new_image_selflink }}"
+
+        - name: Tag imported image
+          google.cloud.gcp_compute_image:
+            auth_kind: serviceaccount
+            service_account_contents: "{{ service_account_key }}"
+            name: "{{ image_name }}"
+            project: "{{ gcp_project }}"
+            labels:
+              name: "{{ image_name }}"
+            state: present
+          no_log: true
+
+      rescue:
+        - name: Fail with error message
+          ansible.builtin.fail:
+            msg: "Import process failed: {{ ansible_failed_result.msg | default('unknown error') }}. QCOW2 left in GCS for debugging/retry."
+
+      always:
+        - name: Remove temp service account key file
+          ansible.builtin.file:
+            path: "{{ sa_key_file.path }}"
+            state: absent
+          when: sa_key_file.path is defined
+

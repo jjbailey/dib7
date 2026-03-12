@@ -1,0 +1,85 @@
+---
+# playbooks/import-qcow2-openstack.yml
+# vim: set tabstop=2 shiftwidth=2 expandtab:
+
+# Import QCOW2 file to OpenStack.
+
+- name: Import QCOW2 to OpenStack Image
+  hosts: "{{ target_hosts | default('all') }}"
+  gather_facts: false
+  serial: 1
+
+  tasks:
+    - name: Import and process image
+      block:
+        - name: Include common setup tasks
+          ansible.builtin.include_tasks: common-setup.yml
+
+        - name: Include OpenStack vault variables
+          ansible.builtin.include_vars:
+            file: "../vaults/openstack.yml"
+
+        - name: Verify source file exists
+          ansible.builtin.stat:
+            path: "{{ build_dir }}/{{ qcow2_file }}"
+          register: qcow2_stat
+          failed_when: not qcow2_stat.stat.exists
+
+        - name: Check if image already exists in OpenStack
+          openstack.cloud.image_info:
+            auth: "{{ openstack_auth }}"
+            name: "{{ image_name }}"
+          register: existing_image
+          no_log: true
+
+        - name: Delete existing image if it exists
+          openstack.cloud.image:
+            auth: "{{ openstack_auth }}"
+            name: "{{ image_name }}"
+            state: absent
+          when: existing_image.images | length > 0
+          no_log: true
+
+        - name: Upload QCOW2 to OpenStack
+          openstack.cloud.image:
+            auth: "{{ openstack_auth }}"
+            name: "{{ image_name }}"
+            filename: "{{ build_dir }}/{{ qcow2_file }}"
+            disk_format: qcow2
+            container_format: bare
+            state: present
+          register: image_upload
+          no_log: true
+
+        - name: Display upload status
+          ansible.builtin.debug:
+            msg: "Image upload initiated: {{ image_upload.image.id }}"
+
+        - name: Wait for image to be active
+          openstack.cloud.image_info:
+            auth: "{{ openstack_auth }}"
+            name: "{{ image_name }}"
+          register: image_status
+          until: >
+            image_status.images | length > 0 and
+            image_status.images[0].status | lower in ['active', 'killed', 'deleted', 'deactivated']
+          retries: 60
+          delay: 30
+          failed_when: >
+            image_status.images | length == 0 or
+            image_status.images[0].status | lower in ['killed', 'deleted', 'deactivated']
+          no_log: true
+
+        - name: Record new image ID
+          ansible.builtin.set_fact:
+            new_image_id: "{{ image_status.images[0].id }}"
+
+        - name: Display new image ID
+          ansible.builtin.debug:
+            msg: "Import complete! Image ID: {{ new_image_id }}"
+
+      rescue:
+        - name: Fail with error message
+          ansible.builtin.fail:
+            msg: "Import process failed: {{ ansible_failed_result.msg | default('unknown error') }}"
+

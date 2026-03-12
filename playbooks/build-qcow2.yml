@@ -1,0 +1,113 @@
+---
+# playbooks/build-qcow2.yml
+# vim: set tabstop=2 shiftwidth=2 expandtab:
+
+# Playbook to create a QCOW2 file from a cloud image.
+
+- name: Build QCOW2 disk image
+  hosts: "{{ target_hosts | default('all') }}"
+  gather_facts: true
+  serial: 1
+
+  tasks:
+    - name: Include common setup tasks
+      ansible.builtin.include_tasks: common-setup.yml
+
+    - name: Clean up old loop devices and mounts
+      ansible.builtin.shell: |
+        # Unmount any mounts related to build_dir
+        for mount_point in $(mount | grep "{{ build_dir }}" | awk '{print $3}') ; do
+          umount -l "$mount_point" || true
+        done
+        # Detach loop devices related to build_dir
+        for loop_dev in $(losetup -a | grep "{{ build_dir }}" | awk -F: '{print $1}') ; do
+          losetup -d "$loop_dev" || true
+        done
+      become: true
+      changed_when: false
+      ignore_errors: true
+
+    - name: Remove old build artifacts
+      ansible.builtin.file:
+        path: "{{ build_dir }}/{{ item }}"
+        state: absent
+      loop:
+        - "{{ image_name }}.{{ image_type }}"
+        - "{{ image_name }}.log"
+
+    - name: Execute disk-image-create to build image
+      ansible.builtin.command:
+        cmd: >-
+          {{ venv_bin }}/disk-image-create
+          -a {{ image_arch }}
+          -o {{ build_dir }}/{{ image_name }}.{{ image_type }}
+          --image-size {{ image_size }}
+          -x -x
+          --logfile {{ build_dir }}/{{ image_name }}.log
+          {{ elements_base }} {{ elements_custom }}
+      environment:
+        PATH: "{{ path }}"
+        ELEMENTS_PATH: "{{ elements_path }}"
+        DIB_RELEASE: "{{ dib_release }}"
+        DIB_BLOCK_DEVICE: "{{ dib_block_device }}"
+        DIB_BLOCK_DEVICE_CONFIG: "{{ dib_block_device_config }}"
+        DIB_OPENSSH_SERVER_HARDENING: "{{ dib_openssh_server_hardening }}"
+        DIB_CLOUD_INIT_DATASOURCES: "{{ dib_cloud_init_datasources }}"
+        DIB_BOOTLOADER_DEFAULT_CMDLINE: "{{ dib_bootloader_default_cmdline }}"
+        DPKG_OPTS: "{{ dpkg_opts }}"
+        DEBIAN_FRONTEND: "{{ debian_frontend }}"
+        NEEDRESTART_MODE: "{{ needrestart_mode }}"
+      changed_when: true
+      no_log: true
+      register: disk_image_create_result
+
+    - name: Fail if disk-image-create failed
+      ansible.builtin.fail:
+        msg: "disk-image-create failed: {{ disk_image_create_result.stderr }}"
+      when: disk_image_create_result is failed
+
+    - name: Configure swap space in image
+      when: (add_swap | default(false) | bool) and (disk_image_create_result is succeeded)
+      block:
+        - name: Create temporary swap configuration script
+          ansible.builtin.tempfile:
+            state: file
+            suffix: .sh
+          register: swap_script
+
+        - name: Generate swap setup script content
+          ansible.builtin.copy:
+            dest: "{{ swap_script.path }}"
+            content: |
+              lvcreate lv_swap vg1 {{ swap_size }}
+              mkswap {{ swap_device }}
+              !echo "{{ swap_device }} none swap sw 0 0" >> /etc/fstab
+            mode: "0644"
+
+        - name: Apply swap configuration to the image using guestfish
+          ansible.builtin.command:
+            cmd: >-
+              guestfish --rw --network -i -a {{ build_dir }}/{{ image_name }}.{{ image_type }} -f {{ swap_script.path }}
+          become: true
+          changed_when: true
+          register: guestfish_result
+          failed_when: guestfish_result.rc != 0
+
+      always:
+        - name: Clean up temporary swap script
+          ansible.builtin.file:
+            path: "{{ swap_script.path }}"
+            state: absent
+          when: swap_script is defined
+
+    - name: Retrieve image metadata
+      ansible.builtin.command:
+        cmd: "qemu-img info {{ build_dir }}/{{ image_name }}.{{ image_type }}"
+      register: qemu_info
+      changed_when: false
+      failed_when: qemu_info.rc != 0
+
+    - name: Display image information
+      ansible.builtin.debug:
+        msg: "{{ qemu_info.stdout_lines }}"
+

@@ -1,0 +1,112 @@
+---
+# playbooks/import-ova-aws.yml
+# vim: set tabstop=2 shiftwidth=2 expandtab:
+
+# Import OVA file to AWS AMI using EC2 Import Image service.
+# VMDK must be streamOptimized.
+
+- name: Import OVA to AWS AMI
+  hosts: "{{ target_hosts | default('all') }}"
+  gather_facts: true
+  serial: 1
+
+  tasks:
+    - name: Include common setup tasks
+      ansible.builtin.include_tasks: common-setup.yml
+
+    - name: Include AWS vault variables
+      ansible.builtin.include_vars:
+        file: "../vaults/aws.yml"
+
+    - name: Import OVA to AMI
+      block:
+        - name: Upload OVA to S3
+          amazon.aws.s3_object:
+            bucket: "{{ s3_bucket }}"
+            object: "{{ ova_file }}"
+            src: "{{ build_dir }}/{{ ova_file }}"
+            mode: put
+            region: "{{ aws_region }}"
+          environment:
+            AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          register: s3_upload
+
+        - name: Confirm OVA upload to S3
+          ansible.builtin.debug:
+            msg: "OVA uploaded to s3://{{ s3_bucket }}/{{ ova_file }}"
+
+        - name: Initiate import process
+          amazon.aws.ec2_import_image:
+            region: "{{ aws_region }}"
+            task_name: "{{ inventory_hostname }}-import-{{ lookup('ansible.builtin.pipe', 'date +%s') }}"
+            description: "Import of {{ ova_file }}"
+            disk_containers:
+              - description: "OVA disk container"
+                format: OVA
+                user_bucket:
+                  s3_bucket: "{{ s3_bucket }}"
+                  s3_key: "{{ ova_file }}"
+            role_name: "{{ vmimport_role_name }}"
+            state: present
+          register: import_task
+
+        - name: Display import task ID
+          ansible.builtin.debug:
+            msg: "Import task started: {{ import_task.import_image.import_task_id }}"
+
+        - name: Wait for import to complete
+          amazon.aws.ec2_import_image_info:
+            region: "{{ aws_region }}"
+            import_task_ids:
+              - "{{ import_task.import_image.import_task_id }}"
+          register: import_status
+          until: import_status.import_image[0].status == 'completed'
+          failed_when: import_status.import_image[0].status in ['deleted', 'failed']
+          retries: 60
+          delay: 60
+
+        - name: Record new AMI ID
+          ansible.builtin.set_fact:
+            new_ami_id: "{{ import_status.import_image[0].image_id }}"
+
+        - name: Display new AMI ID
+          ansible.builtin.debug:
+            msg: "Import complete! AMI ID: {{ new_ami_id }}"
+
+        - name: Verify AMI creation
+          amazon.aws.ec2_ami_info:
+            region: "{{ aws_region }}"
+            filters:
+              image-id: ["{{ new_ami_id }}"]
+          register: ami_info
+          failed_when: ami_info.images | length == 0
+
+        - name: Tag imported AMI
+          amazon.aws.ec2_tag:
+            region: "{{ aws_region }}"
+            resource: "{{ new_ami_id }}"
+            tags:
+              Name: "{{ image_name }}"
+            state: present
+
+        - name: Remove OVA from S3 after successful import
+          amazon.aws.s3_object:
+            bucket: "{{ s3_bucket }}"
+            object: "{{ ova_file }}"
+            mode: delobj
+            region: "{{ aws_region }}"
+
+      rescue:
+        - name: Clean up S3 on failure
+          amazon.aws.s3_object:
+            bucket: "{{ s3_bucket }}"
+            object: "{{ ova_file }}"
+            mode: delobj
+            region: "{{ aws_region }}"
+          when: s3_upload is defined
+          ignore_errors: true
+
+        - name: Fail with error message
+          ansible.builtin.fail:
+            msg: "Import process failed: {{ ansible_failed_result.msg | default(ansible_failed_result) }}. S3 cleanup attempted."
+
