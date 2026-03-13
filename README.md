@@ -217,9 +217,12 @@ Each element directory contains standard DIB hooks:
 
 ### Global Variables (`group_vars/all/main.yml`)
 
-- `dib_os`: Operating system (ubuntu, fedora, centos)
-- `dib_release`: OS release/version
-- `dib_elements`: Additional DIB elements to include
+- `image_arch`: CPU architecture (default: `amd64`)
+- `image_name`: Image base name (default: `{{ inventory_hostname }}-base`)
+- `image_size`: Image size in GB (default: `35`)
+- `image_type`: Image format (default: `qcow2`)
+- `qcow2_file`, `vmdk_file`, `ovf_file`, `ova_file`, `mf_file`: Derived output filenames
+- `dpkg_opts`, `debian_frontend`, `needrestart_mode`: Debian/Ubuntu packaging options
 
 ### OS-Specific Variables
 
