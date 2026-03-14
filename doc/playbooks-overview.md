@@ -46,7 +46,8 @@ build to a cloud-ready artifact.
 
 - **`import-qcow2-gcp.yml`** (GCP): Uploads QCOW2 to GCS, registers as
   Compute Engine Image.
-- **`import-qcow2-openstack.yml`** (OpenStack): Direct upload of QCOW2 to Glance as Image.
+- **`import-qcow2-openstack.yml`** (OpenStack): Direct upload of QCOW2 to
+  Glance as Image.
 - **`import-ova-vsphere.yml`** (vSphere): Deploys OVA to vCenter.
 - **`import-ova-aws.yml`** (AWS): Imports OVA as AMI via VM Import/Export.
 
