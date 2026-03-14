@@ -21,14 +21,14 @@ flowchart TB
 
     %% OpenStack (red log)
     subgraph OpenStack["OpenStack"]
-        style OpenStack fill:#ff9999,stroke:#333,stroke-width:1px,stroke-dasharray: 5 5
+        style OpenStack fill:#ff9999,stroke:#333,stroke-width:1px,stroke-dasharray: 5
         OS_IMG["☁️ openstack img"]
     end
     QCOW2 --> OS_IMG
 
     %% GCP (light cyan)
     subgraph GCP["GCP"]
-        style GCP fill:#e0ffff,stroke:#333,stroke-width:1px,stroke-dasharray: 5 5
+        style GCP fill:#e0ffff,stroke:#333,stroke-width:1px,stroke-dasharray: 5
         GCS["🪣 gcs bucket"]
         GCP_IMG["☁️ gcp img"]
         GCS --> GCP_IMG
@@ -38,7 +38,7 @@ flowchart TB
     %% AWS (orange)
     subgraph AWS["AWS"]
         direction TB
-        style AWS fill:#ffa500,stroke:#333,stroke-width:1px,stroke-dasharray: 5 5
+        style AWS fill:#ffa500,stroke:#333,stroke-width:1px,stroke-dasharray: 5
         S3["🪣 s3 bucket"]
         AWS_IMG["☁️ aws ami"]
         S3 --> AWS_IMG
@@ -48,7 +48,7 @@ flowchart TB
 
     %% VMware (lavender)
     subgraph VMware["VMware"]
-        style VMware fill:#e6e6fa,stroke:#333,stroke-width:1px,stroke-dasharray: 5 5
+        style VMware fill:#e6e6fa,stroke:#333,stroke-width:1px,stroke-dasharray: 5
         VM_OVA["📦 vmware ova"]
     end
     OVA --> VM_OVA
