@@ -15,7 +15,7 @@ in the element.
 Depending on which directory is in play, the scripts either in or out of chroot.
 Refer to the link above for details.
 
-## The phases are:
+## The phases are
 
 | # | Phase | Chroot |
 | --- | ------- | -------- |
