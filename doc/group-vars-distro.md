@@ -108,7 +108,7 @@ image is built, conditionally on `add_swap`.
 | --- | --- | --- |
 | `vm_network` | `VM Network` | Network name written into the OVF `NetworkSection`. |
 | `vm_os_description` | e.g. `Ubuntu Linux (64-bit)` | Human-readable OS description written into the OVF `OperatingSystemSection`. |
-| `vsphere_content_library` | `RSF_Content_Library` | Target vSphere content library for OVA import in `playbooks/import-ova-vsphere.yml`. |
+| `vsphere_content_library` | `Content_Library` | Target vSphere content library for OVA import in `playbooks/import-ova-vsphere.yml`. |
 <!-- markdownlint-enable MD013 -->
 
 ---
