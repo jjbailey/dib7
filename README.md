@@ -39,7 +39,7 @@ flowchart TB
 - **OpenStack** - Glance images via direct upload
 - **VMware vSphere** - Content Library OVA deployment
 
-### Operating Systems
+### Operating Systems by Provider
 
 - Ubuntu (16.04, 18.04, 20.04, 22.04, 23.04, 24.04)
 - CentOS/RHEL (8.x, 9.x, 10)
@@ -49,6 +49,16 @@ flowchart TB
 - Rocky Linux (9.x, 10)
 - Oracle Linux (8.x-10.x)
 - SUSE Linux Enterprise (11, 12, 15)
+
+### DIB-Supported Operating Systems (Targets)
+
+- Debian
+- Ubuntu
+- Fedora
+- Red Hat Enterprise Linux (RHEL)
+- CentOS
+- openSUSE
+- Gentoo
 
 ## Quick Start
 
