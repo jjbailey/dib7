@@ -1,8 +1,8 @@
 # group_vars/all/main.yml
 
 Default variables applied to **all hosts**. These are the baseline values for
-the dib7 disk image build pipeline. Group-specific files (e.g.
-`group_vars/ubuntu/main.yml`) can override any of these.
+ the dib7 disk image build pipeline. Group-specific files (e.g.
+`group_vars/debian/main.yml` or `group_vars/ubuntu/main.yml`) can override any of these.
 
 ---
 
@@ -55,7 +55,7 @@ They are harmless on RPM-based systems where `apt`/`dpkg` are not used.
 
 ```text
 group_vars/all/main.yml          ← these defaults
-group_vars/<group>/main.yml      ← per-distro overrides (ubuntu, fedora, centos10stream)
+group_vars/<group>/main.yml      ← per-distro overrides (debian, ubuntu, fedora, centos10stream)
 host_vars/<host>/...             ← per-host overrides (if any)
 ```
 

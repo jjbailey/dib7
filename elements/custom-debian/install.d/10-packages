@@ -1,0 +1,28 @@
+#!/bin/bash
+# 10-packages
+# vim: set tabstop=4 shiftwidth=4 expandtab:
+
+# Make your life easier. Install these. YMMV.
+# Many/most/all of these may be already installed.
+
+[ ${DIB_DEBUG_TRACE:-0} -gt 0 ] && set -x
+
+PACKAGES="
+    apt-utils
+    cloud-guest-utils
+    cloud-init
+    dracut
+    gdisk
+    isc-dhcp-client
+    lvm2
+    net-tools
+    openssh-server
+    open-vm-tools
+    parted
+    qemu-guest-agent
+"
+
+apt-get update
+apt-get -m -y $DPKG_OPTS install $PACKAGES
+
+exit 0

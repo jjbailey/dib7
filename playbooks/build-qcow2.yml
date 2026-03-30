@@ -81,7 +81,7 @@
             content: |
               lvcreate lv_swap vg1 {{ swap_size }}
               mkswap {{ swap_device }}
-              sh echo "{{ swap_device }} none swap sw 0 0" >> /etc/fstab
+              write-append /etc/fstab "{{ swap_device }} none swap sw 0 0\n"
             mode: "0644"
 
         - name: Apply swap configuration to the image using guestfish
