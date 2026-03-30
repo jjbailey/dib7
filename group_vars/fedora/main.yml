@@ -29,8 +29,5 @@ swap_size: "4096"
 # vmware
 vm_network: "VM Network"
 vm_os_description: "Red Hat Fedora (64-bit)"
-vsphere_content_library: "RSF_Content_Library"
-
-# gcp
-gcp_import_image: "centos-stream-9"
+vsphere_content_library: "Content_Library"
 

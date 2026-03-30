@@ -97,12 +97,18 @@ flowchart TB
 2. **Build Base Image**
 
    ```bash
+   # Build all hosts in the inventory
+   ansible-playbook playbooks/build-qcow2.yml
+
    # Build a specific host
    ansible-playbook playbooks/build-qcow2.yml -l ubuntu24044
 
    # Build all hosts in a group
    ansible-playbook playbooks/build-qcow2.yml -l ubuntu
    ```
+
+   Omit `-l` to run against every host in `hosts.yml`. Use `-l` only when you
+   want to limit the run to a specific host or inventory group.
 
 3. **Deploy to Target Platform**
 
@@ -212,16 +218,21 @@ vsphere_content_library: "my-content-library"
 
 DIB7 includes custom diskimage-builder elements for supported operating systems:
 
-- `elements/custom-ubuntu/` - Ubuntu customizations
-- `elements/custom-fedora/` - Fedora customizations
 - `elements/custom-centos10stream/` - CentOS Stream 10 customizations
+- `elements/custom-debian/` - Debian customizations
+- `elements/custom-fedora/` - Fedora customizations
+- `elements/custom-ubuntu/` - Ubuntu customizations
 
-Each element directory contains standard DIB hooks:
+Each element directory can contain standard diskimage-builder phase
+subdirectories. Common phases include:
 
 - `pre-install.d/` - Pre-installation setup
 - `install.d/` - Package installation
 - `post-install.d/` - Post-installation configuration
 - `finalise.d/` - Image finalization
+
+See [doc/phases.md](doc/phases.md) for the complete ordered list of DIB phases
+and whether each phase runs inside or outside the chroot.
 
 ## Variables
 
@@ -236,9 +247,10 @@ Each element directory contains standard DIB hooks:
 
 ### OS-Specific Variables
 
-- `group_vars/ubuntu/main.yml`
-- `group_vars/fedora/main.yml`
 - `group_vars/centos10stream/main.yml`
+- `group_vars/debian/main.yml`
+- `group_vars/fedora/main.yml`
+- `group_vars/ubuntu/main.yml`
 
 ## Development
 

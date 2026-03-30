@@ -1,5 +1,5 @@
 ---
-# group_vars/centos10stream/main.yml
+# group_vars/debian/main.yml
 # vim: set tabstop=2 shiftwidth=2 expandtab:
 
 # first include group_vars/all/main.yml
@@ -14,13 +14,15 @@ dib_openssh_server_hardening: "0"
 dib_cloud_init_datasources: "None"
 dib_bootloader_default_cmdline: "biosdevname=0 iommu=on ipv6.disable=1 net.ifnames=0 dm_mod.use_blk_mq=Y scsi_mod.use_blk_mq=Y"
 
-elements_base: "bootloader block-device-efi-lvm centos dracut-regenerate"
+elements_base: "bootloader block-device-efi-lvm debian-minimal"
 elements_path: "../elements"
 elements_custom: "custom-{{ target_group }}"
 
 vm_memory_mb: "4096"
 vm_cpus: "4"
-vm_os_type: "centos9_64Guest"
+# VMware does not currently expose a Debian Trixie guest ID, so keep the
+# Debian 11 identifier for compatible OVF import behavior.
+vm_os_type: "debian11_64Guest"
 
 add_swap: true
 swap_device: "/dev/mapper/vg1-lv_swap"
@@ -28,6 +30,7 @@ swap_size: "4096"
 
 # vmware
 vm_network: "VM Network"
-vm_os_description: "CentOS 10 (64-bit)"
+# Match the compatibility guest ID above for VMware import metadata.
+vm_os_description: "Debian GNU/Linux 11 (64-bit)"
 vsphere_content_library: "Content_Library"
 
