@@ -247,9 +247,10 @@ and whether each phase runs inside or outside the chroot.
 
 ### OS-Specific Variables
 
-- `group_vars/ubuntu/main.yml`
-- `group_vars/fedora/main.yml`
 - `group_vars/centos10stream/main.yml`
+- `group_vars/debian/main.yml`
+- `group_vars/fedora/main.yml`
+- `group_vars/ubuntu/main.yml`
 
 ## Development
 
