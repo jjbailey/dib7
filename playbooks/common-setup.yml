@@ -9,26 +9,25 @@
 # This is a tasks file, not a playbook - included via include_tasks.
 
 - name: Determine target group
-  set_fact:
+  ansible.builtin.set_fact:
     target_group: "{{ group_names | difference([inventory_hostname]) | sort | first }}"
   when: target_group is not defined
 
 - name: Validate target group is defined
-  assert:
+  ansible.builtin.assert:
     that: target_group is defined
     fail_msg: "target_group is not defined. Ensure the host belongs to at least one group."
 
 - name: Load global group variables
-  include_vars:
+  ansible.builtin.include_vars:
     file: "../group_vars/all/main.yml"
 
 - name: Load group-specific variables
-  include_vars:
+  ansible.builtin.include_vars:
     file: "../group_vars/{{ target_group }}/main.yml"
 
 - name: Ensure build directory exists
-  file:
+  ansible.builtin.file:
     path: "{{ build_dir }}"
     state: directory
     mode: "0755"
-
