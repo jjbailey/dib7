@@ -6,8 +6,16 @@
 
 - name: Import QCOW2 to GCP Compute Image
   hosts: "{{ target_hosts | default('all') }}"
-  gather_facts: true
+  gather_facts: false
   serial: 1
+
+  pre_tasks:
+    - name: Verify gcloud is available
+      ansible.builtin.command:
+        cmd: gcloud --version
+      register: gcloud_check
+      failed_when: gcloud_check.rc != 0
+      changed_when: false
 
   tasks:
     - name: Import and process image
@@ -30,6 +38,7 @@
             content: "{{ service_account_key }}"
             dest: "{{ sa_key_file.path }}"
             mode: "0600"
+          no_log: true
 
         - name: Activate service account for gcloud commands
           ansible.builtin.command:
@@ -41,12 +50,17 @@
               - "{{ sa_key_file.path }}"
           register: gcloud_auth
           changed_when: false
+          no_log: true
 
         - name: Verify source file exists
           ansible.builtin.stat:
             path: "{{ build_dir }}/{{ qcow2_file }}"
           register: qcow2_stat
-          failed_when: not qcow2_stat.stat.exists
+
+        - name: Fail if source QCOW2 file is missing or empty
+          ansible.builtin.fail:
+            msg: "Source QCOW2 file {{ build_dir }}/{{ qcow2_file }} is missing or empty"
+          when: not qcow2_stat.stat.exists or not qcow2_stat.stat.isreg or (qcow2_stat.stat.size | default(0) | int) == 0
 
         # Step 1: always ensure QCOW2 is in GCS
         - name: Check if QCOW2 exists in GCS
@@ -87,7 +101,7 @@
           changed_when: false
           failed_when: false
 
-        # Step 3: import; step 4: delete QCOW2 on success
+        # Step 3: import; keep QCOW2 in GCS by default for reuse/debugging
         - name: Import image (skipped if image already exists)
           when: existing_image_check.stdout.strip() == ''
           block:
@@ -119,6 +133,26 @@
                   - "--location={{ gcs_location }}"
                   - "--project={{ gcp_project }}"
                   - --quiet
+              when: stale_import_check.rc == 0
+
+            - name: Wait for stale import job deletion to complete
+              ansible.builtin.command:
+                argv:
+                  - gcloud
+                  - migration
+                  - vms
+                  - image-imports
+                  - describe
+                  - "{{ image_name }}"
+                  - "--location={{ gcs_location }}"
+                  - "--project={{ gcp_project }}"
+                  - "--format=value(name)"
+              register: deleted_import_check
+              until: deleted_import_check.rc != 0
+              retries: "{{ gcp_delete_poll_retries | default(40) | int }}"
+              delay: "{{ gcp_delete_poll_delay | default(3) | int }}"
+              changed_when: false
+              failed_when: false
               when: stale_import_check.rc == 0
 
             - name: Initiate import process
@@ -158,14 +192,21 @@
                   - "--format=value(recentImageImportJobs[0].state)"
               register: import_job_state
               until: >
-                import_job_state.rc != 0 or
+                import_job_state.rc == 0 and
                 import_job_state.stdout.strip() in ['SUCCEEDED', 'FAILED', 'CANCELLED']
-              retries: 60
-              delay: 30
+              retries: "{{ gcp_import_poll_retries | default(60) | int }}"
+              delay: "{{ gcp_import_poll_delay | default(30) | int }}"
               changed_when: false
               failed_when: >
-                import_job_state.rc != 0 or
+                import_job_state.rc == 0 and
                 import_job_state.stdout.strip() in ['FAILED', 'CANCELLED']
+
+            - name: Fail if import job status could not be retrieved
+              ansible.builtin.fail:
+                msg: >-
+                  Unable to retrieve GCP image import job status for {{ image_name }}
+                  after polling. Last rc={{ import_job_state.rc }}.
+              when: import_job_state.rc != 0
 
             - name: Fail if import job did not succeed
               ansible.builtin.fail:
@@ -182,6 +223,7 @@
                 src: "{{ qcow2_file }}"
                 action: delete
                 project: "{{ gcp_project }}"
+              when: gcp_delete_qcow2_after_import | default(false) | bool
               ignore_errors: true
               no_log: true
 
@@ -196,6 +238,9 @@
               - "--project={{ gcp_project }}"
               - "--format=value(selfLink)"
           register: image_selflink_raw
+          retries: "{{ gcp_image_lookup_retries | default(20) | int }}"
+          delay: "{{ gcp_image_lookup_delay | default(3) | int }}"
+          until: image_selflink_raw.rc == 0 and image_selflink_raw.stdout.strip() != ''
           changed_when: false
           failed_when: image_selflink_raw.rc != 0
 
@@ -228,5 +273,4 @@
           ansible.builtin.file:
             path: "{{ sa_key_file.path }}"
             state: absent
-          when: sa_key_file.path is defined
-
+          when: sa_key_file is defined and sa_key_file.path is defined
