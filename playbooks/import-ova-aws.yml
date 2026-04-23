@@ -7,7 +7,7 @@
 
 - name: Import OVA to AWS AMI
   hosts: "{{ target_hosts | default('all') }}"
-  gather_facts: true
+  gather_facts: false
   serial: 1
 
   tasks:
@@ -17,6 +17,16 @@
     - name: Include AWS vault variables
       ansible.builtin.include_vars:
         file: "../vaults/aws.yml"
+
+    - name: Verify OVA file exists
+      ansible.builtin.stat:
+        path: "{{ build_dir }}/{{ ova_file }}"
+      register: ova_stat
+
+    - name: Fail if OVA file is missing or empty
+      ansible.builtin.fail:
+        msg: "Source OVA file {{ build_dir }}/{{ ova_file }} is missing or empty"
+      when: not ova_stat.stat.exists or not ova_stat.stat.isreg or (ova_stat.stat.size | default(0) | int) == 0
 
     - name: Import OVA to AMI
       block:
@@ -60,14 +70,18 @@
             import_task_ids:
               - "{{ import_task.import_image.import_task_id }}"
           register: import_status
-          until: import_status.import_image[0].status == 'completed'
-          failed_when: import_status.import_image[0].status in ['deleted', 'failed']
-          retries: 60
-          delay: 60
+          until: >-
+            (import_status.import_image | default([]) | length > 0) and
+            (((import_status.import_image | first).status | default('')) == 'completed')
+          failed_when: >-
+            (import_status.import_image | default([]) | length > 0) and
+            (((import_status.import_image | first).status | default('')) in ['deleted', 'failed'])
+          retries: "{{ aws_import_poll_retries | default(180) | int }}"
+          delay: "{{ aws_import_poll_delay | default(60) | int }}"
 
         - name: Record new AMI ID
           ansible.builtin.set_fact:
-            new_ami_id: "{{ import_status.import_image[0].image_id }}"
+            new_ami_id: "{{ (import_status.import_image | first).image_id }}"
 
         - name: Display new AMI ID
           ansible.builtin.debug:

@@ -23,7 +23,11 @@
           ansible.builtin.stat:
             path: "{{ build_dir }}/{{ qcow2_file }}"
           register: qcow2_stat
-          failed_when: not qcow2_stat.stat.exists
+
+        - name: Fail if source QCOW2 file is missing or empty
+          ansible.builtin.fail:
+            msg: "Source QCOW2 file {{ build_dir }}/{{ qcow2_file }} is missing or empty"
+          when: not qcow2_stat.stat.exists or not qcow2_stat.stat.isreg or (qcow2_stat.stat.size | default(0) | int) == 0
 
         - name: Check if image already exists in OpenStack
           openstack.cloud.image_info:
@@ -37,6 +41,17 @@
             auth: "{{ openstack_auth }}"
             name: "{{ image_name }}"
             state: absent
+          when: existing_image.images | length > 0
+          no_log: true
+
+        - name: Wait for existing image deletion to complete
+          openstack.cloud.image_info:
+            auth: "{{ openstack_auth }}"
+            name: "{{ image_name }}"
+          register: deleted_image_status
+          until: deleted_image_status.images | length == 0
+          retries: "{{ openstack_delete_poll_retries | default(40) | int }}"
+          delay: "{{ openstack_delete_poll_delay | default(3) | int }}"
           when: existing_image.images | length > 0
           no_log: true
 
@@ -62,17 +77,27 @@
           register: image_status
           until: >
             image_status.images | length > 0 and
-            image_status.images[0].status | lower in ['active', 'killed', 'deleted', 'deactivated']
-          retries: 60
-          delay: 30
+            (image_status.images | first).status | lower in ['active', 'killed', 'deleted', 'deactivated']
+          retries: "{{ openstack_import_poll_retries | default(120) | int }}"
+          delay: "{{ openstack_import_poll_delay | default(15) | int }}"
           failed_when: >
-            image_status.images | length == 0 or
-            image_status.images[0].status | lower in ['killed', 'deleted', 'deactivated']
+            image_status.images | length > 0 and
+            (image_status.images | first).status | lower in ['killed', 'deleted', 'deactivated']
           no_log: true
+
+        - name: Fail if image was not found after upload polling
+          ansible.builtin.fail:
+            msg: "OpenStack image {{ image_name }} was not found after upload polling completed"
+          when: image_status.images | length == 0
+
+        - name: Fail if image did not become active
+          ansible.builtin.fail:
+            msg: "OpenStack image {{ image_name }} ended in unexpected status {{ (image_status.images | first).status }}"
+          when: ((image_status.images | first).status | lower) != 'active'
 
         - name: Record new image ID
           ansible.builtin.set_fact:
-            new_image_id: "{{ image_status.images[0].id }}"
+            new_image_id: "{{ (image_status.images | first).id }}"
 
         - name: Display new image ID
           ansible.builtin.debug:
