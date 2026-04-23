@@ -10,6 +10,26 @@
   gather_facts: false
   serial: 1
 
+  pre_tasks:
+    - name: Verify pwsh is available on localhost
+      ansible.builtin.command:
+        cmd: pwsh --version
+      delegate_to: localhost
+      register: pwsh_check
+      failed_when: pwsh_check.rc != 0
+      changed_when: false
+
+    - name: Verify vSphere import helper exists on localhost
+      ansible.builtin.stat:
+        path: "{{ playbook_dir }}/../bin/import-ova-vsphere.ps1"
+      delegate_to: localhost
+      register: import_helper_stat
+
+    - name: Fail if vSphere import helper is missing
+      ansible.builtin.fail:
+        msg: "vSphere import helper {{ playbook_dir }}/../bin/import-ova-vsphere.ps1 is missing"
+      when: not import_helper_stat.stat.exists or not import_helper_stat.stat.isreg
+
   tasks:
     - name: Include common setup tasks
       ansible.builtin.include_tasks: common-setup.yml
@@ -21,8 +41,13 @@
     - name: Verify source OVA file exists
       ansible.builtin.stat:
         path: "{{ build_dir }}/{{ ova_file }}"
+      delegate_to: localhost
       register: ova_stat
-      failed_when: not ova_stat.stat.exists
+
+    - name: Fail if source OVA file is missing or empty on localhost
+      ansible.builtin.fail:
+        msg: "Source OVA file {{ build_dir }}/{{ ova_file }} is missing or empty on localhost"
+      when: not ova_stat.stat.exists or not ova_stat.stat.isreg or (ova_stat.stat.size | default(0) | int) == 0
 
     - name: Import OVA to vSphere content library
       block:
@@ -43,6 +68,14 @@
             vcenter_hostname: "{{ vcenter_hostname }}"
             vcenter_username: "{{ vcenter_username }}"
             vcenter_password: "{{ vcenter_password }}"
+
+      rescue:
+        - name: Fail with vSphere import error details
+          ansible.builtin.fail:
+            msg: >-
+              vSphere OVA import failed with rc={{ import_result.rc | default('unknown') }}.
+              stderr={{ import_result.stderr | default('') | trim }}
+              stdout={{ import_result.stdout | default('') | trim }}
 
       always:
         - name: Display import result

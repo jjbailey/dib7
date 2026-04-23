@@ -41,7 +41,7 @@ flowchart TB
 
 ### Operating Systems by Provider
 
-- Ubuntu (16.04, 18.04, 20.04, 22.04, 23.04, 24.04)
+- Ubuntu (16.04, 18.04, 20.04, 22.04, 23.04, 24.04, 26.04)
 - CentOS/RHEL (8.x, 9.x, 10)
 - Fedora (37, 38, 39)
 - Debian (10, 11, 12.x)
@@ -155,6 +155,13 @@ dib7/
 ├── templates/                  # Jinja2 templates
 └── vaults/                     # Encrypted credentials
 ```
+
+## Documentation
+
+- `doc/adding-distros-and-releases.md` - how to add a new distro family or a new version of an existing distro
+- `doc/group-vars-all.md` - defaults shared by all builds
+- `doc/group-vars-distro.md` - per-distro variables and differences
+- `doc/playbooks-overview.md` - what each playbook does and when to run it
 
 ## Playbooks
 
@@ -270,6 +277,10 @@ disk-image-create ubuntu vm -o test-ubuntu
 1. Create custom element in `elements/`
 2. Add group variables in `group_vars/`
 3. Update documentation in `doc/`
+
+For a full walkthrough, including how to add a new release of an existing
+distro such as Ubuntu `26.04`, see
+`doc/adding-distros-and-releases.md`.
 
 ## Troubleshooting
 
