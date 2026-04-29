@@ -41,16 +41,34 @@ flowchart TB
 
 ### Operating Systems by Provider
 
-- Ubuntu (16.04, 18.04, 20.04, 22.04, 23.04, 24.04, 26.04)
-- CentOS/RHEL (8.x, 9.x, 10)
-- Fedora (37, 38, 39)
-- Debian (10, 11, 12.x)
-- Amazon Linux (2, 2023)
-- Rocky Linux (9.x, 10)
-- Oracle Linux (8.x-10.x)
-- SUSE Linux Enterprise (11, 12, 15)
+Validated against provider documentation on 2026-04-28. Provider support is
+separate from DIB7 inventory support; re-check the provider matrix before
+enabling a new target release.
 
-### DIB-Supported Operating Systems (Targets)
+Source documents checked:
+[AWS VM Import/Export requirements](https://docs.aws.amazon.com/vm-import/latest/userguide/prerequisites.html),
+[GCP Compute Engine OS details](https://docs.cloud.google.com/compute/docs/images/os-details),
+[OpenStack Glance project reference](https://governance.openstack.org/tc/reference/projects/glance.html),
+and the
+[VMware Guest OS Installation Guide](https://partnerweb.vmware.com/GOSIG/home.html).
+
+| Provider                        | Current provider-supported operating systems                                                                                                                                                                                                  | DIB7 target notes                                                                                                                                           |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| AWS VM Import/Export            | Ubuntu through 24.04; Debian through 12.7; Fedora through 43; CentOS through 9; RHEL, Rocky Linux, and Oracle Linux through 10.1; Amazon Linux 2 and 2023; SLES 11, 12, and 15 SP6; Windows Server through 2025                               | `ubuntu22045` and `ubuntu24044` match AWS import support. `ubuntu26040`, `debian1304`, `fedora44`, and `centos10s` are not listed for AWS VM Import/Export. |
+| GCP Compute Engine image import | Ubuntu LTS through 24.04; CentOS Stream 9 and 10; RHEL 8, 9, and 10; Rocky Linux and AlmaLinux 8, 9, and 10; Oracle Linux 8, 9, and 10; SLES 15 SP4-SP7 and 16; Windows Server through 2025                                                   | `ubuntu22045`, `ubuntu24044`, and `centos10s` match GCP import support. Debian 13 and Fedora Server are not listed as supported import targets.             |
+| OpenStack Glance                | No provider-wide OS version list. Glance stores and serves bootable disk images; guest support depends on the cloud operator, Nova hypervisor, image metadata, and local policy                                                               | DIB7 uploads QCOW2 images directly. Validate each target against the destination cloud's image policy and compute driver.                                   |
+| VMware vSphere                  | Guest OS guide lists Debian 13, Ubuntu through 25.10, RHEL 10, Rocky Linux 10, Oracle Linux 10, AlmaLinux 10, SLES 16, Amazon Linux 2, and Windows Server 2025. Fedora support is limited to older Fedora desktop entries in the VMware guide | DIB7 can deploy OVA files, but newer targets may need the closest supported `vm_os_type` guest ID until VMware exposes an exact ID.                         |
+
+### Configured DIB7 Operating System Targets
+
+- CentOS Stream 10
+- Debian 13 (Trixie)
+- Fedora 44
+- Ubuntu 22.04 LTS (Jammy)
+- Ubuntu 24.04 LTS (Noble)
+- Ubuntu 26.04 LTS (Resolute)
+
+### Upstream diskimage-builder Operating System Elements
 
 - Debian
 - Ubuntu
@@ -165,14 +183,14 @@ dib7/
 
 ## Playbooks
 
-|Playbook|Purpose|Dependencies|
-|--------|-------|------------|
-|`build-qcow2.yml`|Build base QCOW2 image|diskimage-builder|
-|`convert-qcow2-to-ova.yml`|Convert QCOW2 to OVA|qemu-img, ovftool|
-|`import-ova-aws.yml`|Upload OVA to S3, import to AWS AMI|AWS CLI, S3, VM Import|
-|`import-ova-vsphere.yml`|Import OVA to vSphere|pwsh, PowerCLI|
-|`import-qcow2-gcp.yml`|Import QCOW2 to GCP|gcloud, gsutil|
-|`import-qcow2-openstack.yml`|Import QCOW2 to OpenStack|OpenStack CLI|
+| Playbook                     | Purpose                             | Dependencies           |
+| ---------------------------- | ----------------------------------- | ---------------------- |
+| `build-qcow2.yml`            | Build base QCOW2 image              | diskimage-builder      |
+| `convert-qcow2-to-ova.yml`   | Convert QCOW2 to OVA                | qemu-img, ovftool      |
+| `import-ova-aws.yml`         | Upload OVA to S3, import to AWS AMI | AWS CLI, S3, VM Import |
+| `import-ova-vsphere.yml`     | Import OVA to vSphere               | pwsh, PowerCLI         |
+| `import-qcow2-gcp.yml`       | Import QCOW2 to GCP                 | gcloud, gsutil         |
+| `import-qcow2-openstack.yml` | Import QCOW2 to OpenStack           | OpenStack CLI          |
 
 ## Vault Configuration
 
