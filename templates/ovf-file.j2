@@ -6,7 +6,7 @@
   </References>
   <DiskSection>
     <Info>List of the virtual disks</Info>
-    <Disk ovf:capacityAllocationUnits="byte" ovf:format="http://www.vmware.com/interfaces/specifications/vmdk.html#streamOptimized" ovf:diskId="vmdisk1" ovf:capacity="42949672960" ovf:fileRef="file1"/>
+    <Disk ovf:capacityAllocationUnits="byte" ovf:format="http://www.vmware.com/interfaces/specifications/vmdk.html#streamOptimized" ovf:diskId="vmdisk1" ovf:capacity="{{ vmdk_virtual_size_bytes }}" ovf:fileRef="file1"/>
   </DiskSection>
   <NetworkSection>
     <Info>The list of logical networks</Info>
@@ -115,7 +115,6 @@
       <vmw:Config ovf:required="false" vmw:key="memoryHotAddEnabled" vmw:value="false"/>
       <vmw:Config ovf:required="false" vmw:key="bootOptions.efiSecureBootEnabled" vmw:value="false"/>
       <vmw:Config ovf:required="false" vmw:key="firmware" vmw:value="efi"/>
-      <vmw:ExtraConfig ovf:required="false" vmw:key="nvram" vmw:value="ovf:/file/file2"/>
     </VirtualHardwareSection>
     <ProductSection>
       <Info>Cloud-Init Customization</Info>
