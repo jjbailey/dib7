@@ -7,45 +7,47 @@
 
 ## CentOS
 
-- CentOS versions — older, and being deprecated (EOL), check AWS docs if still
-  usable; may be unsupported for new imports — AWS lists historically but with
-  deprecation notices for CentOS 5–8.
+- CentOS Stream 9
+- CentOS 5–8 are all EOL; technically listed by AWS but not recommended for new imports
 
 ## Debian
 
-- Debian 10
 - Debian 11
-- Debian 12.2 / 12.4
+- Debian 12.2, 12.4, 12.7
 
 ## Fedora
 
-- Fedora 37
-- Fedora 38
-- Fedora 39
+- Fedora 41
+- Fedora 42
+- Fedora 43
+- Fedora 37–40 are EOL per AWS
 
 ## Oracle Linux
 
-- Oracle Linux 7.x, 8.x, 9.x, 10.x (multiple kernels supported)
+- Oracle Linux 7.0–7.6
+- Oracle Linux 8.0–8.9
+- Oracle Linux 9.0–9.7
+- Oracle Linux 10.0–10.1
 
 ## Red Hat Enterprise Linux (RHEL)
 
 - RHEL 7
-- RHEL 8.x
-- RHEL 9.x
-- RHEL 10
+- RHEL 8.0–8.9
+- RHEL 9.0–9.7
+- RHEL 10.0–10.1
 
 ## Rocky Linux
 
-- Rocky Linux 9.x
-- Rocky Linux 10
+- Rocky Linux 9.0–9.7
+- Rocky Linux 10.0–10.1
 
 ## SUSE Linux Enterprise Server (SLES)
 
-- SLES 11, 12, 15, 6.x (multiple service packs / kernels)
+- SLES 15 SP1–SP6
+- SLES 11 and 12 are EOL per AWS
 
 ## Ubuntu
 
-- Ubuntu 16.04
 - Ubuntu 18.04
 - Ubuntu 20.04
 - Ubuntu 22.04

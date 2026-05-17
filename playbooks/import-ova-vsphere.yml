@@ -37,6 +37,7 @@
     - name: Include vSphere vault variables
       ansible.builtin.include_vars:
         file: "../vaults/vsphere.yml"
+      no_log: true
 
     - name: Verify source OVA file exists
       ansible.builtin.stat:
