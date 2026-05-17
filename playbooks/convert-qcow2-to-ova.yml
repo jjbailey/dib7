@@ -73,6 +73,21 @@
       register: vmdk_stat
       failed_when: not vmdk_stat.stat.exists
 
+    - name: Retrieve VMDK virtual size
+      ansible.builtin.command:
+        argv:
+          - qemu-img
+          - info
+          - --output=json
+          - "{{ vmdk_file }}"
+        chdir: "{{ build_dir }}"
+      register: vmdk_info_json
+      changed_when: false
+
+    - name: Record VMDK virtual size
+      ansible.builtin.set_fact:
+        vmdk_virtual_size_bytes: "{{ (vmdk_info_json.stdout | from_json)['virtual-size'] }}"
+
     - name: Generate OVF descriptor
       ansible.builtin.template:
         src: ../templates/ovf-file.j2

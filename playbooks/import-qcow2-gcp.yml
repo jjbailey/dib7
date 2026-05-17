@@ -73,6 +73,7 @@
           google.cloud.gcp_storage_object:
             auth_kind: serviceaccount
             service_account_contents: "{{ service_account_key }}"
+            action: upload
             bucket: "{{ gcs_bucket }}"
             dest: "{{ qcow2_file }}"
             src: "{{ build_dir }}/{{ qcow2_file }}"
@@ -274,3 +275,4 @@
             path: "{{ sa_key_file.path }}"
             state: absent
           when: sa_key_file is defined and sa_key_file.path is defined
+

@@ -5,7 +5,7 @@
 ## Patch required to build Fedora Server 43+
 
 Fedora changed the naming convention for the ISO downloads. Apply the following
-patch to diskimage-builder 3.41.0:
+patch to diskimage-builder 3.42.0:
 
 <!-- markdownlint-disable MD013 -->
 ```text
