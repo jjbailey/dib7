@@ -242,7 +242,9 @@ dib7/
   Dependencies: AWS CLI, S3, VM Import.
 - `import-ova-vsphere.yml`: Import OVA to vSphere.
   Dependencies: pwsh, PowerCLI.
-- `import-qcow2-gcp.yml`: Import QCOW2 to GCP.
+- `import-qcow2-gcp.yml`: Import QCOW2 to GCP. Always re-uploads the QCOW2
+  to GCS, and by default deletes and replaces any existing Compute image of
+  the same name (see `gcp_replace_existing_image`).
   Dependencies: gcloud (including `gcloud storage`).
 - `import-qcow2-openstack.yml`: Import QCOW2 to OpenStack.
   Dependencies: OpenStack CLI.
@@ -324,7 +326,10 @@ and whether each phase runs inside or outside the chroot.
 - `image_type`: Image format (default: `qcow2`; passed to DIB with `-t`)
 - `qcow2_file`, `vmdk_file`, `ovf_file`, `ova_file`, `mf_file`: Derived output filenames
 - `gcp_replace_existing_image`: Replace an existing Compute image on rerun
-  (default: `true`)
+  (default: `true`); set to `false` to make `import-qcow2-gcp.yml` fail
+  instead of deleting the existing image
+- `gcp_delete_qcow2_after_import`: Delete the QCOW2 from GCS after a
+  successful Compute image import (default: `false`)
 - `dpkg_opts`, `debian_frontend`, `needrestart_mode`: Debian/Ubuntu packaging options
 
 ### OS-Specific Variables
@@ -383,6 +388,9 @@ by the local suite.
    - Validate vault credentials
    - Check cloud provider quotas and permissions
    - Review cloud provider import logs
+   - GCP: reruns delete and replace any existing Compute image with the same
+     name by default (`gcp_replace_existing_image: true`); set it to `false`
+     first if you need to keep the existing image
 
 3. **Ansible Collection Issues**
    - Update collections: `ansible-galaxy collection install --force <collection>`
