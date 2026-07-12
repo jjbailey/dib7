@@ -68,7 +68,7 @@ Current provider-supported operating systems:
 - Windows Server through 2025
 
 DIB7 target notes: `ubuntu22045` and `ubuntu24044` match AWS import support.
-`ubuntu26040`, `debian1304`, `fedora44`, and `centos10s` are not listed for
+`ubuntu26040`, `debian1306`, `fedora44`, and `centos10s` are not listed for
 AWS VM Import/Export.
 
 #### GCP Compute Engine Image Import
@@ -84,7 +84,7 @@ Current provider-supported operating systems:
 - SLES 12 SP4-SP5 and selected SLES 15 service packs
 - Windows Server through 2025
 
-DIB7 target notes: `ubuntu22045`, `ubuntu24044`, `debian1304`, and
+DIB7 target notes: `ubuntu22045`, `ubuntu24044`, `debian1306`, and
 `centos10s` match GCP import support. `ubuntu26040` and Fedora Server are not
 listed as supported import targets.
 
@@ -226,11 +226,21 @@ dib7/
 
 - `doc/adding-distros-and-releases.md` - how to add a new distro family or a
   new version of an existing distro
+- `doc/ansible-galaxy.md` - installing and verifying the Ansible Galaxy
+  collections used by DIB7
 - `doc/aws-supported-images.md` - AWS VM Import/Export Linux distribution support
+- `doc/fedora.md` - diskimage-builder patch required to build Fedora Server 43+
+- `doc/gcloud.md` - installing the Google Cloud CLI (`gcloud`)
 - `doc/gcp-supported-images.md` - GCP Compute Engine Linux distribution support
 - `doc/group-vars-all.md` - defaults shared by all builds
 - `doc/group-vars-distro.md` - per-distro variables and differences
+- `doc/phases.md` - DIB phase subdirectories, execution order, and chroot behavior
 - `doc/playbooks-overview.md` - what each playbook does and when to run it
+- `doc/python3-virtualenv.md` - setting up the diskimage-builder Python
+  virtual environment
+- `doc/vaults.md` - vault file layout required by each playbook
+- `doc/workflow.md` - the build/deploy pipeline diagram shown above in
+  [Architecture](#architecture)
 
 ## Playbooks
 
@@ -239,7 +249,7 @@ dib7/
 - `convert-qcow2-to-ova.yml`: Convert QCOW2 to OVA.
   Dependencies: qemu-img, ovftool.
 - `import-ova-aws.yml`: Upload OVA to S3, import to AWS AMI.
-  Dependencies: AWS CLI, S3, VM Import.
+  Dependencies: `amazon.aws` collection, S3, VM Import.
 - `import-ova-vsphere.yml`: Import OVA to vSphere.
   Dependencies: pwsh, PowerCLI.
 - `import-qcow2-gcp.yml`: Import QCOW2 to GCP. Always re-uploads the QCOW2
@@ -247,7 +257,7 @@ dib7/
   the same name (see `gcp_replace_existing_image`).
   Dependencies: gcloud (including `gcloud storage`).
 - `import-qcow2-openstack.yml`: Import QCOW2 to OpenStack.
-  Dependencies: OpenStack CLI.
+  Dependencies: `openstack.cloud` collection.
 
 ## Vault Configuration
 
