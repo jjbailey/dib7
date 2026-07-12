@@ -1,7 +1,7 @@
 # DIB7 - Disk Image Builder v7
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Ansible](https://img.shields.io/badge/Ansible-2.9+-orange.svg)](https://ansible.com/)
+[![Ansible](https://img.shields.io/badge/Ansible-2.16.3-orange.svg)](https://ansible.com/)
 
 DIB7 is an automated pipeline for building and deploying virtual machine disk
 images across multiple cloud platforms using Ansible and diskimage-builder (DIB).
@@ -68,7 +68,7 @@ Current provider-supported operating systems:
 - Windows Server through 2025
 
 DIB7 target notes: `ubuntu22045` and `ubuntu24044` match AWS import support.
-`ubuntu26040`, `debian1304`, `fedora44`, and `centos10s` are not listed for
+`ubuntu26040`, `debian1306`, `fedora44`, and `centos10s` are not listed for
 AWS VM Import/Export.
 
 #### GCP Compute Engine Image Import
@@ -84,7 +84,7 @@ Current provider-supported operating systems:
 - SLES 12 SP4-SP5 and selected SLES 15 service packs
 - Windows Server through 2025
 
-DIB7 target notes: `ubuntu22045`, `ubuntu24044`, `debian1304`, and
+DIB7 target notes: `ubuntu22045`, `ubuntu24044`, `debian1306`, and
 `centos10s` match GCP import support. `ubuntu26040` and Fedora Server are not
 listed as supported import targets.
 
@@ -140,15 +140,15 @@ DIB7 can deploy OVA files, but newer targets may need the closest supported
    pip install diskimage-builder
    ```
 
-2. **Ansible Collections**
+2. **Pinned Ansible/Python dependencies**
 
    ```bash
-   ansible-galaxy collection install \
-     amazon.aws \
-     community.vmware \
-     google.cloud \
-     openstack.cloud
+   python3 -m pip install -r requirements.txt
+   ansible-galaxy collection install -r requirements.yml
    ```
+
+   The project is validated with ansible-core 2.16.3. Keep the collection
+   versions in `requirements.yml` aligned with that core version.
 
 3. **System Dependencies**
 
@@ -226,11 +226,21 @@ dib7/
 
 - `doc/adding-distros-and-releases.md` - how to add a new distro family or a
   new version of an existing distro
+- `doc/ansible-galaxy.md` - installing and verifying the Ansible Galaxy
+  collections used by DIB7
 - `doc/aws-supported-images.md` - AWS VM Import/Export Linux distribution support
+- `doc/fedora.md` - diskimage-builder patch required to build Fedora Server 43+
+- `doc/gcloud.md` - installing the Google Cloud CLI (`gcloud`)
 - `doc/gcp-supported-images.md` - GCP Compute Engine Linux distribution support
 - `doc/group-vars-all.md` - defaults shared by all builds
 - `doc/group-vars-distro.md` - per-distro variables and differences
+- `doc/phases.md` - DIB phase subdirectories, execution order, and chroot behavior
 - `doc/playbooks-overview.md` - what each playbook does and when to run it
+- `doc/python3-virtualenv.md` - setting up the diskimage-builder Python
+  virtual environment
+- `doc/vaults.md` - vault file layout required by each playbook
+- `doc/workflow.md` - the build/deploy pipeline diagram shown above in
+  [Architecture](#architecture)
 
 ## Playbooks
 
@@ -239,13 +249,15 @@ dib7/
 - `convert-qcow2-to-ova.yml`: Convert QCOW2 to OVA.
   Dependencies: qemu-img, ovftool.
 - `import-ova-aws.yml`: Upload OVA to S3, import to AWS AMI.
-  Dependencies: AWS CLI, S3, VM Import.
+  Dependencies: `amazon.aws` collection, S3, VM Import.
 - `import-ova-vsphere.yml`: Import OVA to vSphere.
   Dependencies: pwsh, PowerCLI.
-- `import-qcow2-gcp.yml`: Import QCOW2 to GCP.
-  Dependencies: gcloud, gsutil.
+- `import-qcow2-gcp.yml`: Import QCOW2 to GCP. Always re-uploads the QCOW2
+  to GCS, and by default deletes and replaces any existing Compute image of
+  the same name (see `gcp_replace_existing_image`).
+  Dependencies: gcloud (including `gcloud storage`).
 - `import-qcow2-openstack.yml`: Import QCOW2 to OpenStack.
-  Dependencies: OpenStack CLI.
+  Dependencies: `openstack.cloud` collection.
 
 ## Vault Configuration
 
@@ -321,8 +333,13 @@ and whether each phase runs inside or outside the chroot.
 - `image_arch`: CPU architecture (default: `amd64`)
 - `image_name`: Image base name (default: `{{ inventory_hostname }}-base`)
 - `image_size`: Image size in GB (default: `35`)
-- `image_type`: Image format (default: `qcow2`)
+- `image_type`: Image format (default: `qcow2`; passed to DIB with `-t`)
 - `qcow2_file`, `vmdk_file`, `ovf_file`, `ova_file`, `mf_file`: Derived output filenames
+- `gcp_replace_existing_image`: Replace an existing Compute image on rerun
+  (default: `true`); set to `false` to make `import-qcow2-gcp.yml` fail
+  instead of deleting the existing image
+- `gcp_delete_qcow2_after_import`: Delete the QCOW2 from GCS after a
+  successful Compute image import (default: `false`)
 - `dpkg_opts`, `debian_frontend`, `needrestart_mode`: Debian/Ubuntu packaging options
 
 ### OS-Specific Variables
@@ -355,6 +372,19 @@ For a full walkthrough, including how to add a new release of an existing
 distro such as Ubuntu `26.04`, see
 `doc/adding-distros-and-releases.md`.
 
+## Validation
+
+Run the local validation suite before committing changes:
+
+```bash
+./tests/validate.sh
+```
+
+This checks every actual playbook with Ansible syntax validation, parses
+non-secret YAML files, and runs `bash -n` against the shell helpers. Cloud
+imports still require provider credentials and are intentionally not executed
+by the local suite.
+
 ## Troubleshooting
 
 ### Common Issues
@@ -368,6 +398,9 @@ distro such as Ubuntu `26.04`, see
    - Validate vault credentials
    - Check cloud provider quotas and permissions
    - Review cloud provider import logs
+   - GCP: reruns delete and replace any existing Compute image with the same
+     name by default (`gcp_replace_existing_image: true`); set it to `false`
+     first if you need to keep the existing image
 
 3. **Ansible Collection Issues**
    - Update collections: `ansible-galaxy collection install --force <collection>`

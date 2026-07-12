@@ -15,17 +15,22 @@
 
     - name: Clean up old loop devices and mounts
       ansible.builtin.shell: |
-        # Unmount any mounts related to build_dir
-        for mount_point in $(mount | grep "{{ build_dir }}" | awk '{print $3}') ; do
-          umount -l "$mount_point" || true
-        done
-        # Detach loop devices related to build_dir
-        for loop_dev in $(losetup -a | grep "{{ build_dir }}" | awk -F: '{print $1}') ; do
-          losetup -d "$loop_dev" || true
-        done
+        set -euo pipefail
+        # Unmount any mounts related to build_dir. Use literal prefix matching
+        # so paths containing regex characters remain valid.
+        mount_points="$(mount | awk -v root="{{ build_dir }}" 'index($3, root) == 1 && (length($3) == length(root) || substr($3, length(root) + 1, 1) == "/") {print $3}')"
+        while IFS= read -r mount_point; do
+          [ -z "$mount_point" ] || umount -l "$mount_point"
+        done <<< "$mount_points"
+        # Detach loop devices whose backing file is under build_dir.
+        loop_devices="$(losetup -a | awk -v root="{{ build_dir }}" 'index($0, root) > 0 {sub(/:.*/, "", $1); print $1}')"
+        while IFS= read -r loop_dev; do
+          [ -z "$loop_dev" ] || losetup -d "$loop_dev"
+        done <<< "$loop_devices"
+      args:
+        executable: /bin/bash
       become: true
       changed_when: false
-      ignore_errors: true
 
     - name: Remove old build artifacts
       ansible.builtin.file:
@@ -40,6 +45,7 @@
         cmd: >-
           {{ venv_bin }}/disk-image-create
           -a {{ image_arch }}
+          -t {{ image_type }}
           -o {{ build_dir }}/{{ image_name }}.{{ image_type }}
           --image-size {{ image_size }}
           -x -x
