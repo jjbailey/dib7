@@ -1,7 +1,7 @@
 # DIB7 - Disk Image Builder v7
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Ansible](https://img.shields.io/badge/Ansible-2.9+-orange.svg)](https://ansible.com/)
+[![Ansible](https://img.shields.io/badge/Ansible-2.16.3-orange.svg)](https://ansible.com/)
 
 DIB7 is an automated pipeline for building and deploying virtual machine disk
 images across multiple cloud platforms using Ansible and diskimage-builder (DIB).
@@ -140,15 +140,15 @@ DIB7 can deploy OVA files, but newer targets may need the closest supported
    pip install diskimage-builder
    ```
 
-2. **Ansible Collections**
+2. **Pinned Ansible/Python dependencies**
 
    ```bash
-   ansible-galaxy collection install \
-     amazon.aws \
-     community.vmware \
-     google.cloud \
-     openstack.cloud
+   python3 -m pip install -r requirements.txt
+   ansible-galaxy collection install -r requirements.yml
    ```
+
+   The project is validated with ansible-core 2.16.3. Keep the collection
+   versions in `requirements.yml` aligned with that core version.
 
 3. **System Dependencies**
 
@@ -243,7 +243,7 @@ dib7/
 - `import-ova-vsphere.yml`: Import OVA to vSphere.
   Dependencies: pwsh, PowerCLI.
 - `import-qcow2-gcp.yml`: Import QCOW2 to GCP.
-  Dependencies: gcloud, gsutil.
+  Dependencies: gcloud (including `gcloud storage`).
 - `import-qcow2-openstack.yml`: Import QCOW2 to OpenStack.
   Dependencies: OpenStack CLI.
 
@@ -321,8 +321,10 @@ and whether each phase runs inside or outside the chroot.
 - `image_arch`: CPU architecture (default: `amd64`)
 - `image_name`: Image base name (default: `{{ inventory_hostname }}-base`)
 - `image_size`: Image size in GB (default: `35`)
-- `image_type`: Image format (default: `qcow2`)
+- `image_type`: Image format (default: `qcow2`; passed to DIB with `-t`)
 - `qcow2_file`, `vmdk_file`, `ovf_file`, `ova_file`, `mf_file`: Derived output filenames
+- `gcp_replace_existing_image`: Replace an existing Compute image on rerun
+  (default: `true`)
 - `dpkg_opts`, `debian_frontend`, `needrestart_mode`: Debian/Ubuntu packaging options
 
 ### OS-Specific Variables
@@ -354,6 +356,19 @@ disk-image-create ubuntu vm -o test-ubuntu
 For a full walkthrough, including how to add a new release of an existing
 distro such as Ubuntu `26.04`, see
 `doc/adding-distros-and-releases.md`.
+
+## Validation
+
+Run the local validation suite before committing changes:
+
+```bash
+./tests/validate.sh
+```
+
+This checks every actual playbook with Ansible syntax validation, parses
+non-secret YAML files, and runs `bash -n` against the shell helpers. Cloud
+imports still require provider credentials and are intentionally not executed
+by the local suite.
 
 ## Troubleshooting
 

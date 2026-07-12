@@ -9,6 +9,10 @@ image_name: "{{ inventory_hostname }}-base"
 image_size: "35"
 image_type: "qcow2"
 
+# Cloud import behavior.
+gcp_replace_existing_image: true
+gcp_delete_qcow2_after_import: false
+
 mf_file: "{{ image_name }}.mf"
 ova_file: "{{ image_name }}.ova"
 ovf_file: "{{ image_name }}.ovf"
