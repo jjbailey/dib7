@@ -1,12 +1,11 @@
 ---
-# playbooks/import-ova-vsphere.yml
+# playbooks/import-ova-vsphere-template.yml
 # vim: set tabstop=2 shiftwidth=2 expandtab:
 
-# Playbook to import an OVA file to a vSphere content library.
-# This creates the vSphere OVA branch in the workflow.
-# VMDK must be streamOptimized.
+# Playbook to import an OVA file to a vSphere content library and convert it
+# into a vSphere template derived from the vSphere OVA and stored in the Templates inventory folder.
 
-- name: Import OVA to vSphere
+- name: Import OVA to vSphere template
   hosts: "{{ target_hosts | default('all') }}"
   gather_facts: false
   serial: 2
@@ -21,16 +20,16 @@
       failed_when: pwsh_check.rc != 0
       changed_when: false
 
-    - name: Verify vSphere import helper exists on localhost
+    - name: Verify vSphere template helper exists on localhost
       ansible.builtin.stat:
-        path: "{{ playbook_dir }}/../bin/import-ova-vsphere.ps1"
+        path: "{{ playbook_dir }}/../bin/import-ova-vsphere-template.ps1"
       delegate_to: localhost
-      register: import_helper_stat
+      register: template_helper_stat
 
-    - name: Fail if vSphere import helper is missing
+    - name: Fail if vSphere template helper is missing
       ansible.builtin.fail:
-        msg: "vSphere import helper {{ playbook_dir }}/../bin/import-ova-vsphere.ps1 is missing"
-      when: not import_helper_stat.stat.exists or not import_helper_stat.stat.isreg
+        msg: "vSphere template helper {{ playbook_dir }}/../bin/import-ova-vsphere-template.ps1 is missing"
+      when: not template_helper_stat.stat.exists or not template_helper_stat.stat.isreg
 
   tasks:
     - name: Include common setup tasks
@@ -52,20 +51,24 @@
         msg: "Source OVA file {{ build_dir }}/{{ ova_file }} is missing or empty on localhost"
       when: not ova_stat.stat.exists or not ova_stat.stat.isreg or (ova_stat.stat.size | default(0) | int) == 0
 
-    - name: Import OVA to vSphere content library
+    - name: Create vSphere template from OVA
       block:
-        - name: Initiate import process
+        - name: Import OVA and convert it to a template
           ansible.builtin.command:
             argv:
               - pwsh
-              - "{{ playbook_dir }}/../bin/import-ova-vsphere.ps1"
+              - "{{ playbook_dir }}/../bin/import-ova-vsphere-template.ps1"
               - "-library"
               - "{{ vsphere_content_library }}"
               - "-ova"
               - "{{ build_dir }}/{{ ova_file }}"
+              - "-templateName"
+              - "{{ vsphere_template_name | default(inventory_hostname ~ '.tmpl') }}"
+              - "-folder"
+              - "Templates"
           delegate_to: localhost
-          register: import_result
-          changed_when: import_result.rc == 0
+          register: template_result
+          changed_when: template_result.rc == 0
           no_log: true
           environment:
             vcenter_hostname: "{{ vcenter_hostname }}"
@@ -73,16 +76,16 @@
             vcenter_password: "{{ vcenter_password }}"
 
       rescue:
-        - name: Fail with vSphere import error details
+        - name: Fail with vSphere template creation error details
           ansible.builtin.fail:
             msg: >-
-              vSphere OVA import failed with rc={{ import_result.rc | default('unknown') }}.
-              stderr={{ import_result.stderr | default('') | trim }}
-              stdout={{ import_result.stdout | default('') | trim }}
+              vSphere template creation failed with rc={{ template_result.rc | default('unknown') }}.
+              stderr={{ template_result.stderr | default('') | trim }}
+              stdout={{ template_result.stdout | default('') | trim }}
 
       always:
-        - name: Display import result
+        - name: Display template creation result
           ansible.builtin.debug:
-            msg: "OVA import exited with return code {{ import_result.rc }}"
-          when: import_result is defined
+            msg: "Template creation exited with return code {{ template_result.rc }}"
+          when: template_result is defined
 

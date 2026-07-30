@@ -8,6 +8,7 @@
   hosts: "{{ target_hosts | default('all') }}"
   gather_facts: true
   serial: 1
+  max_fail_percentage: 100
 
   tasks:
     - name: Include common setup tasks
@@ -16,14 +17,25 @@
     - name: Clean up old loop devices and mounts
       ansible.builtin.shell: |
         set -euo pipefail
-        # Unmount any mounts related to build_dir. Use literal prefix matching
-        # so paths containing regex characters remain valid.
-        mount_points="$(mount | awk -v root="{{ build_dir }}" 'index($3, root) == 1 && (length($3) == length(root) || substr($3, length(root) + 1, 1) == "/") {print $3}')"
+        dib_tmp="${TMP_DIR:-/tmp}/dib_"
+        mount_points="$(mount | awk -v root="{{ build_dir }}" -v tmp="$dib_tmp" '
+          { mp = $3 }
+          index(mp, root) == 1 && (length(mp) == length(root) || substr(mp, length(root) + 1, 1) == "/") { print length(mp), mp; next }
+          index(mp, tmp) == 1 { print length(mp), mp }
+        ' | sort -rn | cut -d" " -f2-)"
         while IFS= read -r mount_point; do
           [ -z "$mount_point" ] || umount -l "$mount_point"
         done <<< "$mount_points"
-        # Detach loop devices whose backing file is under build_dir.
-        loop_devices="$(losetup -a | awk -v root="{{ build_dir }}" 'index($0, root) > 0 {sub(/:.*/, "", $1); print $1}')"
+
+        # Remove the now-unmounted scratch dirs so /tmp does not fill up.
+        find "${TMP_DIR:-/tmp}" -maxdepth 1 -type d \
+          \( -name 'dib_build.*' -o -name 'dib_image.*' \) -exec rm -rf {} + || true
+
+        # Detach loop devices backed by a file under build_dir or a dib
+        # scratch dir.
+        loop_devices="$(losetup -a | awk -v root="{{ build_dir }}" -v tmp="$dib_tmp" '
+          index($0, root) > 0 || index($0, tmp) > 0 { sub(/:.*/, "", $1); print $1 }
+        ')"
         while IFS= read -r loop_dev; do
           [ -z "$loop_dev" ] || losetup -d "$loop_dev"
         done <<< "$loop_devices"
@@ -64,16 +76,22 @@
         DEBIAN_FRONTEND: "{{ debian_frontend }}"
         NEEDRESTART_MODE: "{{ needrestart_mode }}"
       changed_when: true
-      no_log: true
+      # failed_when is required for the guard task below to run at all: without
+      # it a non-zero rc aborts the play here, and the build log path is never
+      # reported. Do not add no_log - it censors the stderr the guard reports.
+      failed_when: false
       register: disk_image_create_result
 
     - name: Fail if disk-image-create failed
       ansible.builtin.fail:
-        msg: "disk-image-create failed: {{ disk_image_create_result.stderr }}"
-      when: disk_image_create_result is failed
+        msg: >-
+          disk-image-create failed with rc={{ disk_image_create_result.rc }}.
+          Full build log: {{ build_dir }}/{{ image_name }}.log
+          stderr: {{ disk_image_create_result.stderr | default('') | trim }}
+      when: disk_image_create_result.rc != 0
 
     - name: Configure swap space in image
-      when: (add_swap | default(false) | bool) and (disk_image_create_result is succeeded)
+      when: add_swap | default(false) | bool
       block:
         - name: Create temporary swap configuration script
           ansible.builtin.tempfile:

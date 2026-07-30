@@ -54,11 +54,14 @@ openstack_auth:
 
 ## vSphere Vault
 
-vaults/vsphere.yml
+`vaults/vsphere.yml`
 
 ```txt
 vcenter_hostname: "my-vcenter"
 vcenter_username: "my-admin-user"
 vcenter_password: "my-admin-password"
 vsphere_content_library: "my-content-library"
+vsphere_template_name: "inventory-item-base.tmpl"
 ```
+
+`vsphere_content_library` is used by `import-ova-vsphere.yml` to create the `vSphere OVA`, and `vsphere_template_name` is used by `import-ova-vsphere-template.yml` to create the `vSphere Template`.

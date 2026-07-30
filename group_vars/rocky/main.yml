@@ -1,5 +1,5 @@
 ---
-# group_vars/debian/main.yml
+# group_vars/rocky/main.yml
 # vim: set tabstop=2 shiftwidth=2 expandtab:
 
 # first include group_vars/all/main.yml
@@ -10,16 +10,16 @@ dib_openssh_server_hardening: "0"
 dib_cloud_init_datasources: "None"
 dib_bootloader_default_cmdline: "biosdevname=0 iommu=on ipv6.disable=1 net.ifnames=0 dm_mod.use_blk_mq=Y scsi_mod.use_blk_mq=Y"
 
-elements_base: "bootloader block-device-efi-lvm debian-minimal"
+# "rocky-cloud-image" is a local element in elements/, not one shipped by
+# diskimage-builder. See elements/rocky-cloud-image/README.rst.
+elements_base: "bootloader block-device-efi-lvm rocky-cloud-image dracut-regenerate"
 elements_path: "../elements"
 elements_custom: "custom-{{ target_group }}"
 
 vm_memory_mb: "4096"
 vm_cpus: "4"
-# VMware does not expose a Debian Trixie (13) guest ID even at vmx-21, so use
-# the closest supported identifier. debian12_64Guest requires hardware version
-# vmx-20 or newer (see the vmx-20 pin in templates/ovf-file.j2).
-vm_os_type: "debian12_64Guest"
+# VMware exposes no Rocky-specific guest ID; use the closest supported one.
+vm_os_type: "centos9_64Guest"
 
 add_swap: true
 swap_device: "/dev/mapper/vg1-lv_swap"
@@ -27,7 +27,6 @@ swap_size: "4096"
 
 # vmware
 vm_network: "VM Network"
-# Match the compatibility guest ID above for VMware import metadata.
-vm_os_description: "Debian GNU/Linux 12 (64-bit)"
+vm_os_description: "Rocky Linux 10 (64-bit)"
 vsphere_content_library: "Content_Library"
 

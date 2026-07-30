@@ -8,7 +8,8 @@
 - name: Convert QCOW2 to OVA for vSphere
   hosts: "{{ target_hosts | default('all') }}"
   gather_facts: true
-  serial: 1
+  serial: 2
+  max_fail_percentage: 100
 
   pre_tasks:
     # Validate required tools are available
@@ -49,7 +50,7 @@
 
     - name: Set build date fact
       ansible.builtin.set_fact:
-        build_date: "{{ lookup('ansible.builtin.pipe', 'date +%y%m%d') }}"
+        build_date: "{{ now(fmt='%y%m%d') }}"
 
     # Conversion process
     - name: Check VMDK file status

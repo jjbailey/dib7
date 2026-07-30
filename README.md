@@ -1,7 +1,7 @@
 # DIB7 - Disk Image Builder v7
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Ansible](https://img.shields.io/badge/Ansible-2.16.3-orange.svg)](https://ansible.com/)
+[![Ansible](https://img.shields.io/badge/Ansible-2.18.18-orange.svg)](https://ansible.com/)
 
 DIB7 is an automated pipeline for building and deploying virtual machine disk
 images across multiple cloud platforms using Ansible and diskimage-builder (DIB).
@@ -28,6 +28,7 @@ flowchart TB
     OVA --> S3["🪣 S3 Bucket"]
     S3 --> AWS_IMG["☁️ AWS AMI"]
     OVA --> VSPHERE_IMG["☁️ vSphere OVA"]
+    VSPHERE_IMG --> VSPHERE_TPL["☁️ vSphere Template"]
 ```
 
 ## Supported Platforms
@@ -37,7 +38,7 @@ flowchart TB
 - **AWS** - AMI import via S3 and VM Import/Export
 - **GCP** - Compute Engine images via Cloud Storage (GCS)
 - **OpenStack** - Glance images via direct upload
-- **VMware vSphere** - Content Library OVA deployment
+- **VMware vSphere** - Content Library OVA deployment and vSphere template creation
 
 ### Operating Systems by Provider
 
@@ -67,7 +68,7 @@ Current provider-supported operating systems:
   still listed by AWS
 - Windows Server through 2025
 
-DIB7 target notes: `ubuntu22045` and `ubuntu24044` match AWS import support.
+DIB7 target notes: `ubuntu24044` matches AWS import support.
 `ubuntu26040`, `debian1306`, `fedora44`, and `centos10s` are not listed for
 AWS VM Import/Export.
 
@@ -84,9 +85,9 @@ Current provider-supported operating systems:
 - SLES 12 SP4-SP5 and selected SLES 15 service packs
 - Windows Server through 2025
 
-DIB7 target notes: `ubuntu22045`, `ubuntu24044`, `debian1306`, and
-`centos10s` match GCP import support. `ubuntu26040` and Fedora Server are not
-listed as supported import targets.
+DIB7 target notes: `ubuntu24044`, `debian1306`, and `centos10s` match GCP
+import support. `ubuntu26040` and Fedora Server are not listed as supported
+import targets.
 
 #### OpenStack Glance
 
@@ -110,9 +111,10 @@ DIB7 can deploy OVA files, but newer targets may need the closest supported
 ### Configured DIB7 Operating System Targets
 
 - CentOS Stream 10
+- Debian 12 (Bookworm)
 - Debian 13 (Trixie)
 - Fedora 44
-- Ubuntu 22.04 LTS (Jammy)
+- Rocky Linux 10
 - Ubuntu 24.04 LTS (Noble)
 - Ubuntu 26.04 LTS (Resolute)
 
@@ -132,23 +134,51 @@ DIB7 can deploy OVA files, but newer targets may need the closest supported
 
 1. **Python Environment**
 
+   ansible-core 2.18 requires Python 3.11 or newer on the control node.
+
    ```bash
    sudo apt update
    sudo apt install -y python3 python3-venv python3-pip git
-   python3 -m venv ~/venvs/dib
-   source ~/venvs/dib/bin/activate
-   pip install diskimage-builder
+   python3 --version   # must report 3.11 or newer
+   python3 -m venv ~/.dib7
    ```
+
+   `~/.dib7` is the single virtualenv for the whole project — every distro
+   builds from it. See
+   [doc/python3-virtualenv.md](doc/python3-virtualenv.md).
 
 2. **Pinned Ansible/Python dependencies**
 
    ```bash
-   python3 -m pip install -r requirements.txt
-   ansible-galaxy collection install -r requirements.yml
+   ~/.dib7/bin/python3 -m pip install -r requirements.txt
+   ~/.dib7/bin/ansible-galaxy collection install -r requirements.yml
    ```
 
-   The project is validated with ansible-core 2.16.3. Keep the collection
-   versions in `requirements.yml` aligned with that core version.
+   Install via `~/.dib7/bin/python3 -m pip` rather than `~/.dib7/bin/pip` — the
+   interpreter path is what activates the venv and sets the shebangs on the
+   installed console scripts.
+
+   Fedora builds additionally need a patched `diskimage-builder` element,
+   applied from the project root:
+
+   <!-- markdownlint-disable MD013 -->
+
+   ```bash
+   patch -b -d ~/.dib7/lib/python3.12/site-packages/diskimage_builder/elements/fedora/root.d \
+         < patches/diskimage-builder-3.42.0-fedora-generic-image.patch
+   ```
+
+   <!-- markdownlint-enable MD013 -->
+
+   The patch touches only the `fedora` element, so it is inert for the other
+   builds sharing the venv. See [doc/fedora.md](doc/fedora.md).
+
+   `requirements.txt` includes `diskimage-builder`, `ansible-core`, `PyYAML`,
+   and the controller-side Python SDKs required by the AWS, GCP, and
+   OpenStack playbooks. The project is validated with ansible-core 2.18.18.
+   Keep the collection versions in `requirements.yml` aligned with that core
+   version — `amazon.aws` 11.x in particular requires ansible-core 2.17 or
+   newer.
 
 3. **System Dependencies**
 
@@ -202,6 +232,8 @@ DIB7 can deploy OVA files, but newer targets may need the closest supported
    ```bash
    ansible-playbook playbooks/convert-qcow2-to-ova.yml -l <host-or-group> --ask-vault-pass
    ansible-playbook playbooks/import-ova-vsphere.yml -l <host-or-group> --ask-vault-pass
+   ansible-playbook playbooks/import-ova-vsphere-template.yml \
+     -l <host-or-group> --ask-vault-pass
    ```
 
 ## Project Structure
@@ -217,6 +249,7 @@ dib7/
 ├── elements/                   # DIB elements for custom OS configurations
 ├── group_vars/                 # Ansible group variables
 ├── hosts.yml                   # Inventory file
+├── patches/                    # Patches applied to the venv (see doc/fedora.md)
 ├── playbooks/                  # Ansible playbooks
 ├── templates/                  # Jinja2 templates
 └── vaults/                     # Encrypted credentials
@@ -250,7 +283,11 @@ dib7/
   Dependencies: qemu-img, ovftool.
 - `import-ova-aws.yml`: Upload OVA to S3, import to AWS AMI.
   Dependencies: `amazon.aws` collection, S3, VM Import.
-- `import-ova-vsphere.yml`: Import OVA to vSphere.
+- `import-ova-vsphere.yml`: Import OVA to vSphere content library.
+  This produces the `vSphere OVA` branch in the workflow.
+  Dependencies: pwsh, PowerCLI.
+- `import-ova-vsphere-template.yml`: Import the vSphere OVA and create
+  a vSphere template in `Templates`.
   Dependencies: pwsh, PowerCLI.
 - `import-qcow2-gcp.yml`: Import QCOW2 to GCP. Always re-uploads the QCOW2
   to GCS, and by default deletes and replaces any existing Compute image of
@@ -304,16 +341,32 @@ vcenter_hostname: "vcenter.example.com"
 vcenter_username: "administrator@vsphere.local"
 vcenter_password: "secure-password"
 vsphere_content_library: "my-content-library"
+vsphere_template_name: "inventory-item-base.tmpl"
+```
+
+The template playbook also uses this non-secret variable. The template
+name follows the `<inventory item>-base.tmpl` convention:
+
+```yaml
+vsphere_template_name: "inventory-item-base.tmpl"
 ```
 
 ## Custom Elements
 
 DIB7 includes custom diskimage-builder elements for supported operating systems:
 
-- `elements/custom-centos10stream/` - CentOS Stream 10 customizations
+- `elements/custom-centos/` - CentOS Stream 10 customizations
 - `elements/custom-debian/` - Debian customizations
 - `elements/custom-fedora/` - Fedora customizations
+- `elements/custom-rocky/` - Rocky Linux customizations
 - `elements/custom-ubuntu/` - Ubuntu customizations
+
+DIB7 also carries one base OS element of its own, because diskimage-builder
+does not ship a cloud-image element for it:
+
+- `elements/rocky-cloud-image/` - fetches a Rocky Linux cloud image, modelled on
+  the upstream `centos` element. See
+  [elements/rocky-cloud-image/README.rst](elements/rocky-cloud-image/README.rst).
 
 Each element directory can contain standard diskimage-builder phase
 subdirectories. Common phases include:
@@ -344,7 +397,7 @@ and whether each phase runs inside or outside the chroot.
 
 ### OS-Specific Variables
 
-- `group_vars/centos10stream/main.yml`
+- `group_vars/centos/main.yml`
 - `group_vars/debian/main.yml`
 - `group_vars/fedora/main.yml`
 - `group_vars/ubuntu/main.yml`

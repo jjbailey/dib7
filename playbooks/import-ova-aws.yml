@@ -48,7 +48,7 @@
         - name: Initiate import process
           amazon.aws.ec2_import_image:
             region: "{{ aws_region }}"
-            task_name: "{{ inventory_hostname }}-import-{{ lookup('ansible.builtin.pipe', 'date +%s') }}"
+            task_name: "{{ inventory_hostname }}-import-{{ now(fmt='%s') }}"
             description: "Import of {{ ova_file }}"
             disk_containers:
               - description: "OVA disk container"
@@ -57,6 +57,7 @@
                   s3_bucket: "{{ s3_bucket }}"
                   s3_key: "{{ ova_file }}"
             role_name: "{{ vmimport_role_name }}"
+            boot_mode: "{{ aws_import_boot_mode | default('uefi') }}"
             state: present
           register: import_task
 
@@ -72,7 +73,8 @@
           register: import_status
           until: >-
             (import_status.import_image | default([]) | length > 0) and
-            (((import_status.import_image | first).status | default('')) == 'completed')
+            (((import_status.import_image | first).status | default('')) in
+              ['completed', 'deleted', 'failed'])
           failed_when: >-
             (import_status.import_image | default([]) | length > 0) and
             (((import_status.import_image | first).status | default('')) in ['deleted', 'failed'])

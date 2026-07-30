@@ -4,10 +4,6 @@
 
 # first include group_vars/all/main.yml
 
-venv_bin: "{{ ansible_env.HOME }}/.fedora/bin"
-path: "{{ venv_bin }}:{{ ansible_env.PATH }}"
-build_dir: "/work/dib-builds"
-
 dib_block_device: "gpt"
 dib_block_device_config: "{{ lookup('ansible.builtin.file', '../block-device-config/block-device-efi-config.yml') }}"
 dib_openssh_server_hardening: "0"
@@ -20,6 +16,14 @@ elements_custom: "custom-{{ target_group }}"
 
 vm_memory_mb: "4096"
 vm_cpus: "4"
+
+# Fake the guest ID as centos9_64Guest. Fedora's real IDs (fedora64Guest /
+# fedoraGuest) are NOT on VMware's guest-customization matrix, so a template
+# deploy that runs guest customization fails with: guest OS "Red Hat Fedora
+# (64-bit)" ... is not supported for customization. Confirmed 2026-07-22 with
+# fedora64Guest. centos9_64Guest IS supported and is the closest RHEL-family
+# match, so the clone can be customized. The honest OS name is kept in
+# vm_os_description below. Do not switch this back to a fedora* ID.
 vm_os_type: "centos9_64Guest"
 
 add_swap: true

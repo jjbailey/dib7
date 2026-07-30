@@ -33,7 +33,7 @@
       <System>
         <vssd:ElementName>Virtual Hardware Family</vssd:ElementName>
         <vssd:InstanceID>0</vssd:InstanceID>
-        <vssd:VirtualSystemType>vmx-19</vssd:VirtualSystemType>
+        <vssd:VirtualSystemType>vmx-20</vssd:VirtualSystemType>
       </System>
       <Item>
         <rasd:AllocationUnits>hertz * 10^6</rasd:AllocationUnits>
@@ -42,7 +42,7 @@
         <rasd:InstanceID>1</rasd:InstanceID>
         <rasd:ResourceType>3</rasd:ResourceType>
         <rasd:VirtualQuantity>{{ vm_cpus }}</rasd:VirtualQuantity>
-        <vmw:CoresPerSocket ovf:required="false">2</vmw:CoresPerSocket>
+        <vmw:CoresPerSocket ovf:required="false">{{ vm_cores_per_socket | default(2 if (vm_cpus | int) % 2 == 0 else 1) }}</vmw:CoresPerSocket>
       </Item>
       <Item>
         <rasd:AllocationUnits>byte * 2^20</rasd:AllocationUnits>

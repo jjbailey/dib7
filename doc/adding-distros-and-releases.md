@@ -129,6 +129,10 @@ Use this quick checklist before considering the work done:
 
 - `hosts.yml` has the new host entry and correct `dib_release`
 - `target_group` matches the intended distro family
+- the inventory group name, `target_group`, and the `group_vars/` directory are
+  all spelled identically, and no group shares a name with a host. Ansible
+  auto-loads `group_vars/` by *group* name, so a mismatch silently loads no
+  variables at all rather than raising an error
 - `group_vars/<distro>/main.yml` exists and has the right DIB/VMware settings
 - `elements/custom-<distro>/` exists and still works for the new release
 - supported-release docs are updated

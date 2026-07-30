@@ -32,7 +32,7 @@ build to a cloud-ready artifact.
 - **AWS**: Uploads are handled via `import-ova-aws.yml`.
 - **GCP**: Direct import of QCOW2 via `import-qcow2-gcp.yml`.
 - **OpenStack**: Direct import of QCOW2 via `import-qcow2-openstack.yml`.
-- **vSphere**: Deployment of OVA via `import-ova-vsphere.yml`.
+- **vSphere**: Deploy the `vSphere OVA` via `import-ova-vsphere.yml`, or create a `vSphere Template` via `import-ova-vsphere-template.yml`.
 
 ## Playbook Reference
 
@@ -48,7 +48,7 @@ build to a cloud-ready artifact.
   Compute Engine Image.
 - **`import-qcow2-openstack.yml`** (OpenStack): Direct upload of QCOW2 to
   Glance as Image.
-- **`import-ova-vsphere.yml`** (vSphere): Deploys OVA to vCenter.
+- **`import-ova-vsphere.yml`** (vSphere): Deploys OVA to vCenter content library. This is the `vSphere OVA` branch in the workflow diagram; the template playbook produces the `vSphere Template` branch.
 - **`import-ova-aws.yml`** (AWS): Imports OVA as AMI via VM Import/Export.
 
 ## Usage Strategy
@@ -62,5 +62,6 @@ the following order:
 
 - **For GCP**: Run `import-qcow2-gcp.yml`.
 - **For OpenStack**: Run `import-qcow2-openstack.yml`.
-- **For vSphere**: Run `convert-qcow2-to-ova.yml` → `import-ova-vsphere.yml`.
+- **For vSphere**: Run `convert-qcow2-to-ova.yml` → `import-ova-vsphere.yml` if you want the `vSphere OVA` only.
+- **For vSphere templates**: Run `convert-qcow2-to-ova.yml` → `import-ova-vsphere-template.yml` if you want a `vSphere Template`.
 - **For AWS**: Run `convert-qcow2-to-ova.yml` → `import-ova-aws.yml`.
