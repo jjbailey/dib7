@@ -10,6 +10,7 @@
 venv_bin: "{{ ansible_env.HOME }}/.dib7/bin"
 path: "{{ venv_bin }}:{{ ansible_env.PATH }}"
 build_dir: "/work/dib-builds"
+dib_vg_name: "vg1"
 
 image_arch: "amd64"
 image_name: "{{ inventory_hostname }}-base"
@@ -30,6 +31,14 @@ ova_file: "{{ image_name }}.ova"
 ovf_file: "{{ image_name }}.ovf"
 qcow2_file: "{{ image_name }}.qcow2"
 vmdk_file: "{{ image_name }}.vmdk"
+
+# Stage stamps. Each holds the run_id of the run that produced the artifact next
+# to it, and the following stage refuses to consume an artifact whose stamp is
+# missing or from an older run. Without them a stage that never executed leaves
+# yesterday's qcow2/ova in place and the rest of the pipeline happily publishes
+# it. See doc/pipeline-stamps.md.
+build_stamp_file: "{{ image_name }}.built"
+convert_stamp_file: "{{ image_name }}.converted"
 
 vsphere_template_name: "{{ inventory_hostname }}-base.tmpl"
 

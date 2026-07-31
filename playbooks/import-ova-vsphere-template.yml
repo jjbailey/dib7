@@ -9,9 +9,12 @@
   hosts: "{{ target_hosts | default('all') }}"
   gather_facts: false
   serial: 2
-  max_fail_percentage: 100
 
+  # See the comment in build-qcow2.yml for why this uses block/rescue instead of
+  # max_fail_percentage to survive a per-host failure.
   pre_tasks:
+    # Outside the rescue below: missing pwsh or a missing helper script is an
+    # environment problem, not a per-image one.
     - name: Verify pwsh is available on localhost
       ansible.builtin.command:
         cmd: pwsh --version
@@ -40,19 +43,29 @@
         file: "../vaults/vsphere.yml"
       no_log: true
 
-    - name: Verify source OVA file exists
-      ansible.builtin.stat:
-        path: "{{ build_dir }}/{{ ova_file }}"
-      delegate_to: localhost
-      register: ova_stat
-
-    - name: Fail if source OVA file is missing or empty on localhost
-      ansible.builtin.fail:
-        msg: "Source OVA file {{ build_dir }}/{{ ova_file }} is missing or empty on localhost"
-      when: not ova_stat.stat.exists or not ova_stat.stat.isreg or (ova_stat.stat.size | default(0) | int) == 0
-
     - name: Create vSphere template from OVA
       block:
+        # The gate that stops an OVA left over from an earlier run becoming a
+        # template. Without it a host whose build or conversion never ran this
+        # time still has last run's .ova sitting in build_dir, and it gets
+        # published as though it were fresh.
+        - name: Require an OVA converted by this run
+          ansible.builtin.include_tasks: verify-stamp.yml
+          vars:
+            stamp_file: "{{ convert_stamp_file }}"
+            stamp_producer: convert-qcow2-to-ova
+
+        - name: Verify source OVA file exists
+          ansible.builtin.stat:
+            path: "{{ build_dir }}/{{ ova_file }}"
+          delegate_to: localhost
+          register: ova_stat
+
+        - name: Fail if source OVA file is missing or empty on localhost
+          ansible.builtin.fail:
+            msg: "Source OVA file {{ build_dir }}/{{ ova_file }} is missing or empty on localhost"
+          when: not ova_stat.stat.exists or not ova_stat.stat.isreg or (ova_stat.stat.size | default(0) | int) == 0
+
         - name: Import OVA and convert it to a template
           ansible.builtin.command:
             argv:
@@ -76,10 +89,23 @@
             vcenter_password: "{{ vcenter_password }}"
 
       rescue:
-        - name: Fail with vSphere template creation error details
-          ansible.builtin.fail:
+        - name: Record that the template creation failed
+          ansible.builtin.set_fact:
+            stage_failed: true
+            stage_error: >-
+              {{ ansible_failed_task.name }}:
+              {{ ansible_failed_result.msg | default('no message') | trim }}
+              rc={{ template_result.rc | default('unknown') }}
+              stderr={{ template_result.stderr | default('') | trim }}
+              stdout={{ template_result.stdout | default('') | trim }}
+
+        - name: Report the template creation failure
+          ansible.builtin.debug:
             msg: >-
-              vSphere template creation failed with rc={{ template_result.rc | default('unknown') }}.
+              TEMPLATE FAILED for {{ inventory_hostname }} at task
+              '{{ ansible_failed_task.name }}'.
+              {{ ansible_failed_result.msg | default('') | trim }}
+              rc={{ template_result.rc | default('unknown') }}
               stderr={{ template_result.stderr | default('') | trim }}
               stdout={{ template_result.stdout | default('') | trim }}
 
@@ -89,3 +115,28 @@
             msg: "Template creation exited with return code {{ template_result.rc }}"
           when: template_result is defined
 
+- name: Report template results
+  hosts: "{{ target_hosts | default('all') }}"
+  gather_facts: false
+
+  tasks:
+    - name: Fail if any template failed to be created
+      ansible.builtin.fail:
+        msg: |-
+          import-ova-vsphere-template failed for {{ template_failures | length }} of
+          {{ ansible_play_hosts_all | length }} hosts:
+          {% for host in template_failures %}
+            {{ host }}: {{ hostvars[host].stage_error | default('see log') | trim }}
+          {% endfor %}
+      # Pinned to one host rather than run_once - see build-qcow2.yml.
+      when:
+        - inventory_hostname == ansible_play_hosts_all[0]
+        - template_failures | length > 0
+      vars:
+        template_failures: >-
+          {{ ansible_play_hosts_all
+             | map('extract', hostvars)
+             | selectattr('stage_failed', 'defined')
+             | selectattr('stage_failed')
+             | map(attribute='inventory_hostname')
+             | list }}

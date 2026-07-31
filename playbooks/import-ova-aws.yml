@@ -18,6 +18,12 @@
       ansible.builtin.include_vars:
         file: "../vaults/aws.yml"
 
+    - name: Require an OVA converted by this run
+      ansible.builtin.include_tasks: verify-stamp.yml
+      vars:
+        stamp_file: "{{ convert_stamp_file }}"
+        stamp_producer: convert-qcow2-to-ova
+
     - name: Verify OVA file exists
       ansible.builtin.stat:
         path: "{{ build_dir }}/{{ ova_file }}"
@@ -120,9 +126,9 @@
             mode: delobj
             region: "{{ aws_region }}"
           when: s3_upload is defined
-          ignore_errors: true
+          register: s3_cleanup
+          failed_when: false
 
         - name: Fail with error message
           ansible.builtin.fail:
             msg: "Import process failed: {{ ansible_failed_result.msg | default(ansible_failed_result) }}. S3 cleanup attempted."
-

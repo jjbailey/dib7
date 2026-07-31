@@ -20,9 +20,11 @@ fail()
 
 echo "== ansible playbook syntax =="
 for playbook in playbooks/*.yml ; do
-    # common-setup.yml is a tasks file, not a playbook; it cannot be
-    # syntax-checked on its own.
-    [ "$(basename "$playbook")" = "common-setup.yml" ] && continue
+    # These are tasks files, not playbooks; they are syntax-checked when
+    # included by the real playbooks.
+    case "$(basename "$playbook")" in
+        common-setup.yml|verify-stamp.yml) continue ;;
+    esac
     if ansible-playbook -i hosts.yml "$playbook" --syntax-check > /dev/null ; then
         echo "  ok   $playbook"
     else

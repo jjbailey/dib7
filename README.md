@@ -268,6 +268,8 @@ dib7/
 - `doc/group-vars-all.md` - defaults shared by all builds
 - `doc/group-vars-distro.md` - per-distro variables and differences
 - `doc/phases.md` - DIB phase subdirectories, execution order, and chroot behavior
+- `doc/pipeline-stamps.md` - how a failing distro is stopped from cancelling the
+  others or publishing a stale image
 - `doc/playbooks-overview.md` - what each playbook does and when to run it
 - `doc/python3-virtualenv.md` - setting up the diskimage-builder Python
   virtual environment

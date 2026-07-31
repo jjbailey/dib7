@@ -9,10 +9,14 @@
   hosts: "{{ target_hosts | default('all') }}"
   gather_facts: true
   serial: 2
-  max_fail_percentage: 100
+  ignore_unreachable: true
 
+  # See the comment in build-qcow2.yml for why this uses block/rescue instead of
+  # max_fail_percentage to survive a per-host failure.
   pre_tasks:
-    # Validate required tools are available
+    # Validate required tools are available. These are deliberately outside the
+    # rescue below: a missing qemu-img or ovftool is not a per-image problem and
+    # there is nothing to be gained by grinding through the remaining hosts.
     - name: Verify qemu-img is available
       ansible.builtin.command:
         cmd: qemu-img --version
@@ -31,100 +35,171 @@
     - name: Include common setup tasks
       ansible.builtin.include_tasks: common-setup.yml
 
-    # Validate inputs and prepare environment
-    - name: Verify source file exists
-      ansible.builtin.stat:
-        path: "{{ build_dir }}/{{ qcow2_file }}"
-      register: qcow2_stat
+    - name: Convert the image
+      block:
+        # The gate that stops yesterday's qcow2 becoming today's OVA. A host
+        # whose build never ran - because an earlier distro failed, or because
+        # the build stage was skipped - has no current build stamp, and is
+        # refused here rather than silently republished.
+        - name: Require a qcow2 built by this run
+          ansible.builtin.include_tasks: verify-stamp.yml
+          vars:
+            stamp_file: "{{ build_stamp_file }}"
+            stamp_producer: build-qcow2
 
-    - name: Fail if source file does not exist
+        - name: Drop the stale convert stamp
+          ansible.builtin.file:
+            path: "{{ build_dir }}/{{ convert_stamp_file }}"
+            state: absent
+
+        # Validate inputs and prepare environment
+        - name: Verify source file exists
+          ansible.builtin.stat:
+            path: "{{ build_dir }}/{{ qcow2_file }}"
+          register: qcow2_stat
+
+        - name: Fail if source file does not exist
+          ansible.builtin.fail:
+            msg: "Source QCOW2 file {{ build_dir }}/{{ qcow2_file }} does not exist"
+          when: not qcow2_stat.stat.exists
+
+        - name: Ensure output directory exists
+          ansible.builtin.file:
+            path: "{{ build_dir }}"
+            state: directory
+            mode: "0755"
+
+        - name: Set build date fact
+          ansible.builtin.set_fact:
+            build_date: "{{ now(fmt='%y%m%d') }}"
+
+        # Conversion process
+        - name: Check VMDK file status
+          ansible.builtin.stat:
+            path: "{{ build_dir }}/{{ vmdk_file }}"
+          register: vmdk_check_stat
+
+        - name: Convert QCOW2 to VMDK format
+          ansible.builtin.command:
+            cmd: qemu-img convert -f qcow2 -O vmdk -o subformat=streamOptimized "{{ qcow2_file }}" "{{ vmdk_file }}"
+            chdir: "{{ build_dir }}"
+          register: conversion_result
+          retries: 3
+          delay: 5
+          until: conversion_result.rc == 0
+          changed_when: conversion_result.rc == 0
+          when: not vmdk_check_stat.stat.exists or (qcow2_stat.stat.mtime > vmdk_check_stat.stat.mtime)
+
+        - name: Retrieve VMDK file size
+          ansible.builtin.stat:
+            path: "{{ build_dir }}/{{ vmdk_file }}"
+          register: vmdk_stat
+          failed_when: not vmdk_stat.stat.exists
+
+        - name: Retrieve VMDK virtual size
+          ansible.builtin.command:
+            argv:
+              - qemu-img
+              - info
+              - --output=json
+              - "{{ vmdk_file }}"
+            chdir: "{{ build_dir }}"
+          register: vmdk_info_json
+          changed_when: false
+
+        - name: Record VMDK virtual size
+          ansible.builtin.set_fact:
+            vmdk_virtual_size_bytes: "{{ (vmdk_info_json.stdout | from_json)['virtual-size'] }}"
+
+        - name: Generate OVF descriptor
+          ansible.builtin.template:
+            src: "{{ playbook_dir | dirname }}/templates/ovf-file.j2"
+            dest: "{{ build_dir }}/{{ ovf_file }}"
+            mode: "0644"
+          vars:
+            vmdk_size_bytes: "{{ vmdk_stat.stat.size }}"
+
+        - name: Create OVA package
+          ansible.builtin.command:
+            argv:
+              - ovftool
+              - --lax
+              - --acceptAllEulas
+              - --skipManifestCheck
+              - --shaAlgorithm=SHA256
+              - --diskMode=thin
+              - --noNvramFile
+              - --allowExtraConfig
+              - --X:injectOvfEnv
+              - --overwrite
+              - "{{ ovf_file }}"
+              - "{{ ova_file }}"
+            chdir: "{{ build_dir }}"
+          register: ova_result
+          retries: 3
+          delay: 5
+          until: ova_result.rc == 0
+          changed_when: ova_result.rc == 0
+
+        - name: Set OVA file permissions
+          ansible.builtin.file:
+            path: "{{ build_dir }}/{{ ova_file }}"
+            mode: "0644"
+
+        # Final reporting
+        - name: Report conversion completion
+          ansible.builtin.debug:
+            msg: "OVA package ready: {{ build_dir }}/{{ ova_file }}"
+
+        # Last task in the block, so the stamp only exists if the OVA above was
+        # actually produced. The import playbooks refuse to run without it.
+        - name: Stamp the OVA as converted by this run
+          ansible.builtin.copy:
+            dest: "{{ build_dir }}/{{ convert_stamp_file }}"
+            content: "{{ run_id | default('manual') }}\n"
+            mode: "0644"
+
+        - name: Mark the conversion successful
+          ansible.builtin.set_fact:
+            stage_succeeded: true
+
+      rescue:
+        - name: Record that the conversion failed
+          ansible.builtin.set_fact:
+            stage_failed: true
+            stage_error: >-
+              {{ ansible_failed_task.name }}:
+              {{ ansible_failed_result.msg | default('no message') | trim }}
+
+        - name: Report the conversion failure
+          ansible.builtin.debug:
+            msg: >-
+              CONVERT FAILED for {{ inventory_hostname }} at task
+              '{{ ansible_failed_task.name }}'.
+              {{ ansible_failed_result.msg | default('') | trim }}
+
+- name: Report conversion results
+  hosts: "{{ target_hosts | default('all') }}"
+  gather_facts: false
+  ignore_unreachable: true
+
+  tasks:
+    - name: Fail if any image failed to convert
       ansible.builtin.fail:
-        msg: "Source QCOW2 file {{ build_dir }}/{{ qcow2_file }} does not exist"
-      when: not qcow2_stat.stat.exists
-
-    - name: Ensure output directory exists
-      ansible.builtin.file:
-        path: "{{ build_dir }}"
-        state: directory
-        mode: "0755"
-
-    - name: Set build date fact
-      ansible.builtin.set_fact:
-        build_date: "{{ now(fmt='%y%m%d') }}"
-
-    # Conversion process
-    - name: Check VMDK file status
-      ansible.builtin.stat:
-        path: "{{ build_dir }}/{{ vmdk_file }}"
-      register: vmdk_check_stat
-
-    - name: Convert QCOW2 to VMDK format
-      ansible.builtin.command:
-        cmd: qemu-img convert -f qcow2 -O vmdk -o subformat=streamOptimized "{{ qcow2_file }}" "{{ vmdk_file }}"
-        chdir: "{{ build_dir }}"
-      register: conversion_result
-      retries: 3
-      delay: 5
-      until: conversion_result.rc == 0
-      when: not vmdk_check_stat.stat.exists or (qcow2_stat.stat.mtime > vmdk_check_stat.stat.mtime)
-
-    - name: Retrieve VMDK file size
-      ansible.builtin.stat:
-        path: "{{ build_dir }}/{{ vmdk_file }}"
-      register: vmdk_stat
-      failed_when: not vmdk_stat.stat.exists
-
-    - name: Retrieve VMDK virtual size
-      ansible.builtin.command:
-        argv:
-          - qemu-img
-          - info
-          - --output=json
-          - "{{ vmdk_file }}"
-        chdir: "{{ build_dir }}"
-      register: vmdk_info_json
-      changed_when: false
-
-    - name: Record VMDK virtual size
-      ansible.builtin.set_fact:
-        vmdk_virtual_size_bytes: "{{ (vmdk_info_json.stdout | from_json)['virtual-size'] }}"
-
-    - name: Generate OVF descriptor
-      ansible.builtin.template:
-        src: ../templates/ovf-file.j2
-        dest: "{{ build_dir }}/{{ ovf_file }}"
-        mode: "0644"
+        msg: |-
+          convert-qcow2-to-ova failed for {{ convert_failures | length }} of
+          {{ ansible_play_hosts_all | length }} hosts:
+          {% for host in convert_failures %}
+            {{ host }}: {{ hostvars[host].stage_error | default('see log') | trim }}
+          {% endfor %}
+      # Pinned to one host rather than run_once - see build-qcow2.yml.
+      when:
+        - inventory_hostname == ansible_play_hosts_all[0]
+        - convert_failures | length > 0
       vars:
-        vmdk_size_bytes: "{{ vmdk_stat.stat.size }}"
-
-    - name: Create OVA package
-      ansible.builtin.command:
-        argv:
-          - ovftool
-          - --lax
-          - --acceptAllEulas
-          - --skipManifestCheck
-          - --shaAlgorithm=SHA256
-          - --diskMode=thin
-          - --noNvramFile
-          - --allowExtraConfig
-          - --X:injectOvfEnv
-          - --overwrite
-          - "{{ ovf_file }}"
-          - "{{ ova_file }}"
-        chdir: "{{ build_dir }}"
-      register: ova_result
-      retries: 3
-      delay: 5
-      until: ova_result.rc == 0
-
-    - name: Set OVA file permissions
-      ansible.builtin.file:
-        path: "{{ build_dir }}/{{ ova_file }}"
-        mode: "0644"
-
-    # Final reporting
-    - name: Report conversion completion
-      ansible.builtin.debug:
-        msg: "OVA package ready: {{ build_dir }}/{{ ova_file }}"
-
+        convert_failures: >-
+          {{ ansible_play_hosts_all
+             | map('extract', hostvars)
+             | rejectattr('stage_succeeded', 'defined')
+             | map(attribute='inventory_hostname')
+             | list }}

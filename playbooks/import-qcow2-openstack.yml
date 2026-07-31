@@ -19,6 +19,12 @@
           ansible.builtin.include_vars:
             file: "../vaults/openstack.yml"
 
+        - name: Require a QCOW2 built by this run
+          ansible.builtin.include_tasks: verify-stamp.yml
+          vars:
+            stamp_file: "{{ build_stamp_file }}"
+            stamp_producer: build-qcow2
+
         - name: Verify source file exists
           ansible.builtin.stat:
             path: "{{ build_dir }}/{{ qcow2_file }}"
@@ -107,4 +113,3 @@
         - name: Fail with error message
           ansible.builtin.fail:
             msg: "Import process failed: {{ ansible_failed_result.msg | default('unknown error') }}"
-
