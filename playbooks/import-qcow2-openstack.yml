@@ -76,7 +76,7 @@
           ansible.builtin.debug:
             msg: "Image upload initiated: {{ image_upload.image.id }}"
 
-        - name: Wait for image to be active
+        - name: Wait for import to complete
           openstack.cloud.image_info:
             auth: "{{ openstack_auth }}"
             name: "{{ image_name }}"
