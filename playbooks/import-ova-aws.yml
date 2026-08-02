@@ -18,6 +18,12 @@
       ansible.builtin.include_vars:
         file: "../vaults/aws.yml"
 
+    - name: Require an OVA converted by this run
+      ansible.builtin.include_tasks: verify-stamp.yml
+      vars:
+        stamp_file: "{{ convert_stamp_file }}"
+        stamp_producer: convert-qcow2-to-ova
+
     - name: Verify OVA file exists
       ansible.builtin.stat:
         path: "{{ build_dir }}/{{ ova_file }}"
@@ -48,7 +54,7 @@
         - name: Initiate import process
           amazon.aws.ec2_import_image:
             region: "{{ aws_region }}"
-            task_name: "{{ inventory_hostname }}-import-{{ lookup('ansible.builtin.pipe', 'date +%s') }}"
+            task_name: "{{ inventory_hostname }}-import-{{ now(fmt='%s') }}"
             description: "Import of {{ ova_file }}"
             disk_containers:
               - description: "OVA disk container"
@@ -57,6 +63,7 @@
                   s3_bucket: "{{ s3_bucket }}"
                   s3_key: "{{ ova_file }}"
             role_name: "{{ vmimport_role_name }}"
+            boot_mode: "{{ aws_import_boot_mode | default('uefi') }}"
             state: present
           register: import_task
 
@@ -72,7 +79,8 @@
           register: import_status
           until: >-
             (import_status.import_image | default([]) | length > 0) and
-            (((import_status.import_image | first).status | default('')) == 'completed')
+            (((import_status.import_image | first).status | default('')) in
+              ['completed', 'deleted', 'failed'])
           failed_when: >-
             (import_status.import_image | default([]) | length > 0) and
             (((import_status.import_image | first).status | default('')) in ['deleted', 'failed'])
@@ -118,9 +126,9 @@
             mode: delobj
             region: "{{ aws_region }}"
           when: s3_upload is defined
-          ignore_errors: true
+          register: s3_cleanup
+          failed_when: false
 
         - name: Fail with error message
           ansible.builtin.fail:
             msg: "Import process failed: {{ ansible_failed_result.msg | default(ansible_failed_result) }}. S3 cleanup attempted."
-

@@ -1,0 +1,48 @@
+---
+# playbooks/verify-stamp.yml
+# vim: set tabstop=2 shiftwidth=2 expandtab:
+
+# ansible-lint skip-file
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ansible/ansible-lint/main/src/ansiblelint/schemas/tasks.json
+
+# Assert that the previous pipeline stage produced its artifact during this run.
+# This is a tasks file, not a playbook - included via include_tasks.
+#
+# Callers set:
+#   stamp_file     - basename of the stamp under build_dir
+#   stamp_producer - name of the stage that should have written it
+#
+# The run_id comparison is skipped when run_id is undefined, so a stage can
+# still be driven by hand without the wrapper script. The existence check
+# always applies.
+
+- name: Stat the stage stamp written by {{ stamp_producer }}
+  ansible.builtin.stat:
+    path: "{{ build_dir }}/{{ stamp_file }}"
+  delegate_to: localhost
+  register: stamp_stat
+
+- name: Fail if there is no stamp from {{ stamp_producer }}
+  ansible.builtin.fail:
+    msg: >-
+      {{ build_dir }}/{{ stamp_file }} is missing, so {{ stamp_producer }} did
+      not complete for {{ inventory_hostname }}. Refusing to consume a stale
+      {{ build_dir }}/{{ image_name }}.* artifact.
+  when: not stamp_stat.stat.exists
+
+- name: Read the stage stamp written by {{ stamp_producer }}
+  ansible.builtin.slurp:
+    src: "{{ build_dir }}/{{ stamp_file }}"
+  delegate_to: localhost
+  register: stamp_content
+
+- name: Fail if the stamp is older than this run of {{ stamp_producer }}
+  ansible.builtin.fail:
+    msg: >-
+      {{ build_dir }}/{{ stamp_file }} was written by run
+      '{{ stamp_content.content | b64decode | trim }}' but this is run
+      '{{ run_id }}'. {{ stamp_producer }} produced nothing for
+      {{ inventory_hostname }} this time, so the artifact on disk is stale.
+  when:
+    - run_id is defined
+    - (stamp_content.content | b64decode | trim) != (run_id | string)

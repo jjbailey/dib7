@@ -17,15 +17,15 @@ Refer to the link above for details.
 
 ## The phases are
 
-| # | Phase | Chroot |
-| --- | ------- | -------- |
-| 1 | root.d | outside |
-| 2 | extra-data.d | outside |
-| 3 | pre-install.d | inside |
-| 4 | install.d | inside |
-| 5 | post-install.d | inside |
-| 6 | post-root.d | outside |
-| 7 | block-device.d | outside |
-| 8 | pre-finalise.d | outside |
-| 9 | finalise.d | inside |
-| 10 | cleanup.d | outside |
+| #   | Phase          | Chroot  |
+| --- | -------------- | ------- |
+| 1   | root.d         | outside |
+| 2   | extra-data.d   | outside |
+| 3   | pre-install.d  | inside  |
+| 4   | install.d      | inside  |
+| 5   | post-install.d | inside  |
+| 6   | post-root.d    | outside |
+| 7   | block-device.d | outside |
+| 8   | pre-finalise.d | outside |
+| 9   | finalise.d     | inside  |
+| 10  | cleanup.d      | outside |

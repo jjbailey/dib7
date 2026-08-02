@@ -1,8 +1,11 @@
 ---
-# Pin collection versions tested with ansible-core 2.16.
+# Pin collection versions tested with ansible-core 2.18.
+# Current playbooks use AWS, GCP, and OpenStack collections.
+# vSphere workflows shell out to local PowerShell helpers instead.
 collections:
+  # amazon.aws 11.x requires ansible-core >= 2.17.
   - name: amazon.aws
-    version: 9.5.1
+    version: 11.1.0
   - name: google.cloud
     version: 1.11.0
   - name: openstack.cloud

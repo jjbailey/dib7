@@ -1,12 +1,11 @@
 ---
-# playbooks/import-ova-vsphere.yml
+# playbooks/import-ova-vsphere-template.yml
 # vim: set tabstop=2 shiftwidth=2 expandtab:
 
-# Playbook to import an OVA file to a vSphere content library.
-# This creates the vSphere OVA branch in the workflow.
-# VMDK must be streamOptimized.
+# Playbook to import an OVA file to a vSphere content library and convert it
+# into a vSphere template derived from the vSphere OVA and stored in the Templates inventory folder.
 
-- name: Import OVA to vSphere
+- name: Import OVA to vSphere template
   hosts: "{{ target_hosts | default('all') }}"
   gather_facts: false
   serial: 2
@@ -24,16 +23,16 @@
       failed_when: pwsh_check.rc != 0
       changed_when: false
 
-    - name: Verify vSphere import helper exists on localhost
+    - name: Verify vSphere template helper exists on localhost
       ansible.builtin.stat:
-        path: "{{ playbook_dir }}/../bin/import-ova-vsphere.ps1"
+        path: "{{ playbook_dir }}/../bin/import-ova-vsphere-template.ps1"
       delegate_to: localhost
-      register: import_helper_stat
+      register: template_helper_stat
 
-    - name: Fail if vSphere import helper is missing
+    - name: Fail if vSphere template helper is missing
       ansible.builtin.fail:
-        msg: "vSphere import helper {{ playbook_dir }}/../bin/import-ova-vsphere.ps1 is missing"
-      when: not import_helper_stat.stat.exists or not import_helper_stat.stat.isreg
+        msg: "vSphere template helper {{ playbook_dir }}/../bin/import-ova-vsphere-template.ps1 is missing"
+      when: not template_helper_stat.stat.exists or not template_helper_stat.stat.isreg
 
   tasks:
     - name: Include common setup tasks
@@ -44,11 +43,11 @@
         file: "../vaults/vsphere.yml"
       no_log: true
 
-    - name: Import the OVA
+    - name: Create vSphere template from OVA
       block:
-        # The gate that stops an OVA left over from an earlier run reaching the
-        # content library. Without it a host whose build or conversion never ran
-        # this time still has last run's .ova sitting in build_dir, and it gets
+        # The gate that stops an OVA left over from an earlier run becoming a
+        # template. Without it a host whose build or conversion never ran this
+        # time still has last run's .ova sitting in build_dir, and it gets
         # published as though it were fresh.
         - name: Require an OVA converted by this run
           ansible.builtin.include_tasks: verify-stamp.yml
@@ -67,18 +66,22 @@
             msg: "Source OVA file {{ build_dir }}/{{ ova_file }} is missing or empty on localhost"
           when: not ova_stat.stat.exists or not ova_stat.stat.isreg or (ova_stat.stat.size | default(0) | int) == 0
 
-        - name: Initiate import process
+        - name: Import OVA and convert it to a template
           ansible.builtin.command:
             argv:
               - pwsh
-              - "{{ playbook_dir }}/../bin/import-ova-vsphere.ps1"
+              - "{{ playbook_dir }}/../bin/import-ova-vsphere-template.ps1"
               - "-library"
               - "{{ vsphere_content_library }}"
               - "-ova"
               - "{{ build_dir }}/{{ ova_file }}"
+              - "-templateName"
+              - "{{ vsphere_template_name | default(inventory_hostname ~ '.tmpl') }}"
+              - "-folder"
+              - "Templates"
           delegate_to: localhost
-          register: import_result
-          changed_when: import_result.rc == 0
+          register: template_result
+          changed_when: template_result.rc == 0
           no_log: true
           environment:
             vcenter_hostname: "{{ vcenter_hostname }}"
@@ -86,51 +89,51 @@
             vcenter_password: "{{ vcenter_password }}"
 
       rescue:
-        - name: Record that the import failed
+        - name: Record that the template creation failed
           ansible.builtin.set_fact:
             stage_failed: true
             stage_error: >-
               {{ ansible_failed_task.name }}:
               {{ ansible_failed_result.msg | default('no message') | trim }}
-              rc={{ import_result.rc | default('unknown') }}
-              stderr={{ import_result.stderr | default('') | trim }}
-              stdout={{ import_result.stdout | default('') | trim }}
+              rc={{ template_result.rc | default('unknown') }}
+              stderr={{ template_result.stderr | default('') | trim }}
+              stdout={{ template_result.stdout | default('') | trim }}
 
-        - name: Report the import failure
+        - name: Report the template creation failure
           ansible.builtin.debug:
             msg: >-
-              IMPORT FAILED for {{ inventory_hostname }} at task
+              TEMPLATE FAILED for {{ inventory_hostname }} at task
               '{{ ansible_failed_task.name }}'.
               {{ ansible_failed_result.msg | default('') | trim }}
-              rc={{ import_result.rc | default('unknown') }}
-              stderr={{ import_result.stderr | default('') | trim }}
-              stdout={{ import_result.stdout | default('') | trim }}
+              rc={{ template_result.rc | default('unknown') }}
+              stderr={{ template_result.stderr | default('') | trim }}
+              stdout={{ template_result.stdout | default('') | trim }}
 
       always:
-        - name: Display import result
+        - name: Display template creation result
           ansible.builtin.debug:
-            msg: "OVA import exited with return code {{ import_result.rc }}"
-          when: import_result is defined
+            msg: "Template creation exited with return code {{ template_result.rc }}"
+          when: template_result is defined
 
-- name: Report import results
+- name: Report template results
   hosts: "{{ target_hosts | default('all') }}"
   gather_facts: false
 
   tasks:
-    - name: Fail if any OVA failed to import
+    - name: Fail if any template failed to be created
       ansible.builtin.fail:
         msg: |-
-          import-ova-vsphere failed for {{ import_failures | length }} of
+          import-ova-vsphere-template failed for {{ template_failures | length }} of
           {{ ansible_play_hosts_all | length }} hosts:
-          {% for host in import_failures %}
+          {% for host in template_failures %}
             {{ host }}: {{ hostvars[host].stage_error | default('see log') | trim }}
           {% endfor %}
       # Pinned to one host rather than run_once - see build-qcow2.yml.
       when:
         - inventory_hostname == ansible_play_hosts_all[0]
-        - import_failures | length > 0
+        - template_failures | length > 0
       vars:
-        import_failures: >-
+        template_failures: >-
           {{ ansible_play_hosts_all
              | map('extract', hostvars)
              | selectattr('stage_failed', 'defined')

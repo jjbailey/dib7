@@ -16,6 +16,7 @@ PACKAGES="
     isc-dhcp-client
     lvm2
     net-tools
+    netplan.io
     openssh-server
     open-vm-tools
     parted
@@ -23,6 +24,21 @@ PACKAGES="
 "
 
 apt-get update
-apt-get -m -y $DPKG_OPTS install $PACKAGES
+
+# One transaction is fast, but apt aborts the entire transaction if any name is
+# unlocatable, which silently skips every package in the list. -m does not help:
+# it covers unfetchable archives, not unknown names. On failure, retry one at a
+# time so a single bad package cannot take the rest of the list with it.
+if ! apt-get -m -y $DPKG_OPTS install $PACKAGES ; then
+    echo "10-packages: batch install failed, retrying individually" >&2
+    FAILED=""
+    for pkg in $PACKAGES ; do
+        apt-get -m -y $DPKG_OPTS install "$pkg" || FAILED="$FAILED $pkg"
+    done
+    if [ -n "$FAILED" ] ; then
+        echo "10-packages: ERROR: could not install:$FAILED" >&2
+        exit 1
+    fi
+fi
 
 exit 0

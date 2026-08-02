@@ -27,6 +27,12 @@
           ansible.builtin.include_vars:
             file: "../vaults/gcp.yml"
 
+        - name: Require a QCOW2 built by this run
+          ansible.builtin.include_tasks: verify-stamp.yml
+          vars:
+            stamp_file: "{{ build_stamp_file }}"
+            stamp_producer: build-qcow2
+
         - name: Create temp file for service account key
           ansible.builtin.tempfile:
             state: file
@@ -109,7 +115,7 @@
             - existing_image_check.rc == 0
             - not (gcp_replace_existing_image | bool)
 
-        - name: Delete existing Compute image before import
+        - name: Delete existing image if it exists
           ansible.builtin.command:
             argv:
               - gcloud
@@ -125,7 +131,7 @@
             - existing_image_check.rc == 0
             - gcp_replace_existing_image | bool
 
-        - name: Wait for existing Compute image deletion
+        - name: Wait for existing image deletion to complete
           ansible.builtin.command:
             argv:
               - gcloud
@@ -184,6 +190,7 @@
               - "--project={{ gcp_project }}"
               - --quiet
           when: stale_import_check.rc == 0
+          changed_when: stale_import_check.rc == 0
 
         - name: Wait for stale import job deletion to complete
           ansible.builtin.command:
@@ -234,7 +241,7 @@
           ansible.builtin.debug:
             msg: "Image import started: {{ image_creation.stdout }}"
 
-        - name: Poll image import job status
+        - name: Wait for import to complete
           ansible.builtin.command:
             argv:
               - gcloud
@@ -322,4 +329,3 @@
             path: "{{ sa_key_file.path }}"
             state: absent
           when: sa_key_file is defined and sa_key_file.path is defined
-

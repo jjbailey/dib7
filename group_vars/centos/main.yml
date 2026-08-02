@@ -1,12 +1,8 @@
 ---
-# group_vars/centos10stream/main.yml
+# group_vars/centos/main.yml
 # vim: set tabstop=2 shiftwidth=2 expandtab:
 
 # first include group_vars/all/main.yml
-
-venv_bin: "{{ ansible_env.HOME }}/venvs/diskimage-builder/venv/bin"
-path: "{{ venv_bin }}:{{ ansible_env.PATH }}"
-build_dir: "/work/dib-builds"
 
 dib_block_device: "gpt"
 dib_block_device_config: "{{ lookup('ansible.builtin.file', '../block-device-config/block-device-efi-config.yml') }}"

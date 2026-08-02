@@ -1,2 +1,14 @@
-ansible-core==2.16.3
+# ansible-core 2.18 requires Python 3.11+ on the control node.
+ansible-core==2.18.18
 diskimage-builder==3.42.0
+
+# Direct Python dependencies used by local repo scripts and validation.
+PyYAML>=6.0
+
+# Controller-side SDKs required by collections in requirements.yml.
+boto3>=1.34.0
+botocore>=1.34.0
+requests>=2.18.4
+google-auth>=1.3.0
+google-cloud-storage>=1.2.0
+openstacksdk>=1.0.0

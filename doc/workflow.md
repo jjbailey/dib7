@@ -1,6 +1,7 @@
 # Workflow
 
 <!-- markdownlint-disable MD013 -->
+
 ```mermaid
 flowchart TB
     DIB["diskimage-builder"] --> QCOW2["💽 qcow2"]
@@ -13,4 +14,5 @@ flowchart TB
     OVA --> S3["🪣 S3 Bucket"]
     S3 --> AWS_IMG["☁️ AWS AMI"]
     OVA --> VSPHERE_IMG["☁️ vSphere OVA"]
+    VSPHERE_IMG --> VSPHERE_TPL["☁️ vSphere Template"]
 ```

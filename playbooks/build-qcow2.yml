@@ -8,112 +8,269 @@
   hosts: "{{ target_hosts | default('all') }}"
   gather_facts: true
   serial: 1
-
   tasks:
     - name: Include common setup tasks
       ansible.builtin.include_tasks: common-setup.yml
 
-    - name: Clean up old loop devices and mounts
-      ansible.builtin.shell: |
-        set -euo pipefail
-        # Unmount any mounts related to build_dir. Use literal prefix matching
-        # so paths containing regex characters remain valid.
-        mount_points="$(mount | awk -v root="{{ build_dir }}" 'index($3, root) == 1 && (length($3) == length(root) || substr($3, length(root) + 1, 1) == "/") {print $3}')"
-        while IFS= read -r mount_point; do
-          [ -z "$mount_point" ] || umount -l "$mount_point"
-        done <<< "$mount_points"
-        # Detach loop devices whose backing file is under build_dir.
-        loop_devices="$(losetup -a | awk -v root="{{ build_dir }}" 'index($0, root) > 0 {sub(/:.*/, "", $1); print $1}')"
-        while IFS= read -r loop_dev; do
-          [ -z "$loop_dev" ] || losetup -d "$loop_dev"
-        done <<< "$loop_devices"
-      args:
-        executable: /bin/bash
-      become: true
-      changed_when: false
-
-    - name: Remove old build artifacts
-      ansible.builtin.file:
-        path: "{{ build_dir }}/{{ item }}"
-        state: absent
-      loop:
-        - "{{ image_name }}.{{ image_type }}"
-        - "{{ image_name }}.log"
-
-    - name: Execute disk-image-create to build image
-      ansible.builtin.command:
-        cmd: >-
-          {{ venv_bin }}/disk-image-create
-          -a {{ image_arch }}
-          -t {{ image_type }}
-          -o {{ build_dir }}/{{ image_name }}.{{ image_type }}
-          --image-size {{ image_size }}
-          -x -x
-          --logfile {{ build_dir }}/{{ image_name }}.log
-          {{ elements_base }} {{ elements_custom }}
-      environment:
-        PATH: "{{ path }}"
-        ELEMENTS_PATH: "{{ elements_path }}"
-        DIB_RELEASE: "{{ dib_release }}"
-        DIB_BLOCK_DEVICE: "{{ dib_block_device }}"
-        DIB_BLOCK_DEVICE_CONFIG: "{{ dib_block_device_config }}"
-        DIB_OPENSSH_SERVER_HARDENING: "{{ dib_openssh_server_hardening }}"
-        DIB_CLOUD_INIT_DATASOURCES: "{{ dib_cloud_init_datasources }}"
-        DIB_BOOTLOADER_DEFAULT_CMDLINE: "{{ dib_bootloader_default_cmdline }}"
-        DPKG_OPTS: "{{ dpkg_opts }}"
-        DEBIAN_FRONTEND: "{{ debian_frontend }}"
-        NEEDRESTART_MODE: "{{ needrestart_mode }}"
-      changed_when: true
-      no_log: true
-      register: disk_image_create_result
-
-    - name: Fail if disk-image-create failed
-      ansible.builtin.fail:
-        msg: "disk-image-create failed: {{ disk_image_create_result.stderr }}"
-      when: disk_image_create_result is failed
-
-    - name: Configure swap space in image
-      when: (add_swap | default(false) | bool) and (disk_image_create_result is succeeded)
+    - name: Build the image
       block:
-        - name: Create temporary swap configuration script
-          ansible.builtin.tempfile:
-            state: file
-            suffix: .sh
-          register: swap_script
+        - name: Clean up old loop devices and mounts
+          ansible.builtin.shell: |
+            set -euo pipefail
 
-        - name: Generate swap setup script content
-          ansible.builtin.copy:
-            dest: "{{ swap_script.path }}"
-            content: |
-              lvcreate lv_swap vg1 {{ swap_size }}
-              mkswap {{ swap_device }}
-              write-append /etc/fstab "{{ swap_device }} none swap sw 0 0\n"
-            mode: "0644"
+            # Refuse to touch anything if another image build is already in
+            # flight. The teardown below removes any loop-backed VG, which for a
+            # concurrent build is its live vg1 - and build_dir, the image
+            # logfile and the VG name are all shared besides, so two builds
+            # corrupt each other even without the VG teardown. Failing here
+            # turns that into one clear error instead of two broken images.
+            #
+            # The pattern is anchored on the directory the command is invoked
+            # from - the venv entry point under bin/ and the bash script it
+            # execs from lib/ - because a bare name also matches any process
+            # merely mentioning it, a tail or a grep included, which would
+            # refuse the build for no reason.
+            #
+            # The bracket stops pgrep matching this script, whose own text is
+            # part of its command line. For the same reason neither unbracketed
+            # form may appear anywhere in this task.
+            other_build="$(pgrep -f '(bin|lib)/disk-image[-]create' | tr '\n' ' ' || true)"
+            if [ -n "$other_build" ] ; then
+              echo "another image build is already running (pids: $other_build)" >&2
+              echo "refusing to tear down shared state underneath it" >&2
+              echo "wait for it to finish, or kill it if it is stuck" >&2
+              exit 1
+            fi
 
-        - name: Apply swap configuration to the image using guestfish
+            dib_tmp="${TMP_DIR:-/tmp}/dib_"
+            mount_points="$(mount | awk -v root="{{ build_dir }}" -v tmp="$dib_tmp" '
+              { mp = $3 }
+              index(mp, root) == 1 && (length(mp) == length(root) || substr(mp, length(root) + 1, 1) == "/") { print length(mp), mp; next }
+              index(mp, tmp) == 1 { print length(mp), mp }
+            ' | sort -rn | cut -d" " -f2-)"
+            while IFS= read -r mount_point; do
+              [ -z "$mount_point" ] || umount -l "$mount_point"
+            done <<< "$mount_points"
+
+            # Remove the now-unmounted scratch dirs so /tmp does not fill up.
+            find "${TMP_DIR:-/tmp}" -maxdepth 1 -type d \
+              \( -name 'dib_build.*' -o -name 'dib_image.*' \) -exec rm -rf {} + || true
+
+            # Tear down LVM left behind by a build that died before its own
+            # cleanup ran. Every distro builds into a VG named vg1 (see
+            # block-device-config/), so a single abandoned VG fails every later
+            # build with "vgcreate ... /dev/vg1: already exists in filesystem" -
+            # and it outlives the scratch dirs removed above, because the VG is
+            # registered in the host LVM metadata rather than living in /tmp.
+            # Only VGs whose PVs are all loop-backed are touched, so this stays
+            # inert on a build host that genuinely uses LVM for its own storage.
+            # Keep apostrophes out of these comments: the shell body goes
+            # through the Ansible argument splitter, which counts quotes, and an
+            # odd number fails the play at parse time.
+            lvm_loop_devices=""
+            for vg in $(vgs --noheadings -o vg_name 2>/dev/null | tr -d ' ' || true) ; do
+              [ "$vg" = "{{ dib_vg_name | default('vg1') }}" ] || continue
+              pv_list="$(pvs --noheadings -o pv_name --select "vg_name=$vg" 2>/dev/null | tr -d ' ' || true)"
+              [ -n "$pv_list" ] || continue
+              if echo "$pv_list" | grep -qv '^/dev/\(mapper/\)\?loop' ; then
+                continue
+              fi
+              vgchange -an "$vg" || true
+              vgremove -f "$vg" || true
+              for pv in $pv_list ; do
+                pvremove -ff -y "$pv" || true
+                pv_name="${pv##*/}"
+                pv_name="${pv_name%%p[0-9]*}"
+                lvm_loop_devices="$lvm_loop_devices /dev/$pv_name"
+              done
+            done
+
+            # Detach loop devices backed by a file under build_dir or a dib
+            # scratch dir, plus dib images whose backing file is already gone.
+            # That last case is not hypothetical: when the scratch dir of a
+            # failed build is removed out from under a live loop device the path
+            # collapses to a bare /image0.raw, which matches neither prefix, so
+            # the device survived every subsequent cleanup on 2026-07-30 and
+            # kept its VG pinned. Matching image*.raw keeps this away from the
+            # other loop devices on the host, snap mounts included.
+            loop_devices="$(losetup -l --noheadings -O NAME,BACK-FILE 2>/dev/null | while read -r dev back ; do
+              back="${back% (deleted)}"
+              case "$back" in
+                "{{ build_dir }}"/*|"$dib_tmp"*) echo "$dev" ;;
+                *) case " $lvm_loop_devices " in *" $dev "*) echo "$dev" ;; esac ;;
+              esac
+            done || true)"
+            # Drop only kpartx mappings belonging to those loop devices before
+            # detaching them; the mappings otherwise keep the loop devices busy.
+            while IFS= read -r loop_dev; do
+              [ -z "$loop_dev" ] && continue
+              loop_name="${loop_dev##*/}"
+              for dm_name in $(dmsetup ls 2>/dev/null | awk -v prefix="${loop_name}p" '$1 ~ "^" prefix "[0-9]+$" { print $1 }' || true) ; do
+                dmsetup remove "$dm_name" || true
+              done
+            done <<< "$loop_devices"
+
+            while IFS= read -r loop_dev; do
+              [ -z "$loop_dev" ] || losetup -d "$loop_dev" || true
+            done <<< "$loop_devices"
+          args:
+            executable: /bin/bash
+          become: true
+          changed_when: false
+
+        # The stamps go first and are removed unconditionally: from here until
+        # the build succeeds there is no artifact any later stage should touch,
+        # and dropping the convert stamp too stops a half-refreshed build_dir
+        # from looking converted.
+        - name: Remove old build artifacts
+          ansible.builtin.file:
+            path: "{{ build_dir }}/{{ item }}"
+            state: absent
+          loop:
+            - "{{ build_stamp_file }}"
+            - "{{ convert_stamp_file }}"
+            - "{{ image_name }}.{{ image_type }}"
+            - "{{ image_name }}.log"
+
+        - name: Execute disk-image-create to build image
           ansible.builtin.command:
             cmd: >-
-              guestfish --rw --network -i -a {{ build_dir }}/{{ image_name }}.{{ image_type }} -f {{ swap_script.path }}
-          become: true
+              {{ venv_bin }}/disk-image-create
+              -a {{ image_arch }}
+              -t {{ image_type }}
+              -o {{ build_dir }}/{{ image_name }}.{{ image_type }}
+              --image-size {{ image_size }}
+              -x -x
+              --logfile {{ build_dir }}/{{ image_name }}.log
+              {{ elements_base }} {{ elements_custom }}
+          environment:
+            PATH: "{{ path }}"
+            ELEMENTS_PATH: "{{ elements_path }}"
+            DIB_RELEASE: "{{ dib_release }}"
+            DIB_BLOCK_DEVICE: "{{ dib_block_device }}"
+            DIB_BLOCK_DEVICE_CONFIG: "{{ dib_block_device_config }}"
+            DIB_OPENSSH_SERVER_HARDENING: "{{ dib_openssh_server_hardening }}"
+            DIB_CLOUD_INIT_DATASOURCES: "{{ dib_cloud_init_datasources }}"
+            DIB_BOOTLOADER_DEFAULT_CMDLINE: "{{ dib_bootloader_default_cmdline }}"
+            DPKG_OPTS: "{{ dpkg_opts }}"
+            DEBIAN_FRONTEND: "{{ debian_frontend }}"
+            NEEDRESTART_MODE: "{{ needrestart_mode }}"
           changed_when: true
-          register: guestfish_result
-          failed_when: guestfish_result.rc != 0
+          # failed_when is required for the guard task below to run at all:
+          # without it a non-zero rc goes straight to the rescue, and the build
+          # log path is never reported. Do not add no_log - it censors the
+          # stderr the guard reports.
+          failed_when: false
+          register: disk_image_create_result
 
-      always:
-        - name: Clean up temporary swap script
-          ansible.builtin.file:
-            path: "{{ swap_script.path }}"
-            state: absent
-          when: swap_script is defined
+        - name: Fail if disk-image-create failed
+          ansible.builtin.fail:
+            msg: >-
+              disk-image-create failed with rc={{ disk_image_create_result.rc }}.
+              Full build log: {{ build_dir }}/{{ image_name }}.log
+              stderr: {{ disk_image_create_result.stderr | default('') | trim }}
+          when: disk_image_create_result.rc != 0
 
-    - name: Retrieve image metadata
-      ansible.builtin.command:
-        cmd: "qemu-img info {{ build_dir }}/{{ image_name }}.{{ image_type }}"
-      register: qemu_info
-      changed_when: false
-      failed_when: qemu_info.rc != 0
+        - name: Configure swap space in image
+          when: add_swap | default(false) | bool
+          block:
+            - name: Create temporary swap configuration script
+              ansible.builtin.tempfile:
+                state: file
+                suffix: .sh
+              register: swap_script
 
-    - name: Display image information
-      ansible.builtin.debug:
-        msg: "{{ qemu_info.stdout_lines }}"
+            - name: Generate swap setup script content
+              ansible.builtin.copy:
+                dest: "{{ swap_script.path }}"
+                content: |
+                  lvcreate lv_swap {{ dib_vg_name | default('vg1') }} {{ swap_size }}
+                  mkswap {{ swap_device }}
+                  write-append /etc/fstab "{{ swap_device }} none swap sw 0 0\n"
+                mode: "0644"
 
+            - name: Apply swap configuration to the image using guestfish
+              ansible.builtin.command:
+                cmd: >-
+                  guestfish --rw --network -i -a {{ build_dir }}/{{ image_name }}.{{ image_type }} -f {{ swap_script.path }}
+              become: true
+              changed_when: true
+              register: guestfish_result
+              failed_when: guestfish_result.rc != 0
+
+          always:
+            - name: Clean up temporary swap script
+              ansible.builtin.file:
+                path: "{{ swap_script.path }}"
+                state: absent
+              when: swap_script is defined
+
+        - name: Retrieve image metadata
+          ansible.builtin.command:
+            cmd: "qemu-img info {{ build_dir }}/{{ image_name }}.{{ image_type }}"
+          register: qemu_info
+          changed_when: false
+          failed_when: qemu_info.rc != 0
+
+        - name: Display image information
+          ansible.builtin.debug:
+            msg: "{{ qemu_info.stdout_lines }}"
+
+        # Last task in the block, so the stamp only exists if everything above
+        # it worked. convert-qcow2-to-ova.yml refuses to run without it.
+        - name: Stamp the image as built by this run
+          ansible.builtin.copy:
+            dest: "{{ build_dir }}/{{ build_stamp_file }}"
+            content: "{{ run_id | default('manual') }}\n"
+            mode: "0644"
+
+        - name: Mark the build successful
+          ansible.builtin.set_fact:
+            stage_succeeded: true
+
+      rescue:
+        - name: Record that the build failed
+          ansible.builtin.set_fact:
+            stage_failed: true
+            stage_error: >-
+              {{ ansible_failed_task.name }}:
+              {{ ansible_failed_result.msg | default('no message') | trim }}
+
+        - name: Report the build failure
+          ansible.builtin.debug:
+            msg: >-
+              BUILD FAILED for {{ inventory_hostname }} at task
+              '{{ ansible_failed_task.name }}'.
+              {{ ansible_failed_result.msg | default('') | trim }}
+              Full build log: {{ build_dir }}/{{ image_name }}.log
+
+# Separate play so it runs once, after every serial batch above has been
+# attempted. Targeting the same host pattern rather than localhost keeps it
+# inside whatever -l the caller passed.
+- name: Report build results
+  hosts: "{{ target_hosts | default('all') }}"
+  gather_facts: false
+  ignore_unreachable: true
+
+  tasks:
+    - name: Fail if any image failed to build
+      ansible.builtin.fail:
+        msg: |-
+          build-qcow2 failed for {{ build_failures | length }} of
+          {{ ansible_play_hosts_all | length }} hosts:
+          {% for host in build_failures %}
+            {{ host }}: {{ hostvars[host].stage_error | default('see log') | trim }}
+          {% endfor %}
+      # Pinned to one host rather than run_once: a run_once fail marks every
+      # host in the play, which would put an identical fatal: line in the log
+      # per distro and bury the real one the summary tells you to grep for.
+      when:
+        - inventory_hostname == ansible_play_hosts_all[0]
+        - build_failures | length > 0
+      vars:
+        build_failures: >-
+          {{ ansible_play_hosts_all
+             | map('extract', hostvars)
+             | rejectattr('stage_succeeded', 'defined')
+             | map(attribute='inventory_hostname')
+             | list }}

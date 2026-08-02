@@ -3,27 +3,23 @@
 Each Ansible inventory group has a distro-specific variable file that overrides
 defaults from `group_vars/all/main.yml`. The following groups are defined:
 
-- `group_vars/centos10stream/main.yml`
+- `group_vars/centos/main.yml`
 - `group_vars/debian/main.yml`
 - `group_vars/fedora/main.yml`
+- `group_vars/rocky/main.yml`
 - `group_vars/ubuntu/main.yml`
 
-All four files share the same variable structure. See the
+All five files share the same variable structure. See the
 [Per-Distro Differences](#per-distro-differences) section for values that vary.
 
 ---
 
 ## Build Environment
 
-<!-- markdownlint-disable MD013 MD060 -->
-
-| Variable    | Value                                   | Description                                                                                     |
-| ----------- | --------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `venv_bin`  | path to venv `bin/` dir                 | Directory containing `disk-image-create` and related tools from the Python virtual environment. |
-| `path`      | `{{ venv_bin }}:{{ ansible_env.PATH }}` | Prepends the venv bin dir to `PATH` so venv binaries are found first.                           |
-| `build_dir` | `/work/dib-builds`                      | Staging directory for all image files. Used by every playbook in the pipeline.                  |
-
-<!-- markdownlint-enable MD013 MD060 -->
+`venv_bin`, `path`, and `build_dir` are no longer per-distro. Every group
+builds from the single `~/.dib7` virtualenv, so all three now live in
+`group_vars/all/main.yml` — see [group-vars-all.md](group-vars-all.md) and
+[python3-virtualenv.md](python3-virtualenv.md).
 
 ---
 
@@ -70,12 +66,13 @@ The `elements_base` for each group:
 
 <!-- markdownlint-disable MD013 -->
 
-| Group            | `elements_base`                                            |
-| ---------------- | ---------------------------------------------------------- |
-| `centos10stream` | `bootloader block-device-efi-lvm centos dracut-regenerate` |
-| `debian`         | `bootloader block-device-efi-lvm debian-minimal`           |
-| `fedora`         | `bootloader block-device-efi-lvm fedora dracut-regenerate` |
-| `ubuntu`         | `bootloader block-device-efi-lvm ubuntu-minimal`           |
+| Group    | `elements_base`                                                       |
+| -------- | --------------------------------------------------------------------- |
+| `centos` | `bootloader block-device-efi-lvm centos dracut-regenerate`            |
+| `debian` | `bootloader block-device-efi-lvm debian-minimal`                      |
+| `fedora` | `bootloader block-device-efi-lvm fedora dracut-regenerate`            |
+| `rocky`  | `bootloader block-device-efi-lvm rocky-cloud-image dracut-regenerate` |
+| `ubuntu` | `bootloader block-device-efi-lvm ubuntu-minimal`                      |
 
 <!-- markdownlint-enable MD013 -->
 
@@ -119,11 +116,12 @@ image is built, conditionally on `add_swap`.
 
 <!-- markdownlint-disable MD013 -->
 
-| Variable                  | Value                        | Description                                                                          |
-| ------------------------- | ---------------------------- | ------------------------------------------------------------------------------------ |
-| `vm_network`              | `VM Network`                 | Network name written into the OVF `NetworkSection`.                                  |
-| `vm_os_description`       | e.g. `Ubuntu Linux (64-bit)` | Human-readable OS description written into the OVF `OperatingSystemSection`.         |
-| `vsphere_content_library` | `Content_Library`            | Target vSphere content library for OVA import in `playbooks/import-ova-vsphere.yml`. |
+| Variable                  | Value                          | Description                                                                                  |
+| ------------------------- | ------------------------------ | -------------------------------------------------------------------------------------------- |
+| `vm_network`              | `VM Network`                   | Network name written into the OVF `NetworkSection`.                                          |
+| `vm_os_description`       | e.g. `Ubuntu Linux (64-bit)`   | Human-readable OS description written into the OVF `OperatingSystemSection`.                 |
+| `vsphere_content_library` | `Content_Library`              | Target vSphere content library for `import-ova-vsphere.yml` when creating the `vSphere OVA`. |
+| `vsphere_template_name`   | `inventory_hostname-base.tmpl` | Final vSphere template name used by `playbooks/import-ova-vsphere-template.yml`.             |
 
 <!-- markdownlint-enable MD013 -->
 
@@ -131,15 +129,20 @@ image is built, conditionally on `add_swap`.
 
 ## Per-Distro Differences
 
-Variables that differ across the four groups. All other variables are identical.
+Variables that differ across the five groups. All other variables are identical.
 
 <!-- markdownlint-disable MD013 MD060 -->
 
-| Variable            | `ubuntu`                                         | `fedora`                                                   | `centos10stream`                                           | `debian`                        |
-| ------------------- | ------------------------------------------------ | ---------------------------------------------------------- | ---------------------------------------------------------- | ------------------------------- |
-| `venv_bin`          | `~/venvs/diskimage-builder/venv/bin`             | `~/.fedora/bin`                                            | `~/venvs/diskimage-builder/venv/bin`                       | `~/venvs/diskimage-builder/venv/bin` |
-| `elements_base`     | `bootloader block-device-efi-lvm ubuntu-minimal` | `bootloader block-device-efi-lvm fedora dracut-regenerate` | `bootloader block-device-efi-lvm centos dracut-regenerate` | `bootloader block-device-efi-lvm debian-minimal` |
-| `vm_os_type`        | `ubuntu64Guest`                                  | `centos9_64Guest`                                          | `centos9_64Guest`                                          | `debian11_64Guest`              |
-| `vm_os_description` | `Ubuntu Linux (64-bit)`                          | `Red Hat Fedora (64-bit)`                                  | `CentOS 10 (64-bit)`                                       | `Debian GNU/Linux 11 (64-bit)`  |
+| Group    | `elements_base`                                                       | `vm_os_type`       | `vm_os_description`            |
+| -------- | --------------------------------------------------------------------- | ------------------ | ------------------------------ |
+| `centos` | `bootloader block-device-efi-lvm centos dracut-regenerate`            | `centos9_64Guest`  | `CentOS 10 (64-bit)`           |
+| `debian` | `bootloader block-device-efi-lvm debian-minimal`                      | `debian11_64Guest` | `Debian GNU/Linux 11 (64-bit)` |
+| `fedora` | `bootloader block-device-efi-lvm fedora dracut-regenerate`            | `centos9_64Guest`  | `Red Hat Fedora (64-bit)`      |
+| `rocky`  | `bootloader block-device-efi-lvm rocky-cloud-image dracut-regenerate` | `centos9_64Guest`  | `Rocky Linux 10 (64-bit)`      |
+| `ubuntu` | `bootloader block-device-efi-lvm ubuntu-minimal`                      | `ubuntu64Guest`    | `Ubuntu Linux (64-bit)`        |
 
 <!-- markdownlint-enable MD013 MD060 -->
+
+All five groups build from the same `~/.dib7` virtualenv. The Fedora patch it
+carries touches only the `fedora` element, so it has no effect on the other
+builds; see [fedora.md](fedora.md).
