@@ -274,3 +274,4 @@
              | rejectattr('stage_succeeded', 'defined')
              | map(attribute='inventory_hostname')
              | list }}
+

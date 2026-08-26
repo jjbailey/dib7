@@ -33,16 +33,17 @@ That means:
 
 ## Adding a New Version of an Existing Distro
 
-Example: adding Ubuntu `26.04` with DIB release `resolute`.
+Example: adding a future Ubuntu release. Replace the placeholder hostname and
+`dib_release` with the release's actual values.
 
 1. Add a new host entry under the existing distro group in `hosts.yml`.
 
 ```yaml
 ubuntu:
   hosts:
-    ubuntu26040:
+    ubuntuNNNNN:
       ansible_connection: local
-      dib_release: resolute
+      dib_release: <DIB release codename>
   vars:
     target_group: ubuntu
 ```
@@ -67,7 +68,7 @@ Typical places:
 1. Build just the new host to verify the release.
 
 ```bash
-ansible-playbook playbooks/build-qcow2.yml -l ubuntu26040
+~/.dib7/bin/ansible-playbook playbooks/build-qcow2.yml -l <new-host>
 ```
 
 ## Adding a New Distro Family
@@ -90,8 +91,6 @@ newdistro:
 1. Create `group_vars/newdistro/main.yml`.
 
 Start from the closest existing file in `group_vars/` and set at least:
-
-- `venv_bin`
 - `elements_base`
 - `vm_os_type`
 - `vm_os_description`
@@ -131,12 +130,12 @@ Use this quick checklist before considering the work done:
 - `target_group` matches the intended distro family
 - the inventory group name, `target_group`, and the `group_vars/` directory are
   all spelled identically, and no group shares a name with a host. Ansible
-  auto-loads `group_vars/` by *group* name, so a mismatch silently loads no
+  auto-loads `group_vars/` by _group_ name, so a mismatch silently loads no
   variables at all rather than raising an error
 - `group_vars/<distro>/main.yml` exists and has the right DIB/VMware settings
 - `elements/custom-<distro>/` exists and still works for the new release
 - supported-release docs are updated
-- `ansible-playbook playbooks/build-qcow2.yml -l <host>` succeeds
+- `~/.dib7/bin/ansible-playbook playbooks/build-qcow2.yml -l <host>` succeeds
 
 ## Rule of Thumb
 

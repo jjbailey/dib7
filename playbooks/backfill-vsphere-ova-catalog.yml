@@ -1,0 +1,159 @@
+---
+# playbooks/backfill-vsphere-ova-catalog.yml
+# vim: set tabstop=2 shiftwidth=2 expandtab:
+
+# Recreates image-catalog.json content_library_ova entries for vSphere OVAs that
+# were already imported by an earlier run, without re-uploading anything to
+# vCenter.
+#
+# It cannot recover content_library_template entries: nothing on disk proves a
+# template was created (see the comment on the publish task below). Those come
+# only from a successful import-ova-vsphere-template run.
+#
+# The publish step used to sit inside the rescue: of the two vSphere import
+# playbooks, guarded by rc == 0, so it could never fire - a rescue only runs
+# when the block failed, and on failure rc is not 0. Every vSphere image
+# imported before that was fixed is in the content library but absent from the
+# catalog. This play closes that gap for those images.
+#
+# It touches no cloud API and needs no vault: every field is derived from
+# group_vars plus the stamps the pipeline already wrote next to the artifacts.
+#
+#   ansible-playbook playbooks/backfill-vsphere-ova-catalog.yml
+#   ansible-playbook playbooks/backfill-vsphere-ova-catalog.yml -l debian
+#
+# Nothing is published for a host whose stamps do not prove the import
+# happened, so running it against a half-finished build dir is safe.
+
+- name: Backfill vSphere image catalog entries
+  hosts: "{{ target_hosts | default('all') }}"
+  gather_facts: false
+
+  tasks:
+    - name: Include common setup tasks
+      ansible.builtin.include_tasks: common-setup.yml
+
+    - name: Backfill the catalog for one image
+      block:
+        # The .ova.imported marker is written by import-ova-vsphere-template.ps1
+        # once the content library item exists. No marker means the OVA never
+        # reached the library, and publishing a catalog entry for it would point
+        # Terraform at something that is not there.
+        - name: Look for the content library import marker
+          ansible.builtin.stat:
+            path: "{{ build_dir }}/{{ ova_file }}.imported"
+          register: imported_marker
+
+        - name: Skip hosts that were never imported
+          ansible.builtin.meta: end_host
+          when: not imported_marker.stat.exists
+
+        - name: Read the content library import marker
+          ansible.builtin.slurp:
+            src: "{{ build_dir }}/{{ ova_file }}.imported"
+          register: imported_stamp
+
+        # Marker format is "<content library item id>  <library name>".
+        - name: Extract the library the OVA actually landed in
+          ansible.builtin.set_fact:
+            imported_library: >-
+              {{ (imported_stamp.content | b64decode | trim).split()[-1] }}
+
+        # Guards against backfilling an entry that claims the library configured
+        # today when the artifact was imported into a different one.
+        - name: Fail if the marker names a different content library
+          ansible.builtin.fail:
+            msg: >-
+              {{ ova_file }} was imported into content library
+              '{{ imported_library }}' but vsphere_content_library is
+              '{{ vsphere_content_library }}'. Re-import it or correct the
+              group_vars before backfilling.
+          when: imported_library != vsphere_content_library
+
+        # The catalog version has to be the run that produced the artifact, not
+        # the run doing the backfill, or the entry claims a build that never
+        # happened. convert_stamp_file is the same stamp import-ova-vsphere
+        # verifies before it will touch the OVA.
+        - name: Read the run that produced this OVA
+          ansible.builtin.slurp:
+            src: "{{ build_dir }}/{{ convert_stamp_file }}"
+          register: convert_stamp
+
+        - name: Use that run as the catalog version
+          ansible.builtin.set_fact:
+            backfill_version: "{{ convert_stamp.content | b64decode | trim }}"
+
+        - name: Fail if the convert stamp is empty
+          ansible.builtin.fail:
+            msg: "{{ build_dir }}/{{ convert_stamp_file }} is empty, cannot determine the catalog version"
+          when: backfill_version | length == 0
+
+        # content_library_ova only, and deliberately not content_library_template.
+        # The marker is written by import-ova-vsphere-template.ps1 at the point
+        # the library item is confirmed, before New-VM builds the template from
+        # it, so it is evidence the OVA reached the library and no evidence at
+        # all that the template exists. debian1306 on 2026-08-09 is the proof:
+        # marker refreshed 11:42 with that run's SHA1, New-VM failed 11:44.
+        # Backfilling a template row off this marker would put an entry in the
+        # catalog for a template vCenter never created.
+        - name: Publish vSphere OVA to image catalog
+          ansible.builtin.include_tasks: publish-image-catalog.yml
+          vars:
+            catalog_provider: vsphere
+            catalog_artifact_id: "{{ ova_file }}"
+            catalog_artifact_type: content_library_ova
+            catalog_supersede: true
+            catalog_boot_mode: "{{ image_boot_mode }}"
+            catalog_version: "{{ backfill_version }}"
+            catalog_scope:
+              content_library: "{{ vsphere_content_library }}"
+
+        - name: Mark the backfill successful
+          ansible.builtin.set_fact:
+            stage_succeeded: true
+
+      rescue:
+        - name: Record that the backfill failed
+          ansible.builtin.set_fact:
+            stage_failed: true
+            stage_error: >-
+              {{ ansible_failed_task.name }}:
+              {{ ansible_failed_result.msg | default('no message') | trim }}
+
+        - name: Report the backfill failure
+          ansible.builtin.debug:
+            msg: >-
+              BACKFILL FAILED for {{ inventory_hostname }} at task
+              '{{ ansible_failed_task.name }}'.
+              {{ ansible_failed_result.msg | default('') | trim }}
+
+- name: Report backfill results
+  hosts: "{{ target_hosts | default('all') }}"
+  gather_facts: false
+  ignore_unreachable: true
+
+  tasks:
+    - name: Fail if any image failed to backfill
+      ansible.builtin.fail:
+        msg: |-
+          backfill-vsphere-ova-catalog failed for {{ backfill_failures | length }} of
+          {{ ansible_play_hosts_all | length }} hosts:
+          {% for host in backfill_failures %}
+            {{ host }}: {{ hostvars[host].stage_error | default('see log') | trim }}
+          {% endfor %}
+      # Pinned to one host rather than run_once - see build-qcow2.yml.
+      when:
+        - inventory_hostname == ansible_play_hosts_all[0]
+        - backfill_failures | length > 0
+      vars:
+        # Hosts ended early by end_host never set stage_succeeded, so they are
+        # excluded here rather than reported as failures: having no artifact to
+        # backfill is the expected outcome, not an error.
+        backfill_failures: >-
+          {{ ansible_play_hosts_all
+             | map('extract', hostvars)
+             | selectattr('stage_failed', 'defined')
+             | selectattr('stage_failed')
+             | map(attribute='inventory_hostname')
+             | list }}
+

@@ -1,0 +1,50 @@
+---
+# playbooks/publish-image-catalog.yml
+# vim: set tabstop=2 shiftwidth=2 expandtab:
+
+# ansible-lint skip-file
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ansible/ansible-lint/main/src/ansiblelint/schemas/tasks.json
+
+# Shared task file, not a playbook - included via include_tasks. Include it only
+# after a provider import has succeeded.
+- name: Prepare image catalog entry
+  ansible.builtin.copy:
+    content: >-
+      {{ {
+        'logical_name': image_name,
+        'provider': catalog_provider,
+        'artifact_id': catalog_artifact_id,
+        'artifact_type': catalog_artifact_type,
+        'version': catalog_version | default('manual', true),
+        'architecture': image_arch,
+        'boot_mode': catalog_boot_mode | default(image_boot_mode, true),
+        'source_build': image_name,
+        'status': 'published',
+        'region': catalog_region | default(None, true),
+        'project': catalog_project | default(None, true),
+        'scope': catalog_scope | default(None, true)
+      } | dict2items | rejectattr('value', 'sameas', None) | items2dict | to_json }}
+    dest: "{{ build_dir }}/.{{ image_name }}.catalog-entry.json"
+    mode: "0600"
+
+# catalog_supersede is set by providers whose artifact names carry no version,
+# so the newest entry replaces older ones instead of joining them. See the
+# comment in bin/publish-image-catalog.py.
+- name: Merge image into the published catalog
+  ansible.builtin.command:
+    argv: >-
+      {{ ['python3',
+          playbook_dir ~ '/../bin/publish-image-catalog.py',
+          '--catalog',
+          image_catalog_path | default(inventory_dir ~ '/catalogs/image-catalog.json', true),
+          '--entry',
+          build_dir ~ '/.' ~ image_name ~ '.catalog-entry.json']
+         + (['--supersede'] if catalog_supersede | default(false) | bool else []) }}
+  register: catalog_publish
+  changed_when: true
+
+- name: Remove temporary catalog entry
+  ansible.builtin.file:
+    path: "{{ build_dir }}/.{{ image_name }}.catalog-entry.json"
+    state: absent
+

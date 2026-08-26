@@ -4,6 +4,7 @@ diskimage-builder==3.42.0
 
 # Direct Python dependencies used by local repo scripts and validation.
 PyYAML>=6.0
+jsonschema>=4.0
 
 # Controller-side SDKs required by collections in requirements.yml.
 boto3>=1.34.0

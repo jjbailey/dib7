@@ -88,6 +88,23 @@
             vcenter_username: "{{ vcenter_username }}"
             vcenter_password: "{{ vcenter_password }}"
 
+        - name: Publish vSphere template to image catalog
+          ansible.builtin.include_tasks: publish-image-catalog.yml
+          vars:
+            catalog_provider: vsphere
+            catalog_artifact_id: "{{ vsphere_template_name | default(inventory_hostname ~ '.tmpl') }}"
+            catalog_artifact_type: content_library_template
+            catalog_supersede: true
+            catalog_boot_mode: "{{ image_boot_mode }}"
+            catalog_scope:
+              content_library: "{{ vsphere_content_library }}"
+
+        # Last task in the block, so a host only counts as succeeded if the
+        # template creation and the catalog publish both worked.
+        - name: Mark the template creation successful
+          ansible.builtin.set_fact:
+            stage_succeeded: true
+
       rescue:
         - name: Record that the template creation failed
           ansible.builtin.set_fact:
@@ -118,6 +135,7 @@
 - name: Report template results
   hosts: "{{ target_hosts | default('all') }}"
   gather_facts: false
+  ignore_unreachable: true
 
   tasks:
     - name: Fail if any template failed to be created
@@ -133,10 +151,14 @@
         - inventory_hostname == ansible_play_hosts_all[0]
         - template_failures | length > 0
       vars:
+        # Fail-closed, matching build-qcow2.yml: anything that did not reach
+        # the success marker counts as a failure. Keying off stage_failed
+        # instead would let a host that never ran the rescue - an unreachable
+        # host, for one - pass as though it had produced a template.
         template_failures: >-
           {{ ansible_play_hosts_all
              | map('extract', hostvars)
-             | selectattr('stage_failed', 'defined')
-             | selectattr('stage_failed')
+             | rejectattr('stage_succeeded', 'defined')
              | map(attribute='inventory_hostname')
              | list }}
+
