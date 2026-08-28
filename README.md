@@ -134,7 +134,6 @@ DIB7 can deploy OVA files, but newer targets may need the closest supported
 - Fedora
 - Red Hat Enterprise Linux (RHEL)
 - CentOS
-- openSUSE
 - Gentoo
 
 The import playbooks publish provider-specific artifact IDs to a versioned image
@@ -405,6 +404,24 @@ name follows the `<inventory item>-base.tmpl` convention:
 ```yaml
 vsphere_template_name: "inventory-item-base.tmpl"
 ```
+
+## Default Image Users
+
+The custom elements create a bootstrap user for console or password-based SSH
+access. Each account has passwordless sudo. Passwords are currently temporary
+and predictable; replace them with SSH keys and disable password authentication
+before using an image outside a test environment.
+
+| Distribution  | Username     | Temporary password |
+| ------------- | ------------ | ------------------ |
+| Ubuntu        | `ubuntu`     | `ubuntu`           |
+| Debian        | `debian`     | `debian`           |
+| CentOS Stream | `cloud-user` | `cloud-user`       |
+| Fedora        | `fedora`     | `fedora`           |
+| Rocky Linux   | `rocky`      | `rocky`            |
+
+The `root` account is also assigned the temporary password `root` during the
+image build.
 
 ## Custom Elements
 
