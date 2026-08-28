@@ -111,6 +111,15 @@
               Name: "{{ image_name }}"
             state: present
 
+        - name: Publish imported AMI to image catalog
+          ansible.builtin.include_tasks: publish-image-catalog.yml
+          vars:
+            catalog_provider: aws
+            catalog_artifact_id: "{{ new_ami_id }}"
+            catalog_artifact_type: ami
+            catalog_region: "{{ aws_region }}"
+            catalog_boot_mode: "{{ image_boot_mode }}"
+
         - name: Remove OVA from S3 after successful import
           amazon.aws.s3_object:
             bucket: "{{ s3_bucket }}"
@@ -132,3 +141,4 @@
         - name: Fail with error message
           ansible.builtin.fail:
             msg: "Import process failed: {{ ansible_failed_result.msg | default(ansible_failed_result) }}. S3 cleanup attempted."
+

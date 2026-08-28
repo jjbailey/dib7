@@ -19,6 +19,11 @@
           ansible.builtin.include_vars:
             file: "../vaults/openstack.yml"
 
+        - name: Verify OpenStack credentials are valid
+          openstack.cloud.auth:
+            auth: "{{ openstack_auth }}"
+          register: openstack_auth_check
+
         - name: Require a QCOW2 built by this run
           ansible.builtin.include_tasks: verify-stamp.yml
           vars:
@@ -40,7 +45,6 @@
             auth: "{{ openstack_auth }}"
             name: "{{ image_name }}"
           register: existing_image
-          no_log: true
 
         - name: Delete existing image if it exists
           openstack.cloud.image:
@@ -48,18 +52,16 @@
             name: "{{ image_name }}"
             state: absent
           when: existing_image.images | length > 0
-          no_log: true
 
         - name: Wait for existing image deletion to complete
           openstack.cloud.image_info:
             auth: "{{ openstack_auth }}"
             name: "{{ image_name }}"
           register: deleted_image_status
-          until: deleted_image_status.images | length == 0
+          until: deleted_image_status.images | default([]) | length == 0
           retries: "{{ openstack_delete_poll_retries | default(40) | int }}"
           delay: "{{ openstack_delete_poll_delay | default(3) | int }}"
           when: existing_image.images | length > 0
-          no_log: true
 
         - name: Upload QCOW2 to OpenStack
           openstack.cloud.image:
@@ -70,7 +72,6 @@
             container_format: bare
             state: present
           register: image_upload
-          no_log: true
 
         - name: Display upload status
           ansible.builtin.debug:
@@ -82,19 +83,21 @@
             name: "{{ image_name }}"
           register: image_status
           until: >
-            image_status.images | length > 0 and
+            image_status.images | default([]) | length > 0 and
             (image_status.images | first).status | lower in ['active', 'killed', 'deleted', 'deactivated']
           retries: "{{ openstack_import_poll_retries | default(120) | int }}"
           delay: "{{ openstack_import_poll_delay | default(15) | int }}"
           failed_when: >
-            image_status.images | length > 0 and
+            image_status.images | default([]) | length > 0 and
             (image_status.images | first).status | lower in ['killed', 'deleted', 'deactivated']
-          no_log: true
 
-        - name: Fail if image was not found after upload polling
+        - name: Fail if more than one image matches this name
           ansible.builtin.fail:
-            msg: "OpenStack image {{ image_name }} was not found after upload polling completed"
-          when: image_status.images | length == 0
+            msg: >-
+              Found {{ image_status.images | length }} OpenStack images named {{ image_name }};
+              refusing to guess which one is the new import. Glance does not enforce unique
+              names, so remove the duplicate before retrying.
+          when: (image_status.images | length) > 1
 
         - name: Fail if image did not become active
           ansible.builtin.fail:
@@ -109,7 +112,25 @@
           ansible.builtin.debug:
             msg: "Import complete! Image ID: {{ new_image_id }}"
 
+        - name: Publish imported image to image catalog
+          ansible.builtin.include_tasks: publish-image-catalog.yml
+          vars:
+            catalog_provider: openstack
+            catalog_artifact_id: "{{ new_image_id }}"
+            catalog_artifact_type: glance_image
+            catalog_supersede: true
+            catalog_boot_mode: "{{ image_boot_mode }}"
+            catalog_project: "{{ openstack_auth.project_name }}"
+            catalog_region: "{{ openstack_auth.region_name | default(None, true) }}"
+
       rescue:
         - name: Fail with error message
           ansible.builtin.fail:
-            msg: "Import process failed: {{ ansible_failed_result.msg | default('unknown error') }}"
+            msg: >-
+              Import process failed in task '{{ ansible_failed_task.name | default('unknown task') }}':
+              {{ (ansible_failed_result.msg | default('', true))
+                 or (ansible_failed_result.stderr | default('', true))
+                 or (ansible_failed_result.stdout | default('', true))
+                 or 'unknown error' }}
+              Source QCOW2 remains at {{ build_dir }}/{{ qcow2_file }} for debugging/retry.
+

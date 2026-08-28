@@ -2,13 +2,13 @@
 
 DIB7 runs from a single Python virtual environment at `~/.dib7`. It holds
 `ansible-core`, `diskimage-builder`, and the controller-side cloud SDKs, and it
-builds every distro — Debian, Ubuntu, Fedora, and CentOS alike.
+builds every distro — Debian, Ubuntu, Fedora, CentOS, and Rocky alike.
 
 Fedora needs a patched `diskimage-builder` element. That patch is applied inside
 `~/.dib7` along with everything else: it only touches the `fedora` element, so
 it has no effect on the other builds. See [fedora.md](fedora.md).
 
-All four inventory groups point at this one environment through `venv_bin` in
+All five inventory groups point at this one environment through `venv_bin` in
 `group_vars/all/main.yml`. See [group-vars-all.md](group-vars-all.md).
 
 ## 1. Install Required System Packages
@@ -66,7 +66,8 @@ From the project root:
 <!-- markdownlint-disable MD013 -->
 
 ```bash
-patch -b -d ~/.dib7/lib/python3.12/site-packages/diskimage_builder/elements/fedora/root.d \
+DIB7_SITE=$(~/.dib7/bin/python3 -c "import site; print(site.getsitepackages()[0])")
+patch -b -d "$DIB7_SITE/diskimage_builder/elements/fedora/root.d" \
       < patches/diskimage-builder-3.42.0-fedora-generic-image.patch
 ```
 

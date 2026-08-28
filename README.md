@@ -29,6 +29,11 @@ flowchart TB
     S3 --> AWS_IMG["☁️ AWS AMI"]
     OVA --> VSPHERE_IMG["☁️ vSphere OVA"]
     VSPHERE_IMG --> VSPHERE_TPL["☁️ vSphere Template"]
+    AWS_IMG --> CATALOG["🗂️ Versioned image catalog"]
+    GCP_IMG --> CATALOG
+    OPENSTACK_IMG --> CATALOG
+    VSPHERE_IMG --> CATALOG
+    VSPHERE_TPL --> CATALOG
 ```
 
 ## Supported Platforms
@@ -42,13 +47,14 @@ flowchart TB
 
 ### Operating Systems by Provider
 
-Validated against provider documentation on 2026-05-17. Provider support is
+Validated against provider documentation on 2026-07-28. See the provider-specific
+pages in `doc/` for release and known-issue details. Provider support is
 separate from DIB7 inventory support; re-check the provider matrix before
 enabling a new target release.
 
 Source documents checked:
 [AWS VM Import/Export requirements](https://docs.aws.amazon.com/vm-import/latest/userguide/prerequisites.html),
-[GCP Compute Engine OS details](https://docs.cloud.google.com/compute/docs/images/os-details),
+[GCP Migrate to Virtual Machines supported operating systems](https://cloud.google.com/migrate/virtual-machines/docs/5.0/discover/supported-os-versions),
 [OpenStack Glance project reference](https://governance.openstack.org/tc/reference/projects/glance.html),
 and the
 [VMware Guest OS Installation Guide](https://partnerweb.vmware.com/GOSIG/home.html).
@@ -58,7 +64,7 @@ and the
 Current provider-supported operating systems:
 
 - Amazon Linux 2 and 2023
-- Ubuntu through 24.04
+- Ubuntu through 26.04
 - Debian 11 and selected Debian 12 releases through 12.7
 - Fedora 41-43
 - CentOS Stream 9
@@ -68,26 +74,29 @@ Current provider-supported operating systems:
   still listed by AWS
 - Windows Server through 2025
 
-DIB7 target notes: `ubuntu24044` matches AWS import support.
-`ubuntu26040`, `debian1306`, `fedora44`, and `centos10s` are not listed for
-AWS VM Import/Export.
+DIB7 target notes: `ubuntu24044` matches AWS import support, and
+`ubuntu26041` matches the published kernel matrix but currently encounters an
+AWS-side injection failure; see [doc/aws-supported-images.md](doc/aws-supported-images.md).
+`rocky102` is covered only when its resulting point release is no newer than
+10.1; verify the cloud image point release before importing. `debian1215`,
+`debian1306`, `fedora44`, and `centos10s` are not listed for AWS VM Import/Export.
 
 #### GCP Compute Engine Image Import
 
 Current provider-supported operating systems:
 
-- Ubuntu 18.04.6, 20.04, 22.04, and 24.04
-- Debian 11.0-11.6, 12, and 13.0-13.2
-- CentOS Stream 8, 9, and 10
-- RHEL 7.9, 8.0-8.10, 9.0-9.6, and 10.0
-- Rocky Linux 8.4-8.5, 9, and 10
-- AlmaLinux 8.3-8.10, 9.0-9.6, and 10.0
-- SLES 12 SP4-SP5 and selected SLES 15 service packs
+- Ubuntu 22.04, 24.04, and 26.04
+- Debian 11.0-11.7, 12.0-12.10, and 13.0-13.2
+- CentOS Stream 9 and 10
+- RHEL 7.9, 8.0-8.10, 9.0-9.7, and 10.0-10.2
+- Rocky Linux 8.4-8.10, 9.0-9.7, and 10.0-10.1
+- AlmaLinux 8.3-8.10, 9.0-9.8, and 10.0-10.2
+- SLES 12 SP5, 15 SP5-SP7, and 16
 - Windows Server through 2025
 
-DIB7 target notes: `ubuntu24044`, `debian1306`, and `centos10s` match GCP
-import support. `ubuntu26040` and Fedora Server are not listed as supported
-import targets.
+DIB7 target notes: `ubuntu24044`, `ubuntu26041`, `debian1306`, and `centos10s`
+match the current GCP import matrix. Fedora Server is not listed as a supported
+import target.
 
 #### OpenStack Glance
 
@@ -125,8 +134,11 @@ DIB7 can deploy OVA files, but newer targets may need the closest supported
 - Fedora
 - Red Hat Enterprise Linux (RHEL)
 - CentOS
-- openSUSE
 - Gentoo
+
+The import playbooks publish provider-specific artifact IDs to a versioned image
+catalog. See [doc/image-catalog.md](doc/image-catalog.md) for the Terraform
+hand-off.
 
 ## Quick Start
 
@@ -164,7 +176,8 @@ DIB7 can deploy OVA files, but newer targets may need the closest supported
    <!-- markdownlint-disable MD013 -->
 
    ```bash
-   patch -b -d ~/.dib7/lib/python3.12/site-packages/diskimage_builder/elements/fedora/root.d \
+   DIB7_SITE=$(~/.dib7/bin/python3 -c "import site; print(site.getsitepackages()[0])")
+   patch -b -d "$DIB7_SITE/diskimage_builder/elements/fedora/root.d" \
          < patches/diskimage-builder-3.42.0-fedora-generic-image.patch
    ```
 
@@ -183,10 +196,30 @@ DIB7 can deploy OVA files, but newer targets may need the closest supported
 3. **System Dependencies**
 
    ```bash
-   sudo apt install -y qemu-utils kpartx debootstrap parted dosfstools gdisk squashfs-tools
+   sudo apt install -y qemu-utils kpartx debootstrap parted dosfstools gdisk squashfs-tools libguestfs-tools lvm2
    ```
 
+   `ovftool`, PowerShell with PowerCLI, and the Google Cloud CLI (`gcloud`) are
+   installed separately and are required by the conversion, vSphere, and GCP
+   workflows respectively. See the playbook dependency list below.
+
 ### Basic Usage
+
+For a multi-stage run, create one run ID and pass it to every stage so the
+stamp gates can detect artifacts left by an earlier run:
+
+```bash
+RUN_ID=$(date +%s)
+~/.dib7/bin/ansible-playbook -e "run_id=$RUN_ID" playbooks/build-qcow2.yml
+~/.dib7/bin/ansible-playbook -e "run_id=$RUN_ID" playbooks/convert-qcow2-to-ova.yml
+```
+
+A manually driven stage without `run_id` still requires the preceding stamp and
+uses the run recorded in that stamp for catalog versioning. The commands below
+assume `RUN_ID` remains set; include `-e "run_id=$RUN_ID"` on each build,
+conversion, and import invocation. A manually driven invocation can nevertheless
+consume an older artifact if that old stamp remains, so use one run ID for a
+release pipeline.
 
 1. **Configure Vaults** (see [Vault Configuration](#vault-configuration))
 
@@ -194,13 +227,13 @@ DIB7 can deploy OVA files, but newer targets may need the closest supported
 
    ```bash
    # Build all hosts in the inventory
-   ansible-playbook playbooks/build-qcow2.yml
+   ~/.dib7/bin/ansible-playbook playbooks/build-qcow2.yml
 
    # Build a specific host
-   ansible-playbook playbooks/build-qcow2.yml -l ubuntu24044
+   ~/.dib7/bin/ansible-playbook playbooks/build-qcow2.yml -l ubuntu24044
 
    # Build all hosts in a group
-   ansible-playbook playbooks/build-qcow2.yml -l ubuntu
+   ~/.dib7/bin/ansible-playbook playbooks/build-qcow2.yml -l ubuntu
    ```
 
    Omit `-l` to run against every host in `hosts.yml`. Use `-l` only when you
@@ -211,28 +244,36 @@ DIB7 can deploy OVA files, but newer targets may need the closest supported
    **AWS:**
 
    ```bash
-   ansible-playbook playbooks/convert-qcow2-to-ova.yml -l <host-or-group> --ask-vault-pass
-   ansible-playbook playbooks/import-ova-aws.yml -l <host-or-group> --ask-vault-pass
+   ~/.dib7/bin/ansible-playbook playbooks/convert-qcow2-to-ova.yml -l <host-or-group> --ask-vault-pass
+   ~/.dib7/bin/ansible-playbook playbooks/import-ova-aws.yml -l <host-or-group> --ask-vault-pass
    ```
 
    **GCP:**
 
    ```bash
-   ansible-playbook playbooks/import-qcow2-gcp.yml -l <host-or-group> --ask-vault-pass
+   ~/.dib7/bin/ansible-playbook playbooks/import-qcow2-gcp.yml -l <host-or-group> --ask-vault-pass
    ```
 
    **OpenStack:**
 
    ```bash
-   ansible-playbook playbooks/import-qcow2-openstack.yml -l <host-or-group> --ask-vault-pass
+   ~/.dib7/bin/ansible-playbook playbooks/import-qcow2-openstack.yml -l <host-or-group> --ask-vault-pass
    ```
 
    **vSphere:**
 
+   `import-ova-vsphere.yml` and `import-ova-vsphere-template.yml` are
+   alternatives, not a chain — each independently uploads the OVA, so only run
+   the one(s) you actually need.
+
    ```bash
-   ansible-playbook playbooks/convert-qcow2-to-ova.yml -l <host-or-group> --ask-vault-pass
-   ansible-playbook playbooks/import-ova-vsphere.yml -l <host-or-group> --ask-vault-pass
-   ansible-playbook playbooks/import-ova-vsphere-template.yml \
+   # vSphere OVA (content library item) only
+   ~/.dib7/bin/ansible-playbook playbooks/convert-qcow2-to-ova.yml -l <host-or-group> --ask-vault-pass
+   ~/.dib7/bin/ansible-playbook playbooks/import-ova-vsphere.yml -l <host-or-group> --ask-vault-pass
+
+   # vSphere Template instead
+   ~/.dib7/bin/ansible-playbook playbooks/convert-qcow2-to-ova.yml -l <host-or-group> --ask-vault-pass
+   ~/.dib7/bin/ansible-playbook playbooks/import-ova-vsphere-template.yml \
      -l <host-or-group> --ask-vault-pass
    ```
 
@@ -243,15 +284,23 @@ dib7/
 ├── ansible.cfg                 # Ansible configuration
 ├── bin/                        # Utility scripts
 │   ├── import-ova-vsphere.ps1  # PowerShell vSphere import script
+│   ├── import-ova-vsphere-template.ps1  # PowerShell template import script
+│   ├── publish-image-catalog.py # Catalog publisher
+│   ├── reconcile-catalog-aws.py # Marks catalog AMIs retired if gone from AWS
 │   ├── inspect-qcow2.sh        # Script for examining and modifying virtual machines
 │   └── *-vault.sh              # Vault management scripts
+├── block-device-config/       # DIB EFI/GPT block-device layouts
+├── catalogs/                   # Versioned provider artifact catalog and schema
 ├── doc/                        # Documentation
 ├── elements/                   # DIB elements for custom OS configurations
 ├── group_vars/                 # Ansible group variables
 ├── hosts.yml                   # Inventory file
 ├── patches/                    # Patches applied to the venv (see doc/fedora.md)
 ├── playbooks/                  # Ansible playbooks
+├── requirements.txt            # Pinned Python dependencies
+├── requirements.yml            # Pinned Ansible collections
 ├── templates/                  # Jinja2 templates
+├── tests/                     # Syntax and data validation
 └── vaults/                     # Encrypted credentials
 ```
 
@@ -267,9 +316,8 @@ dib7/
 - `doc/gcp-supported-images.md` - GCP Compute Engine Linux distribution support
 - `doc/group-vars-all.md` - defaults shared by all builds
 - `doc/group-vars-distro.md` - per-distro variables and differences
+- `doc/image-catalog.md` - catalog format and Terraform hand-off contract
 - `doc/phases.md` - DIB phase subdirectories, execution order, and chroot behavior
-- `doc/pipeline-stamps.md` - how a failing distro is stopped from cancelling the
-  others or publishing a stale image
 - `doc/playbooks-overview.md` - what each playbook does and when to run it
 - `doc/python3-virtualenv.md` - setting up the diskimage-builder Python
   virtual environment
@@ -297,6 +345,8 @@ dib7/
   Dependencies: gcloud (including `gcloud storage`).
 - `import-qcow2-openstack.yml`: Import QCOW2 to OpenStack.
   Dependencies: `openstack.cloud` collection.
+- `backfill-vsphere-ova-catalog.yml`: Rebuild missing vSphere OVA catalog rows
+  for artifacts already imported into the content library.
 
 ## Vault Configuration
 
@@ -316,7 +366,9 @@ vmimport_role_name: "vmimport-role"
 ```yaml
 gcp_project: "my-project"
 gcs_bucket: "my-image-bucket"
-gcs_location: "my-location"
+# Region that runs the import job, not a bucket or image location.
+# See doc/vaults.md.
+gcp_import_location: "us-central1"
 service_account_key: |
   {
     "type": "service_account",
@@ -352,6 +404,24 @@ name follows the `<inventory item>-base.tmpl` convention:
 ```yaml
 vsphere_template_name: "inventory-item-base.tmpl"
 ```
+
+## Default Image Users
+
+The custom elements create a bootstrap user for console or password-based SSH
+access. Each account has passwordless sudo. Passwords are currently temporary
+and predictable; replace them with SSH keys and disable password authentication
+before using an image outside a test environment.
+
+| Distribution  | Username     | Temporary password |
+| ------------- | ------------ | ------------------ |
+| Ubuntu        | `ubuntu`     | `ubuntu`           |
+| Debian        | `debian`     | `debian`           |
+| CentOS Stream | `cloud-user` | `cloud-user`       |
+| Fedora        | `fedora`     | `fedora`           |
+| Rocky Linux   | `rocky`      | `rocky`            |
+
+The `root` account is also assigned the temporary password `root` during the
+image build.
 
 ## Custom Elements
 
@@ -395,6 +465,10 @@ and whether each phase runs inside or outside the chroot.
   instead of deleting the existing image
 - `gcp_delete_qcow2_after_import`: Delete the QCOW2 from GCS after a
   successful Compute image import (default: `false`)
+- `build_stamp_file`, `convert_stamp_file`: provenance gates that stop a
+  downstream stage from consuming an artifact left by an earlier run
+- `image_catalog_path`, `catalog_version`, `image_boot_mode`: the generated
+  provider-artifact catalog's location, version, and image boot mode
 - `dpkg_opts`, `debian_frontend`, `needrestart_mode`: Debian/Ubuntu packaging options
 
 ### OS-Specific Variables
@@ -402,6 +476,7 @@ and whether each phase runs inside or outside the chroot.
 - `group_vars/centos/main.yml`
 - `group_vars/debian/main.yml`
 - `group_vars/fedora/main.yml`
+- `group_vars/rocky/main.yml`
 - `group_vars/ubuntu/main.yml`
 
 ## Development
@@ -414,14 +489,15 @@ export DIB_RELEASE=noble
 disk-image-create ubuntu vm -o test-ubuntu
 
 # Inspect QCOW2 contents
-./bin/inspect-qcow2.sh test-ubuntu.qcow2
+./bin/inspect-qcow2.sh -i test-ubuntu.qcow2
 ```
 
 ### Adding New OS Support
 
-1. Create custom element in `elements/`
-2. Add group variables in `group_vars/`
-3. Update documentation in `doc/`
+1. Add the host and `dib_release` to the appropriate group in `hosts.yml`
+2. Create or update the distro variables in `group_vars/`
+3. Create or update the custom element in `elements/`
+4. Update documentation in `doc/`
 
 For a full walkthrough, including how to add a new release of an existing
 distro such as Ubuntu `26.04`, see
@@ -458,7 +534,8 @@ by the local suite.
      first if you need to keep the existing image
 
 3. **Ansible Collection Issues**
-   - Update collections: `ansible-galaxy collection install --force <collection>`
+   - Update collections: `~/.dib7/bin/ansible-galaxy collection install --force`
+     `<collection>`
    - Check collection compatibility with Ansible version
 
 ### Debug Mode
@@ -466,7 +543,7 @@ by the local suite.
 Run playbooks with verbose output:
 
 ```bash
-ansible-playbook playbooks/build-qcow2.yml -vvv
+~/.dib7/bin/ansible-playbook playbooks/build-qcow2.yml -vvv
 ```
 
 ## Contributing

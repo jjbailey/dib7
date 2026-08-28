@@ -15,11 +15,12 @@ once here rather than per group. See
 
 <!-- markdownlint-disable MD013 -->
 
-| Variable    | Default                                 | Description                                                                        |
-| ----------- | --------------------------------------- | ---------------------------------------------------------------------------------- |
-| `venv_bin`  | `{{ ansible_env.HOME }}/.dib7/bin`      | Directory holding `disk-image-create` and the other virtualenv tools.              |
-| `path`      | `{{ venv_bin }}:{{ ansible_env.PATH }}` | Prepends the virtualenv bin dir to `PATH` so its binaries are found first.         |
-| `build_dir` | `/work/dib-builds`                      | Staging directory for all image files. Used by every playbook in the pipeline.     |
+| Variable      | Default                                 | Description                                                                                    |
+| ------------- | --------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `venv_bin`    | `{{ ansible_env.HOME }}/.dib7/bin`      | Directory holding `disk-image-create` and the other virtualenv tools.                          |
+| `path`        | `{{ venv_bin }}:{{ ansible_env.PATH }}` | Prepends the virtualenv bin dir to `PATH` so its binaries are found first.                     |
+| `build_dir`   | `/work/dib-builds`                      | Staging directory for all image files. Used by every playbook in the pipeline.                 |
+| `dib_vg_name` | `vg1`                                   | LVM volume group name used by the block device config; also what the build cleanup tears down. |
 
 <!-- markdownlint-enable MD013 -->
 
@@ -59,6 +60,55 @@ different extensions.
 
 ---
 
+## Pipeline Stamps
+
+Each stage writes a stamp holding the `run_id` that produced the artifact next
+to it, and the following stage refuses to consume an artifact whose stamp is
+missing or from an older run. See `local/pipeline-stamps.md` (internal-only,
+not part of the public dib7 mirror).
+
+<!-- markdownlint-disable MD013 -->
+
+| Variable             | Value                        | Description                                                           |
+| -------------------- | ---------------------------- | --------------------------------------------------------------------- |
+| `build_stamp_file`   | `{{ image_name }}.built`     | Written by `build-qcow2.yml`; verified by the QCOW2 consumers.        |
+| `convert_stamp_file` | `{{ image_name }}.converted` | Written by `convert-qcow2-to-ova.yml`; verified by the OVA consumers. |
+
+<!-- markdownlint-enable MD013 -->
+
+---
+
+## Image Catalog
+
+The Terraform integration contract. See [image-catalog.md](image-catalog.md).
+
+<!-- markdownlint-disable MD013 -->
+
+| Variable             | Default                                           | Description                                                                                                     |
+| -------------------- | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `image_catalog_path` | `{{ inventory_dir }}/catalogs/image-catalog.json` | Where the catalog is written - `catalogs/` in the repo. Override when the catalog is copied to release storage. |
+| `catalog_version`    | `run_id`, else the verified stamp                 | Version recorded on each entry. Falls back to the run recorded in the stage stamp when no `run_id` was passed.  |
+| `image_boot_mode`    | `uefi`                                            | Boot mode recorded on every catalog entry. A property of the image, not of a provider.                          |
+
+<!-- markdownlint-enable MD013 -->
+
+---
+
+## Cloud Import Behaviour
+
+<!-- markdownlint-disable MD013 -->
+
+| Variable                        | Default                              | Description                                                                                   |
+| ------------------------------- | ------------------------------------ | --------------------------------------------------------------------------------------------- |
+| `aws_import_boot_mode`          | `{{ image_boot_mode }}`              | Boot mode handed to AWS `ImportImage`. Separate only because the API takes it as a parameter. |
+| `gcp_replace_existing_image`    | `true`                               | Delete and recreate a GCP image of the same name rather than failing.                         |
+| `gcp_delete_qcow2_after_import` | `false`                              | Whether to remove the staged QCOW2 from GCS after a successful import.                        |
+| `vsphere_template_name`         | `{{ inventory_hostname }}-base.tmpl` | Name of the template created in the `Templates` folder.                                       |
+
+<!-- markdownlint-enable MD013 -->
+
+---
+
 ## Package Manager / APT Behaviour
 
 These suppress interactive prompts during Debian/Ubuntu package operations.
@@ -66,11 +116,11 @@ They are harmless on RPM-based systems where `apt`/`dpkg` are not used.
 
 <!-- markdownlint-disable MD013 -->
 
-| Variable           | Value                             | Description                                                                                    |
-| ------------------ | --------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `dpkg_opts`        | `--force-confdef --force-confold` | Keeps existing config files without prompting when a package upgrade ships a new default.      |
-| `debian_frontend`  | `noninteractive`                  | Prevents `apt`/`dpkg` from opening interactive dialogs (e.g. `debconf`).                       |
-| `needrestart_mode` | `a`                               | Sets `needrestart` to automatic mode so it restarts services without prompting after upgrades. |
+| Variable           | Value                                                                   | Description                                                                                    |
+| ------------------ | ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `dpkg_opts`        | `-o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold` | Keeps existing config files without prompting when a package upgrade ships a new default.      |
+| `debian_frontend`  | `noninteractive`                                                        | Prevents `apt`/`dpkg` from opening interactive dialogs (e.g. `debconf`).                       |
+| `needrestart_mode` | `a`                                                                     | Sets `needrestart` to automatic mode so it restarts services without prompting after upgrades. |
 
 <!-- markdownlint-enable MD013 -->
 

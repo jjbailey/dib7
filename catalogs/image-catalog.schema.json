@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["schema_version", "images"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "images": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["logical_name", "provider", "artifact_id", "artifact_type", "version", "architecture", "boot_mode", "source_build", "status"],
+        "properties": {
+          "logical_name": {"type": "string", "minLength": 1},
+          "provider": {"enum": ["aws", "gcp", "openstack", "vsphere"]},
+          "region": {"type": "string"},
+          "project": {"type": "string"},
+          "scope": {"type": "object", "additionalProperties": {"type": "string"}},
+          "artifact_id": {"type": "string", "minLength": 1},
+          "artifact_type": {"type": "string", "minLength": 1},
+          "version": {"type": "string", "minLength": 1},
+          "architecture": {"type": "string", "minLength": 1},
+          "boot_mode": {"type": "string", "minLength": 1},
+          "source_build": {"type": "string", "minLength": 1},
+          "status": {"enum": ["published", "retired"]}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

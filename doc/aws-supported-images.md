@@ -5,7 +5,7 @@ docs. Last checked against upstream on 2026-07-28.
 
 <https://docs.aws.amazon.com/vm-import/latest/userguide/prerequisites.html>
 
-AWS matches on the *kernel* version, not just the release, so the kernel column
+AWS matches on the _kernel_ version, not just the release, so the kernel column
 matters. An import whose kernel is off the matrix comes back as
 `ClientError: Unsupported kernel version`.
 
@@ -91,7 +91,7 @@ Note that Fedora 44 is not yet listed, which `fedora44` builds.
 
 ### Ubuntu 26.04 fails during injection
 
-As of 2026-07-28, importing `ubuntu26040-base.ova` fails even though 26.04 with
+As of 2026-07-28, importing `ubuntu26041-base.ova` fails even though 26.04 with
 kernel 7.0.0 is on the matrix above and the build produces exactly
 `linux-image-7.0.0-28-generic`:
 
@@ -116,8 +116,8 @@ Options, in order:
 
 1. Retry once, in case it is transient.
 2. Bypass injection with `aws ec2 import-snapshot` plus `aws ec2 register-image
-   --boot-mode uefi --ena-support`. There is no `ec2_snapshot_import` module in
-   amazon.aws 11.1.0, so this means shelling out. Confirm `ena` and `nvme` are
+--boot-mode uefi --ena-support`. There is no `ec2_snapshot_import` module in
+   amazon.aws 11.4.0, so this means shelling out. Confirm `ena` and `nvme` are
    in the initramfs first.
 3. Open an AWS support case with the import task ID. A `SERVER_ERROR` is their
    bug to fix.

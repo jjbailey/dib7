@@ -7,7 +7,7 @@
 # suite behaved until it was fixed. Do not remove.
 set -euo pipefail
 
-repo_dir="$(CDPATH= builtin cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." >/dev/null && builtin pwd -P)"
+repo_dir="$(CDPATH= builtin cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." > /dev/null && builtin pwd -P)"
 cd "$repo_dir"
 
 failures=0
@@ -23,7 +23,7 @@ for playbook in playbooks/*.yml ; do
     # These are tasks files, not playbooks; they are syntax-checked when
     # included by the real playbooks.
     case "$(basename "$playbook")" in
-        common-setup.yml|verify-stamp.yml) continue ;;
+        common-setup.yml | publish-image-catalog.yml | verify-stamp.yml) continue ;;
     esac
     if ansible-playbook -i hosts.yml "$playbook" --syntax-check > /dev/null ; then
         echo "  ok   $playbook"
@@ -33,8 +33,8 @@ for playbook in playbooks/*.yml ; do
 done
 
 echo "== shell syntax =="
-# bin/, local/ and tests/ helpers plus every element hook, which is where most
-# of the shell in this repo actually lives.
+# bin/ and tests/ helpers plus every element hook, which is where most of
+# the shell in this repo actually lives.
 while IFS= read -r script ; do
     if bash -n "$script" ; then
         echo "  ok   $script"
@@ -42,16 +42,50 @@ while IFS= read -r script ; do
         fail "$script failed bash -n"
     fi
 done < <(
-    find bin local tests -type f -name '*.sh' 2> /dev/null
+    find bin tests -type f -name '*.sh' 2> /dev/null
     find elements -type f \( \
         -path '*/pre-install.d/*' -o \
         -path '*/install.d/*' -o \
         -path '*/post-install.d/*' -o \
         -path '*/finalise.d/*' -o \
         -path '*/root.d/*' -o \
-        -path '*/environment.d/*' \
+        -path '*/environment.d/*' -o \
+        -path '*/extra-data.d/*' -o \
+        -path '*/post-root.d/*' -o \
+        -path '*/pre-finalise.d/*' -o \
+        -path '*/block-device.d/*' -o \
+        -path '*/cleanup.d/*' \
         \) 2> /dev/null
 )
+
+echo "== Python syntax =="
+while IFS= read -r script ; do
+    if python3 -m py_compile "$script" ; then
+        echo "  ok   $script"
+    else
+        fail "$script failed py_compile"
+    fi
+done < <(find bin -type f -name "*.py" 2> /dev/null)
+
+echo "== catalog schema =="
+if python3 - << 'PYTHON' ; then
+import json
+from pathlib import Path
+from jsonschema import Draft202012Validator
+schema = json.loads(Path("catalogs/image-catalog.schema.json").read_text())
+validator = Draft202012Validator(schema)
+for path in sorted(Path("catalogs").glob("*.json")):
+    if path.name == "image-catalog.schema.json":
+        continue
+    data = json.loads(path.read_text())
+    errors = sorted(validator.iter_errors(data), key=lambda error: list(error.path))
+    if errors:
+        raise SystemExit(f"{path}: {errors[0].message}")
+PYTHON
+    echo "  ok   catalog JSON matches schema"
+else
+    fail "catalog schema validation failed"
+fi
 
 echo "== powershell syntax =="
 if command -v pwsh > /dev/null 2>&1 ; then
@@ -61,7 +95,7 @@ if command -v pwsh > /dev/null 2>&1 ; then
             \$tokens = \$null
             [System.Management.Automation.Language.Parser]::ParseFile(
                 '$repo_dir/$ps', [ref]\$tokens, [ref]\$errs) | Out-Null
-            if (\$errs) { \$errs | ForEach-Object { Write-Host \$_ }; exit 1 }
+            if (\$errs) { \$errs | ForEach-Object { Write-Host \$_ } ; exit 1 }
         " ; then
             echo "  ok   $ps"
         else

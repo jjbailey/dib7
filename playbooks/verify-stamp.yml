@@ -36,6 +36,15 @@
   delegate_to: localhost
   register: stamp_content
 
+# The provenance of the artifact this stage is about to consume, recorded so
+# the catalog can version an entry by the run that actually built it rather
+# than by whoever happened to import it. A stage driven by hand has no run_id,
+# and without this the entry would be published as version 'manual' - a fixed
+# string that names no build and that every later hand-run overwrites in place.
+- name: Record the run that produced the artifact
+  ansible.builtin.set_fact:
+    stage_source_run: "{{ stamp_content.content | b64decode | trim }}"
+
 - name: Fail if the stamp is older than this run of {{ stamp_producer }}
   ansible.builtin.fail:
     msg: >-
@@ -46,3 +55,4 @@
   when:
     - run_id is defined
     - (stamp_content.content | b64decode | trim) != (run_id | string)
+

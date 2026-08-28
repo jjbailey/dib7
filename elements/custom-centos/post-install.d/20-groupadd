@@ -1,0 +1,10 @@
+#!/bin/bash
+# 20-groupadd
+# vim: set tabstop=4 shiftwidth=4 expandtab:
+
+[ ${DIB_DEBUG_TRACE:-0} -gt 0 ] && set -x
+set -eu
+set -o pipefail
+
+groupadd -g 1000 cloud-user
+exit 0

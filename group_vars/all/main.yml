@@ -17,14 +17,33 @@ image_name: "{{ inventory_hostname }}-base"
 image_size: "35"
 image_type: "qcow2"
 
+# Terraform integration contract. The catalog lives in the repo rather than in
+# build_dir so it survives a wipe of the build tree and can be committed.
+# Override this path in a deployment-specific vars file or extra vars when the
+# catalog is copied to release storage.
+image_catalog_path: "{{ inventory_dir }}/catalogs/image-catalog.json"
+# Prefer the run passed by the wrapper script; fall back to the stamp
+# verify-stamp.yml read off the artifact itself, which names the run that built
+# it. The two are provably equal whenever both exist, because verify-stamp.yml
+# fails the stage when they differ - the fallback only carries a stage run by
+# hand. 'manual' remains only for a caller that publishes without verifying a
+# stamp at all, and no import playbook does that.
+catalog_version: "{{ run_id | default(stage_source_run) | default('manual') }}"
+
 # Cloud import behavior.
 gcp_replace_existing_image: true
 gcp_delete_qcow2_after_import: false
 
-# Boot mode handed to AWS ImportImage. Every group currently builds with
+# Boot mode of the built image. Every group currently builds with
 # block-device-efi-config.yml, so uefi is right for all of them. Override in
 # group_vars/<group>/main.yml if a build ever switches to the MBR config.
-aws_import_boot_mode: "uefi"
+# This is a property of the image, not of any one provider, so every catalog
+# entry records it from here rather than hardcoding uefi per import playbook.
+image_boot_mode: "uefi"
+
+# Boot mode handed to AWS ImportImage. Separate from image_boot_mode only
+# because the AWS API takes it as an import parameter as well.
+aws_import_boot_mode: "{{ image_boot_mode }}"
 
 mf_file: "{{ image_name }}.mf"
 ova_file: "{{ image_name }}.ova"

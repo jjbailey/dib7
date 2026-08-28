@@ -17,14 +17,15 @@ From the project root:
 <!-- markdownlint-disable MD013 -->
 
 ```bash
-patch -b -d ~/.dib7/lib/python3.12/site-packages/diskimage_builder/elements/fedora/root.d \
+DIB7_SITE=$(~/.dib7/bin/python3 -c "import site; print(site.getsitepackages()[0])")
+patch -b -d "$DIB7_SITE/diskimage_builder/elements/fedora/root.d" \
       < patches/diskimage-builder-3.42.0-fedora-generic-image.patch
 ```
 
 <!-- markdownlint-enable MD013 -->
 
 It edits only `elements/fedora/root.d/10-fedora-cloud-image`, which no other
-distro reads, so it is inert for the Debian, Ubuntu, and CentOS builds that
+distro reads, so it is inert for the Debian, Ubuntu, CentOS, and Rocky builds that
 share the same venv.
 
 The patch content, for reference:
@@ -80,8 +81,8 @@ Confirm both:
 # expect a path under ~/.dib7
 
 # 2. Is the branch present in the element that will be read?
-grep -c "Fedora-Cloud-Base-Generic" \
-  ~/.dib7/lib/python3.12/site-packages/diskimage_builder/elements/fedora/root.d/10-fedora-cloud-image
+DIB7_SITE=$(~/.dib7/bin/python3 -c "import site; print(site.getsitepackages()[0])")
+grep -c "Fedora-Cloud-Base-Generic" "$DIB7_SITE/diskimage_builder/elements/fedora/root.d/10-fedora-cloud-image"
 # expect: 2
 ```
 

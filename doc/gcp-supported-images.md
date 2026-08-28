@@ -23,7 +23,7 @@ different support matrix and is not what this repo uses.
   images that are already UEFI. Every image in this repo is built UEFI-native
   from `block-device-efi-config.yml`, so that column does not apply.
 - Distributions absent from the table are not declared unsupported. Google takes
-  requests at m2vm-os-support-request@google.com.
+  requests at <m2vm-os-support-request@google.com>.
 
 ## AlmaLinux
 
@@ -83,15 +83,15 @@ Listed separately under "Operating systems supported by partners":
 
 ## Coverage of the images built here
 
-| Build | GCP | Notes |
-| --- | --- | --- |
-| `centos10s` | Yes | CentOS Stream 10 |
-| `debian1215` | Yes | Debian 12.x |
-| `debian1306` | Yes | Debian 13.x, in range through 13.2 |
-| `fedora44` | **Not listed** | Fedora does not appear in the table at all |
-| `rocky102` | Yes | Confirm the point release lands at or below 10.1 |
-| `ubuntu24044` | Yes | Known good, imports successfully |
-| `ubuntu26040` | Yes | Supported here, unlike AWS — see below |
+| Build         | GCP            | Notes                                            |
+| ------------- | -------------- | ------------------------------------------------ |
+| `centos10s`   | Yes            | CentOS Stream 10                                 |
+| `debian1215`  | Yes            | Debian 12.x                                      |
+| `debian1306`  | Yes            | Debian 13.x, in range through 13.2               |
+| `fedora44`    | **Not listed** | Fedora does not appear in the table at all       |
+| `rocky102`    | Yes            | Confirm the point release lands at or below 10.1 |
+| `ubuntu24044` | Yes            | Known good, imports successfully                 |
+| `ubuntu26041` | Yes            | Supported here, unlike AWS — see below           |
 
 Fedora is absent from the M2VM table entirely, in contrast to AWS, which lists
 Fedora 41–43. `fedora44` is therefore off-matrix on both clouds.

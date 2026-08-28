@@ -88,7 +88,7 @@ Used in `templates/ovf-file.j2` to generate the OVF descriptor for VMware.
 | -------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `vm_memory_mb` | `4096`               | VM memory allocation in MB.                                                                                                                                                                 |
 | `vm_cpus`      | `4`                  | Number of virtual CPUs.                                                                                                                                                                     |
-| `vm_os_type`   | e.g. `ubuntu64Guest` | VMware guest OS identifier used in the OVF `OperatingSystemSection`. Debian Trixie intentionally uses the Debian 11 guest ID because VMware does not yet expose a native Trixie identifier. |
+| `vm_os_type`   | e.g. `ubuntu64Guest` | VMware guest OS identifier used in the OVF `OperatingSystemSection`. Debian Trixie intentionally uses the Debian 12 guest ID because VMware does not yet expose a native Trixie identifier. |
 
 <!-- markdownlint-enable MD013 -->
 
@@ -136,7 +136,7 @@ Variables that differ across the five groups. All other variables are identical.
 | Group    | `elements_base`                                                       | `vm_os_type`       | `vm_os_description`            |
 | -------- | --------------------------------------------------------------------- | ------------------ | ------------------------------ |
 | `centos` | `bootloader block-device-efi-lvm centos dracut-regenerate`            | `centos9_64Guest`  | `CentOS 10 (64-bit)`           |
-| `debian` | `bootloader block-device-efi-lvm debian-minimal`                      | `debian11_64Guest` | `Debian GNU/Linux 11 (64-bit)` |
+| `debian` | `bootloader block-device-efi-lvm debian-minimal`                      | `debian12_64Guest` | `Debian GNU/Linux 12 (64-bit)` |
 | `fedora` | `bootloader block-device-efi-lvm fedora dracut-regenerate`            | `centos9_64Guest`  | `Red Hat Fedora (64-bit)`      |
 | `rocky`  | `bootloader block-device-efi-lvm rocky-cloud-image dracut-regenerate` | `centos9_64Guest`  | `Rocky Linux 10 (64-bit)`      |
 | `ubuntu` | `bootloader block-device-efi-lvm ubuntu-minimal`                      | `ubuntu64Guest`    | `Ubuntu Linux (64-bit)`        |
