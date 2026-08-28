@@ -1,0 +1,36 @@
+#!/bin/bash
+# 10-packages
+# vim: set tabstop=4 shiftwidth=4 expandtab:
+
+# Make your life easier. Install these. YMMV.
+# Many/most/all of these may be already installed.
+
+[ ${DIB_DEBUG_TRACE:-0} -gt 0 ] && set -x
+
+PACKAGES="
+    cloud-init
+    cloud-utils-growpart
+    dnf-utils
+    lvm2
+    openssh-server
+    open-vm-tools
+    parted
+    qemu-guest-agent
+"
+
+# One transaction is fast, but dnf aborts the entire transaction if any name is
+# unavailable, which silently skips every package in the list. On failure, retry
+# one at a time so a single bad package cannot take the rest of the list with it.
+if ! dnf -y install $PACKAGES ; then
+    echo "10-packages: batch install failed, retrying individually" >&2
+    FAILED=""
+    for pkg in $PACKAGES ; do
+        dnf -y install "$pkg" || FAILED="$FAILED $pkg"
+    done
+    if [ -n "$FAILED" ] ; then
+        echo "10-packages: ERROR: could not install:$FAILED" >&2
+        exit 1
+    fi
+fi
+
+exit 0

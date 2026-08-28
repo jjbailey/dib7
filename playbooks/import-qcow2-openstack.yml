@@ -1,0 +1,136 @@
+---
+# playbooks/import-qcow2-openstack.yml
+# vim: set tabstop=2 shiftwidth=2 expandtab:
+
+# Import QCOW2 file to OpenStack.
+
+- name: Import QCOW2 to OpenStack Image
+  hosts: "{{ target_hosts | default('all') }}"
+  gather_facts: false
+  serial: 1
+
+  tasks:
+    - name: Import and process image
+      block:
+        - name: Include common setup tasks
+          ansible.builtin.include_tasks: common-setup.yml
+
+        - name: Include OpenStack vault variables
+          ansible.builtin.include_vars:
+            file: "../vaults/openstack.yml"
+
+        - name: Verify OpenStack credentials are valid
+          openstack.cloud.auth:
+            auth: "{{ openstack_auth }}"
+          register: openstack_auth_check
+
+        - name: Require a QCOW2 built by this run
+          ansible.builtin.include_tasks: verify-stamp.yml
+          vars:
+            stamp_file: "{{ build_stamp_file }}"
+            stamp_producer: build-qcow2
+
+        - name: Verify source file exists
+          ansible.builtin.stat:
+            path: "{{ build_dir }}/{{ qcow2_file }}"
+          register: qcow2_stat
+
+        - name: Fail if source QCOW2 file is missing or empty
+          ansible.builtin.fail:
+            msg: "Source QCOW2 file {{ build_dir }}/{{ qcow2_file }} is missing or empty"
+          when: not qcow2_stat.stat.exists or not qcow2_stat.stat.isreg or (qcow2_stat.stat.size | default(0) | int) == 0
+
+        - name: Check if image already exists in OpenStack
+          openstack.cloud.image_info:
+            auth: "{{ openstack_auth }}"
+            name: "{{ image_name }}"
+          register: existing_image
+
+        - name: Delete existing image if it exists
+          openstack.cloud.image:
+            auth: "{{ openstack_auth }}"
+            name: "{{ image_name }}"
+            state: absent
+          when: existing_image.images | length > 0
+
+        - name: Wait for existing image deletion to complete
+          openstack.cloud.image_info:
+            auth: "{{ openstack_auth }}"
+            name: "{{ image_name }}"
+          register: deleted_image_status
+          until: deleted_image_status.images | default([]) | length == 0
+          retries: "{{ openstack_delete_poll_retries | default(40) | int }}"
+          delay: "{{ openstack_delete_poll_delay | default(3) | int }}"
+          when: existing_image.images | length > 0
+
+        - name: Upload QCOW2 to OpenStack
+          openstack.cloud.image:
+            auth: "{{ openstack_auth }}"
+            name: "{{ image_name }}"
+            filename: "{{ build_dir }}/{{ qcow2_file }}"
+            disk_format: qcow2
+            container_format: bare
+            state: present
+          register: image_upload
+
+        - name: Display upload status
+          ansible.builtin.debug:
+            msg: "Image upload initiated: {{ image_upload.image.id }}"
+
+        - name: Wait for import to complete
+          openstack.cloud.image_info:
+            auth: "{{ openstack_auth }}"
+            name: "{{ image_name }}"
+          register: image_status
+          until: >
+            image_status.images | default([]) | length > 0 and
+            (image_status.images | first).status | lower in ['active', 'killed', 'deleted', 'deactivated']
+          retries: "{{ openstack_import_poll_retries | default(120) | int }}"
+          delay: "{{ openstack_import_poll_delay | default(15) | int }}"
+          failed_when: >
+            image_status.images | default([]) | length > 0 and
+            (image_status.images | first).status | lower in ['killed', 'deleted', 'deactivated']
+
+        - name: Fail if more than one image matches this name
+          ansible.builtin.fail:
+            msg: >-
+              Found {{ image_status.images | length }} OpenStack images named {{ image_name }};
+              refusing to guess which one is the new import. Glance does not enforce unique
+              names, so remove the duplicate before retrying.
+          when: (image_status.images | length) > 1
+
+        - name: Fail if image did not become active
+          ansible.builtin.fail:
+            msg: "OpenStack image {{ image_name }} ended in unexpected status {{ (image_status.images | first).status }}"
+          when: ((image_status.images | first).status | lower) != 'active'
+
+        - name: Record new image ID
+          ansible.builtin.set_fact:
+            new_image_id: "{{ (image_status.images | first).id }}"
+
+        - name: Display new image ID
+          ansible.builtin.debug:
+            msg: "Import complete! Image ID: {{ new_image_id }}"
+
+        - name: Publish imported image to image catalog
+          ansible.builtin.include_tasks: publish-image-catalog.yml
+          vars:
+            catalog_provider: openstack
+            catalog_artifact_id: "{{ new_image_id }}"
+            catalog_artifact_type: glance_image
+            catalog_supersede: true
+            catalog_boot_mode: "{{ image_boot_mode }}"
+            catalog_project: "{{ openstack_auth.project_name }}"
+            catalog_region: "{{ openstack_auth.region_name | default(None, true) }}"
+
+      rescue:
+        - name: Fail with error message
+          ansible.builtin.fail:
+            msg: >-
+              Import process failed in task '{{ ansible_failed_task.name | default('unknown task') }}':
+              {{ (ansible_failed_result.msg | default('', true))
+                 or (ansible_failed_result.stderr | default('', true))
+                 or (ansible_failed_result.stdout | default('', true))
+                 or 'unknown error' }}
+              Source QCOW2 remains at {{ build_dir }}/{{ qcow2_file }} for debugging/retry.
+

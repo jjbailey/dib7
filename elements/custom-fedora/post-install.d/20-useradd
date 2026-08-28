@@ -1,0 +1,15 @@
+#!/bin/bash
+# 20-useradd
+# vim: set tabstop=4 shiftwidth=4 expandtab:
+
+[ ${DIB_DEBUG_TRACE:-0} -gt 0 ] && set -x
+set -eu
+set -o pipefail
+
+useradd -g fedora -u 1000 -m -d /home/fedora -s /bin/bash fedora
+echo 'fedora:fedora' | chpasswd -c MD5
+echo 'root:root' | chpasswd -c MD5
+
+echo -e "fedora\tALL=(ALL)\tNOPASSWD: ALL" > /etc/sudoers.d/fedora
+chmod 440 /etc/sudoers.d/fedora
+exit 0

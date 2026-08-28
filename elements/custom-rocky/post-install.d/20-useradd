@@ -1,0 +1,15 @@
+#!/bin/bash
+# 20-useradd
+# vim: set tabstop=4 shiftwidth=4 expandtab:
+
+[ ${DIB_DEBUG_TRACE:-0} -gt 0 ] && set -x
+set -eu
+set -o pipefail
+
+useradd -g rocky -u 1000 -m -d /home/rocky -s /bin/bash rocky
+echo 'rocky:rocky' | chpasswd -c MD5
+echo 'root:root' | chpasswd -c MD5
+
+echo -e "rocky\tALL=(ALL)\tNOPASSWD: ALL" > /etc/sudoers.d/rocky
+chmod 440 /etc/sudoers.d/rocky
+exit 0
