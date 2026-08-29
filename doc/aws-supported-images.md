@@ -69,14 +69,6 @@ Note that Fedora 44 is not yet listed, which `fedora44` builds.
 - Rocky Linux 9.0–9.7 — 5.14.0
 - Rocky Linux 10.0–10.1 — 6.12.0
 
-## SUSE Linux Enterprise Server (SLES)
-
-- SLES 15 SP1 — 4.12
-- SLES 15 SP2, SP3 — 5.3
-- SLES 15 SP4, SP5 — 5.14.21
-- SLES 15 SP6 — 6.4
-- SLES 11 and 12 are EOL per AWS
-
 ## Ubuntu
 
 - Ubuntu 18.04 — 4.15.0, 5.4.0

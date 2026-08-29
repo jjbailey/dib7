@@ -29,7 +29,7 @@ flowchart TB
     S3 --> AWS_IMG["☁️ AWS AMI"]
     OVA --> VSPHERE_IMG["☁️ vSphere OVA"]
     VSPHERE_IMG --> VSPHERE_TPL["☁️ vSphere Template"]
-    AWS_IMG --> CATALOG["🗂️ Versioned image catalog"]
+    AWS_IMG --> CATALOG["🗂️ Versioned Image Catalog"]
     GCP_IMG --> CATALOG
     OPENSTACK_IMG --> CATALOG
     VSPHERE_IMG --> CATALOG
@@ -69,9 +69,6 @@ Current provider-supported operating systems:
 - Fedora 41-43
 - CentOS Stream 9
 - RHEL, Rocky Linux, and Oracle Linux through 10.1
-- SLES 15 SP1-SP6
-- Older CentOS, Fedora, SLES 11, and SLES 12 releases are EOL even where
-  still listed by AWS
 - Windows Server through 2025
 
 DIB7 target notes: `ubuntu24044` matches AWS import support, and
@@ -91,7 +88,6 @@ Current provider-supported operating systems:
 - RHEL 7.9, 8.0-8.10, 9.0-9.7, and 10.0-10.2
 - Rocky Linux 8.4-8.10, 9.0-9.7, and 10.0-10.1
 - AlmaLinux 8.3-8.10, 9.0-9.8, and 10.0-10.2
-- SLES 12 SP5, 15 SP5-SP7, and 16
 - Windows Server through 2025
 
 DIB7 target notes: `ubuntu24044`, `ubuntu26041`, `debian1306`, and `centos10s`
@@ -110,7 +106,7 @@ destination cloud's image policy and compute driver.
 #### VMware vSphere
 
 The guest OS guide lists Debian 13, Ubuntu through 25.10, RHEL 10, Rocky
-Linux 10, Oracle Linux 10, AlmaLinux 10, SLES 16, Amazon Linux 2, and Windows
+Linux 10, Oracle Linux 10, AlmaLinux 10, Amazon Linux 2, and Windows
 Server 2025. Fedora support is limited to older Fedora desktop entries in the
 VMware guide.
 
@@ -336,6 +332,7 @@ dib7/
 - `import-ova-vsphere.yml`: Import OVA to vSphere content library.
   This produces the `vSphere OVA` branch in the workflow.
   Dependencies: pwsh, PowerCLI.
+- `recreate-vsphere-template.yml`: Recreate a vSphere template from an OVA already in the content library; no local upload is required. Dependencies: pwsh, PowerCLI.
 - `import-ova-vsphere-template.yml`: Import the vSphere OVA and create
   a vSphere template in `Templates`.
   Dependencies: pwsh, PowerCLI.

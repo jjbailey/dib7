@@ -1,0 +1,145 @@
+---
+# playbooks/recreate-vsphere-template.yml
+# vim: set tabstop=2 shiftwidth=2 expandtab:
+
+# Playbook to recreate a vSphere template from an OVA already in the content library.
+# The OVA is not uploaded or read from local disk.
+
+- name: Recreate vSphere template from library OVA
+  hosts: "{{ target_hosts | default('all') }}"
+  gather_facts: false
+  serial: 2
+
+  # See the comment in build-qcow2.yml for why this uses block/rescue instead of
+  # max_fail_percentage to survive a per-host failure.
+  pre_tasks:
+    # Outside the rescue below: missing pwsh or a missing helper script is an
+    # environment problem, not a per-image one.
+    - name: Verify pwsh is available on localhost
+      ansible.builtin.command:
+        cmd: pwsh --version
+      delegate_to: localhost
+      register: pwsh_check
+      failed_when: pwsh_check.rc != 0
+      changed_when: false
+
+    - name: Verify vSphere template helper exists on localhost
+      ansible.builtin.stat:
+        path: "{{ playbook_dir }}/../bin/import-ova-vsphere-template.ps1"
+      delegate_to: localhost
+      register: template_helper_stat
+
+    - name: Fail if vSphere template helper is missing
+      ansible.builtin.fail:
+        msg: "vSphere template helper {{ playbook_dir }}/../bin/import-ova-vsphere-template.ps1 is missing"
+      when: not template_helper_stat.stat.exists or not template_helper_stat.stat.isreg
+
+  tasks:
+    - name: Include common setup tasks
+      # This loads image_name, vsphere_content_library, and the template defaults.
+      ansible.builtin.include_tasks: common-setup.yml
+
+    - name: Include vSphere vault variables
+      ansible.builtin.include_vars:
+        file: "../vaults/vsphere.yml"
+      no_log: true
+
+    - name: Recreate vSphere template from library OVA
+      block:
+        - name: Convert library OVA to a template
+          ansible.builtin.command:
+            argv:
+              - pwsh
+              - "{{ playbook_dir }}/../bin/import-ova-vsphere-template.ps1"
+              - "-library"
+              - "{{ vsphere_content_library }}"
+              - "-ova"
+              - "{{ ova_file }}"
+              - "-templateName"
+              - "{{ vsphere_template_name | default(inventory_hostname ~ '.tmpl') }}"
+              - "-folder"
+              - "Templates"
+              - "-UseExistingLibraryItem"
+          delegate_to: localhost
+          register: template_result
+          changed_when: template_result.rc == 0
+          no_log: true
+          environment:
+            vcenter_hostname: "{{ vcenter_hostname }}"
+            vcenter_username: "{{ vcenter_username }}"
+            vcenter_password: "{{ vcenter_password }}"
+
+        - name: Publish vSphere template to image catalog
+          ansible.builtin.include_tasks: publish-image-catalog.yml
+          vars:
+            catalog_provider: vsphere
+            catalog_artifact_id: "{{ vsphere_template_name | default(inventory_hostname ~ '.tmpl') }}"
+            catalog_artifact_type: content_library_template
+            catalog_supersede: true
+            catalog_boot_mode: "{{ image_boot_mode }}"
+            catalog_scope:
+              content_library: "{{ vsphere_content_library }}"
+
+        # Last task in the block, so a host only counts as succeeded if the
+        # template creation and the catalog publish both worked.
+        - name: Mark the template creation successful
+          ansible.builtin.set_fact:
+            stage_succeeded: true
+
+      rescue:
+        - name: Record that the template creation failed
+          ansible.builtin.set_fact:
+            stage_failed: true
+            stage_error: >-
+              {{ ansible_failed_task.name }}:
+              {{ ansible_failed_result.msg | default('no message') | trim }}
+              rc={{ template_result.rc | default('unknown') }}
+              stderr={{ template_result.stderr | default('') | trim }}
+              stdout={{ template_result.stdout | default('') | trim }}
+
+        - name: Report the template creation failure
+          ansible.builtin.debug:
+            msg: >-
+              TEMPLATE FAILED for {{ inventory_hostname }} at task
+              '{{ ansible_failed_task.name }}'.
+              {{ ansible_failed_result.msg | default('') | trim }}
+              rc={{ template_result.rc | default('unknown') }}
+              stderr={{ template_result.stderr | default('') | trim }}
+              stdout={{ template_result.stdout | default('') | trim }}
+
+      always:
+        - name: Display template creation result
+          ansible.builtin.debug:
+            msg: "Template creation exited with return code {{ template_result.rc }}"
+          when: template_result is defined
+
+- name: Report template results
+  hosts: "{{ target_hosts | default('all') }}"
+  gather_facts: false
+  ignore_unreachable: true
+
+  tasks:
+    - name: Fail if any template failed to be created
+      ansible.builtin.fail:
+        msg: |-
+          recreate-vsphere-template failed for {{ template_failures | length }} of
+          {{ ansible_play_hosts_all | length }} hosts:
+          {% for host in template_failures %}
+            {{ host }}: {{ hostvars[host].stage_error | default('see log') | trim }}
+          {% endfor %}
+      # Pinned to one host rather than run_once - see build-qcow2.yml.
+      when:
+        - inventory_hostname == ansible_play_hosts_all[0]
+        - template_failures | length > 0
+      vars:
+        # Fail-closed, matching build-qcow2.yml: anything that did not reach
+        # the success marker counts as a failure. Keying off stage_failed
+        # instead would let a host that never ran the rescue - an unreachable
+        # host, for one - pass as though it had produced a template.
+        template_failures: >-
+          {{ ansible_play_hosts_all
+             | map('extract', hostvars)
+             | rejectattr('stage_succeeded', 'defined')
+             | map(attribute='inventory_hostname')
+             | list }}
+

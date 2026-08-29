@@ -121,7 +121,7 @@ image is built, conditionally on `add_swap`.
 | `vm_network`              | `VM Network`                   | Network name written into the OVF `NetworkSection`.                                          |
 | `vm_os_description`       | e.g. `Ubuntu Linux (64-bit)`   | Human-readable OS description written into the OVF `OperatingSystemSection`.                 |
 | `vsphere_content_library` | `Content_Library`              | Target vSphere content library for `import-ova-vsphere.yml` when creating the `vSphere OVA`. |
-| `vsphere_template_name`   | `inventory_hostname-base.tmpl` | Final vSphere template name used by `playbooks/import-ova-vsphere-template.yml`.             |
+| `vsphere_template_name`   | `inventory_hostname-base.tmpl` | Final vSphere template name used by `playbooks/import-ova-vsphere-template.yml` and `playbooks/recreate-vsphere-template.yml`.             |
 
 <!-- markdownlint-enable MD013 -->
 
