@@ -16,6 +16,10 @@ elements_custom: "custom-{{ target_group }}"
 
 vm_memory_mb: "4096"
 vm_cpus: "4"
+# Intentional, not a typo: same RHEL-family guest ID shared by the fedora and
+# rocky groups (see doc/group-vars-distro.md), used as the closest available
+# match for CentOS Stream 10 - the same kind of compatibility gap documented
+# for Debian Trixie in group_vars/debian/main.yml.
 vm_os_type: "centos9_64Guest"
 
 add_swap: true

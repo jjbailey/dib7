@@ -40,8 +40,14 @@ else
     disk_format=qcow2 # Default to qcow2 if no extension
 fi
 
-# Normalize image name: remove any existing extension and add the determined format
-image_name="${image_name%.*}.$disk_format"
+# Normalize image name: remove any existing extension and add the determined
+# format. Extension stripping is done on the basename only - "${var%.*}" on
+# the full path would strip at the last dot anywhere in the path, mangling a
+# dotted directory component (e.g. "./v1.2/img") when the basename itself has
+# no extension.
+image_dir="$(dirname -- "$image_name")"
+image_base="$(basename -- "$image_name")"
+image_name="$image_dir/${image_base%.*}.$disk_format"
 
 # Check if the image file exists
 if [ ! -f "$image_name" ] ; then

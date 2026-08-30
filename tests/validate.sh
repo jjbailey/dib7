@@ -10,6 +10,10 @@ set -euo pipefail
 repo_dir="$(CDPATH= builtin cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." > /dev/null && builtin pwd -P)"
 cd "$repo_dir"
 
+# CLAUDE.md mandates the patched venv at ~/.dib7/bin/ansible-playbook, not
+# whatever ansible-playbook happens to be first on PATH.
+ansible_playbook="$HOME/.dib7/bin/ansible-playbook"
+
 failures=0
 
 fail()
@@ -25,7 +29,7 @@ for playbook in playbooks/*.yml ; do
     case "$(basename "$playbook")" in
         common-setup.yml | publish-image-catalog.yml | verify-stamp.yml) continue ;;
     esac
-    if ansible-playbook -i hosts.yml "$playbook" --syntax-check > /dev/null ; then
+    if "$ansible_playbook" -i hosts.yml "$playbook" --syntax-check > /dev/null ; then
         echo "  ok   $playbook"
     else
         fail "$playbook failed --syntax-check"

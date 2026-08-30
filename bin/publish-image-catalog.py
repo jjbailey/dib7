@@ -10,6 +10,7 @@ import fcntl
 import json
 import os
 import pathlib
+import stat
 import tempfile
 
 
@@ -101,6 +102,11 @@ def main():
                 output.write("\n")
                 output.flush()
                 os.fsync(output.fileno())
+            try:
+                mode = stat.S_IMODE(os.stat(path).st_mode)
+            except FileNotFoundError:
+                mode = 0o644
+            os.chmod(temporary, mode)
             os.replace(temporary, path)
         finally:
             if os.path.exists(temporary):

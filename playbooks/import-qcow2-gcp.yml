@@ -58,15 +58,14 @@
           changed_when: false
           no_log: true
 
+        # Derived from the key content rather than a follow-up `gcloud config
+        # get-value account` call, so a transient failure of that call can't
+        # leave the always-block revoke without an account to revoke while
+        # the key file has already been deleted.
         - name: Record the activated gcloud account for later revocation
-          ansible.builtin.command:
-            argv:
-              - gcloud
-              - config
-              - get-value
-              - account
-          register: gcloud_active_account
-          changed_when: false
+          ansible.builtin.set_fact:
+            gcloud_active_account: "{{ (service_account_key | from_json).client_email }}"
+          no_log: true
 
         - name: Verify source file exists
           ansible.builtin.stat:
@@ -388,13 +387,12 @@
               - gcloud
               - auth
               - revoke
-              - "{{ gcloud_active_account.stdout | trim }}"
+              - "{{ gcloud_active_account }}"
           register: gcloud_revoke
           changed_when: gcloud_revoke.rc == 0
           failed_when: false
           when:
             - gcloud_active_account is defined
-            - gcloud_active_account.stdout is defined
-            - (gcloud_active_account.stdout | trim) != ''
-            - "'gserviceaccount.com' in (gcloud_active_account.stdout | trim)"
+            - gcloud_active_account != ''
+            - "'gserviceaccount.com' in gcloud_active_account"
 
