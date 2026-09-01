@@ -91,6 +91,7 @@ newdistro:
 1. Create `group_vars/newdistro/main.yml`.
 
 Start from the closest existing file in `group_vars/` and set at least:
+
 - `elements_base`
 - `vm_os_type`
 - `vm_os_description`

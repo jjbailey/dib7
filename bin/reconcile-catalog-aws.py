@@ -14,9 +14,11 @@ cloud reality.
 """
 
 import argparse
+import datetime as dt
 import fcntl
 import json
 import os
+import stat
 import subprocess
 import sys
 import tempfile
@@ -24,19 +26,28 @@ from collections import defaultdict
 from pathlib import Path
 
 
+AMI_BATCH_SIZE = 100
+
+
 def live_ami_ids(region, ami_ids):
     """Return the subset of ami_ids that still exist in region.
 
     describe-images silently omits unknown IDs from its response instead of
     erroring, even when every requested ID is unknown - so a plain set
-    difference against the response is enough to find what is gone.
+    difference against the response is enough to find what is gone. IDs are
+    batched to stay well under the CLI argument-length limit and so one bad
+    batch doesn't fail the whole region's reconciliation.
     """
-    result = subprocess.run(
-        ["aws", "ec2", "describe-images", "--region", region,
-         "--image-ids", *ami_ids, "--output", "json"],
-        capture_output=True, text=True, check=True,
-    )
-    return {image["ImageId"] for image in json.loads(result.stdout)["Images"]}
+    live = set()
+    for start in range(0, len(ami_ids), AMI_BATCH_SIZE):
+        batch = ami_ids[start:start + AMI_BATCH_SIZE]
+        result = subprocess.run(
+            ["aws", "ec2", "describe-images", "--region", region,
+             "--image-ids", *batch, "--output", "json"],
+            capture_output=True, text=True, check=True,
+        )
+        live.update(image["ImageId"] for image in json.loads(result.stdout)["Images"])
+    return live
 
 
 def main():
@@ -87,6 +98,7 @@ def main():
 
         catalog["images"].sort(
             key=lambda item: (item["logical_name"], item["provider"], item["artifact_type"], item["version"]))
+        catalog["generated_at"] = dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
         fd, temporary = tempfile.mkstemp(prefix=args.catalog.name + ".", dir=args.catalog.parent)
         try:
@@ -95,6 +107,7 @@ def main():
                 output.write("\n")
                 output.flush()
                 os.fsync(output.fileno())
+            os.chmod(temporary, stat.S_IMODE(os.stat(args.catalog).st_mode))
             os.replace(temporary, args.catalog)
         finally:
             if os.path.exists(temporary):

@@ -18,24 +18,24 @@
       ansible.builtin.include_vars:
         file: "../vaults/aws.yml"
 
-    - name: Require an OVA converted by this run
-      ansible.builtin.include_tasks: verify-stamp.yml
-      vars:
-        stamp_file: "{{ convert_stamp_file }}"
-        stamp_producer: convert-qcow2-to-ova
-
-    - name: Verify OVA file exists
-      ansible.builtin.stat:
-        path: "{{ build_dir }}/{{ ova_file }}"
-      register: ova_stat
-
-    - name: Fail if OVA file is missing or empty
-      ansible.builtin.fail:
-        msg: "Source OVA file {{ build_dir }}/{{ ova_file }} is missing or empty"
-      when: not ova_stat.stat.exists or not ova_stat.stat.isreg or (ova_stat.stat.size | default(0) | int) == 0
-
     - name: Import OVA to AMI
       block:
+        - name: Require an OVA converted by this run
+          ansible.builtin.include_tasks: verify-stamp.yml
+          vars:
+            stamp_file: "{{ convert_stamp_file }}"
+            stamp_producer: convert-qcow2-to-ova
+
+        - name: Verify OVA file exists
+          ansible.builtin.stat:
+            path: "{{ build_dir }}/{{ ova_file }}"
+          register: ova_stat
+
+        - name: Fail if OVA file is missing or empty
+          ansible.builtin.fail:
+            msg: "Source OVA file {{ build_dir }}/{{ ova_file }} is missing or empty"
+          when: not ova_stat.stat.exists or not ova_stat.stat.isreg or (ova_stat.stat.size | default(0) | int) == 0
+
         - name: Upload OVA to S3
           amazon.aws.s3_object:
             bucket: "{{ s3_bucket }}"
@@ -127,6 +127,12 @@
             mode: delobj
             region: "{{ aws_region }}"
 
+        # Last task in the block, so a host only counts as succeeded if the
+        # import and the catalog publish both worked.
+        - name: Mark the import successful
+          ansible.builtin.set_fact:
+            stage_succeeded: true
+
       rescue:
         - name: Clean up S3 on failure
           amazon.aws.s3_object:
@@ -138,7 +144,54 @@
           register: s3_cleanup
           failed_when: false
 
-        - name: Fail with error message
-          ansible.builtin.fail:
-            msg: "Import process failed: {{ ansible_failed_result.msg | default(ansible_failed_result) }}. S3 cleanup attempted."
+        - name: Record that the import failed
+          ansible.builtin.set_fact:
+            stage_failed: true
+            stage_error: >-
+              {{ ansible_failed_task.name }}:
+              {{ ansible_failed_result.msg | default('no message') | trim }}
+
+        - name: Report the import failure
+          ansible.builtin.debug:
+            msg: >-
+              IMPORT FAILED for {{ inventory_hostname }} at task
+              '{{ ansible_failed_task.name }}'.
+              {{ ansible_failed_result.msg | default('') | trim }}
+              S3 cleanup attempted.
+
+      always:
+        - name: Display import result
+          ansible.builtin.debug:
+            msg: "AMI import task {{ import_task.import_image.import_task_id }} ended with new_ami_id={{ new_ami_id | default('none') }}"
+          when: import_task is defined
+
+- name: Report import results
+  hosts: "{{ target_hosts | default('all') }}"
+  gather_facts: false
+  ignore_unreachable: true
+
+  tasks:
+    - name: Fail if any AMI failed to import
+      ansible.builtin.fail:
+        msg: |-
+          import-ova-aws failed for {{ import_failures | length }} of
+          {{ ansible_play_hosts_all | length }} hosts:
+          {% for host in import_failures %}
+            {{ host }}: {{ hostvars[host].stage_error | default('see log') | trim }}
+          {% endfor %}
+      # Pinned to one host rather than run_once - see build-qcow2.yml.
+      when:
+        - inventory_hostname == ansible_play_hosts_all[0]
+        - import_failures | length > 0
+      vars:
+        # Fail-closed, matching build-qcow2.yml: anything that did not reach
+        # the success marker counts as a failure. Keying off stage_failed
+        # instead would let a host that never ran the rescue - an unreachable
+        # host, for one - pass as though it had imported.
+        import_failures: >-
+          {{ ansible_play_hosts_all
+             | map('extract', hostvars)
+             | rejectattr('stage_succeeded', 'defined')
+             | map(attribute='inventory_hostname')
+             | list }}
 

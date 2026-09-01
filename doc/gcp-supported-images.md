@@ -59,12 +59,6 @@ Standard and SAP variants are both listed.
 - Rocky Linux 9.0–9.7
 - Rocky Linux 10.0–10.1
 
-## SLES
-
-- SLES 12 SP5
-- SLES 15 SP5–SP7
-- SLES 16
-
 ## Ubuntu
 
 - Ubuntu 22.04

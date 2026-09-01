@@ -4,7 +4,7 @@
 
 <#
 .SYNOPSIS
-    Imports an OVA file into a vSphere Content Library and converts it into a vSphere template derived from the vSphere OVA.
+    Imports an OVA or reuses one already in the Content Library and converts it into a vSphere template.
 
 .DESCRIPTION
     This script connects to a vCenter Server, imports the specified OVA into a
@@ -39,7 +39,8 @@ param(
 
     [string]$vCenterServer,
     [string]$vCenterUser,
-    [SecureString]$vCenterPassword
+    [SecureString]$vCenterPassword,
+    [switch]$UseExistingLibraryItem
 )
 
 if (-not $vCenterServer) { $vCenterServer = $env:vcenter_hostname }
@@ -53,7 +54,7 @@ if (-not $vCenterServer -or -not $vCenterUser -or -not $vCenterPassword) {
     exit 1
 }
 
-if (-not (Test-Path $ova)) {
+if (-not $UseExistingLibraryItem -and -not (Test-Path $ova)) {
     Write-Error "OVA file '$ova' not found."
     exit 1
 }
@@ -80,6 +81,18 @@ catch {
 }
 
 try {
+    if ($UseExistingLibraryItem) {
+        $ovaName = [System.IO.Path]::GetFileNameWithoutExtension($ova)
+        $ovaFile = "$ovaName.ova"
+        $sha1 = "library-item"
+        $contentLibrary = Get-ContentLibrary -Name $library -ErrorAction Stop
+        $importedItem = Get-ContentLibraryItem -ContentLibrary $contentLibrary -Name $ovaName -ErrorAction Stop
+        $itemType = [string]$importedItem.ItemType
+        if ($itemType -and $itemType -notmatch "(?i)^(ova|ovf)$") {
+            throw "Content library item '$ovaName' has unsupported type '$itemType'."
+        }
+    }
+    else {
     $ovaPath = (Resolve-Path $ova).Path
     $ovaFile = Split-Path -Path $ovaPath -Leaf
     $ovaName = $ovaFile -replace '\.ova$', ''
@@ -160,6 +173,7 @@ try {
     # write is not fatal -- it only costs one needless upload next time.
     Set-Content -LiteralPath $markerPath -Value $expectedMarker -NoNewline -ErrorAction SilentlyContinue
 
+    }
     $folderObj = Get-Folder -Name $folder -ErrorAction Stop
     $vmHostObj = Get-VMHost | Where-Object {
         $_.ConnectionState -eq "Connected" -and -not $_.ExtensionData.Runtime.InMaintenanceMode

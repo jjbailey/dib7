@@ -15,7 +15,7 @@ flowchart TB
     S3 --> AWS_IMG["☁️ AWS AMI"]
     OVA --> VSPHERE_IMG["☁️ vSphere OVA"]
     VSPHERE_IMG --> VSPHERE_TPL["☁️ vSphere Template"]
-    AWS_IMG --> CATALOG["🗂️ Versioned image catalog"]
+    AWS_IMG --> CATALOG["🗂️ Versioned Image Catalog"]
     GCP_IMG --> CATALOG
     OPENSTACK_IMG --> CATALOG
     VSPHERE_IMG --> CATALOG

@@ -37,6 +37,7 @@ build to a cloud-ready artifact.
 - **OpenStack**: Direct import of QCOW2 via `import-qcow2-openstack.yml`.
 - **vSphere**: Deploy the `vSphere OVA` via `import-ova-vsphere.yml`, or
   create a `vSphere Template` via `import-ova-vsphere-template.yml`.
+  To recreate an existing template from its library OVA, run `recreate-vsphere-template.yml`.
 
 Every successful import also publishes its provider-specific artifact ID to
 `catalogs/image-catalog.json`. See [image-catalog.md](image-catalog.md).
@@ -71,6 +72,7 @@ Included with `include_tasks`, never run standalone. `ansible-playbook
 - **`import-ova-vsphere.yml`** (vSphere): Deploys OVA to vCenter content
   library. This is the `vSphere OVA` branch in the workflow diagram; the
   template playbook produces the `vSphere Template` branch.
+- **`recreate-vsphere-template.yml`** (vSphere): Recreates a template from an OVA already in the content library without uploading a local OVA.
 - **`import-ova-vsphere-template.yml`** (vSphere): Deploys the OVA and converts
   it into a template in the `Templates` folder — the `vSphere Template` branch.
 - **`import-ova-aws.yml`** (AWS): Imports OVA as AMI via VM Import/Export.

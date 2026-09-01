@@ -43,7 +43,7 @@ is invoked in `playbooks/build-qcow2.yml`.
 The default kernel command line applied to all distros:
 
 ```text
-biosdevname=0 iommu=on ipv6.disable=1 net.ifnames=0 dm_mod.use_blk_mq=Y scsi_mod.use_blk_mq=Y
+biosdevname=0 iommu=on net.ifnames=0 dm_mod.use_blk_mq=Y scsi_mod.use_blk_mq=Y
 ```
 
 ---
@@ -116,12 +116,12 @@ image is built, conditionally on `add_swap`.
 
 <!-- markdownlint-disable MD013 -->
 
-| Variable                  | Value                          | Description                                                                                  |
-| ------------------------- | ------------------------------ | -------------------------------------------------------------------------------------------- |
-| `vm_network`              | `VM Network`                   | Network name written into the OVF `NetworkSection`.                                          |
-| `vm_os_description`       | e.g. `Ubuntu Linux (64-bit)`   | Human-readable OS description written into the OVF `OperatingSystemSection`.                 |
-| `vsphere_content_library` | `Content_Library`              | Target vSphere content library for `import-ova-vsphere.yml` when creating the `vSphere OVA`. |
-| `vsphere_template_name`   | `inventory_hostname-base.tmpl` | Final vSphere template name used by `playbooks/import-ova-vsphere-template.yml`.             |
+| Variable                  | Value                          | Description                                                                                                                    |
+| ------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| `vm_network`              | `VM Network`                   | Network name written into the OVF `NetworkSection`.                                                                            |
+| `vm_os_description`       | e.g. `Ubuntu Linux (64-bit)`   | Human-readable OS description written into the OVF `OperatingSystemSection`.                                                   |
+| `vsphere_content_library` | `Content_Library`              | Target vSphere content library for `import-ova-vsphere.yml` when creating the `vSphere OVA`.                                   |
+| `vsphere_template_name`   | `inventory_hostname-base.tmpl` | Final vSphere template name used by `playbooks/import-ova-vsphere-template.yml` and `playbooks/recreate-vsphere-template.yml`. |
 
 <!-- markdownlint-enable MD013 -->
 
