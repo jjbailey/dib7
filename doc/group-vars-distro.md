@@ -43,7 +43,7 @@ is invoked in `playbooks/build-qcow2.yml`.
 The default kernel command line applied to all distros:
 
 ```text
-biosdevname=0 iommu=on ipv6.disable=1 net.ifnames=0 dm_mod.use_blk_mq=Y scsi_mod.use_blk_mq=Y
+biosdevname=0 iommu=on net.ifnames=0 dm_mod.use_blk_mq=Y scsi_mod.use_blk_mq=Y
 ```
 
 ---
