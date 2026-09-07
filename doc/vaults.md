@@ -109,9 +109,14 @@ image's catalog entry.
 vcenter_hostname: "my-vcenter"
 vcenter_username: "my-admin-user"
 vcenter_password: "my-admin-password"
+# Optional site overrides; group_vars/all supplies safe defaults.
 vsphere_content_library: "my-content-library"
 vsphere_template_name: "inventory-item-base.tmpl"
 ```
+
+`vsphere_content_library` and `vsphere_template_name` override the defaults
+in `group_vars/all/main.yml` when present. They are used by the vSphere
+playbooks; the encrypted vault is optional for these non-secret settings.
 
 `vsphere_content_library` is used by `import-ova-vsphere.yml` to create the
 `vSphere OVA`, and `vsphere_template_name` is used by

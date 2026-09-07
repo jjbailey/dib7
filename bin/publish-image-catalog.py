@@ -61,7 +61,8 @@ def main():
         else:
             catalog = {"schema_version": 1, "images": []}
         if catalog.get("schema_version") != 1 or not isinstance(catalog.get("images"), list):
-            raise ValueError("catalog must have schema_version 1 and an images list")
+            raise ValueError(
+                "catalog must have schema_version 1 and an images list")
 
         # artifact_type is part of the identity so one image can be published as
         # more than one kind of artifact per provider per run - a vSphere OVA
@@ -85,17 +86,27 @@ def main():
         # Rows for other providers are never examined, so a publisher only ever
         # rewrites its own provider's slice of the catalog.
         if args.supersede:
-            key = (entry["logical_name"], entry["provider"], entry["artifact_type"])
-            match = lambda old: (old.get("logical_name"), old.get("provider"), old.get("artifact_type"))
-        else:
-            key = (entry["logical_name"], entry["provider"], entry["artifact_type"], entry["version"])
-            match = lambda old: (old.get("logical_name"), old.get("provider"), old.get("artifact_type"), old.get("version"))
-        catalog["images"] = [old for old in catalog["images"] if match(old) != key]
-        catalog["images"].append(entry)
-        catalog["images"].sort(key=lambda item: (item["logical_name"], item["provider"], item["artifact_type"], item["version"]))
-        catalog["generated_at"] = dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+            key = (entry["logical_name"], entry["provider"],
+                   entry["artifact_type"])
 
-        fd, temporary = tempfile.mkstemp(prefix=path.name + ".", dir=path.parent)
+            def match(old): return (old.get("logical_name"),
+                                    old.get("provider"), old.get("artifact_type"))
+        else:
+            key = (entry["logical_name"], entry["provider"],
+                   entry["artifact_type"], entry["version"])
+
+            def match(old): return (old.get("logical_name"), old.get(
+                "provider"), old.get("artifact_type"), old.get("version"))
+        catalog["images"] = [
+            old for old in catalog["images"] if match(old) != key]
+        catalog["images"].append(entry)
+        catalog["images"].sort(key=lambda item: (
+            item["logical_name"], item["provider"], item["artifact_type"], item["version"]))
+        catalog["generated_at"] = dt.datetime.now(dt.timezone.utc).replace(
+            microsecond=0).isoformat().replace("+00:00", "Z")
+
+        fd, temporary = tempfile.mkstemp(
+            prefix=path.name + ".", dir=path.parent)
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as output:
                 json.dump(catalog, output, indent=2, sort_keys=False)

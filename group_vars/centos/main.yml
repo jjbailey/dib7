@@ -29,5 +29,4 @@ swap_size: "4096"
 # vmware
 vm_network: "VM Network"
 vm_os_description: "CentOS 10 (64-bit)"
-vsphere_content_library: "Content_Library"
 

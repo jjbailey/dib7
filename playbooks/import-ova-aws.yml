@@ -18,6 +18,16 @@
       ansible.builtin.include_vars:
         file: "../vaults/aws.yml"
 
+    - name: Validate AWS import configuration
+      ansible.builtin.assert:
+        that:
+          - aws_region is defined and aws_region | length > 0
+          - s3_bucket is defined and s3_bucket | length > 0
+          - vmimport_role_name is defined and vmimport_role_name | length > 0
+        fail_msg: >-
+          vaults/aws.yml must define aws_region, s3_bucket, and
+          vmimport_role_name before importing an OVA.
+
     - name: Import OVA to AMI
       block:
         - name: Require an OVA converted by this run
@@ -50,6 +60,10 @@
         - name: Confirm OVA upload to S3
           ansible.builtin.debug:
             msg: "OVA uploaded to s3://{{ s3_bucket }}/{{ ova_file }}"
+
+        - name: Allocate an AWS import task name
+          ansible.builtin.set_fact:
+            aws_import_task_name: "{{ aws_import_task_name }}"
 
         - name: Initiate import process
           amazon.aws.ec2_import_image:
@@ -134,6 +148,19 @@
             stage_succeeded: true
 
       rescue:
+        - name: Cancel unfinished AWS import task
+          amazon.aws.ec2_import_image:
+            region: "{{ aws_region }}"
+            task_name: "{{ aws_import_task_name }}"
+            cancel_reason: "import-ova-aws.yml failed or was interrupted"
+            state: absent
+          when:
+            - aws_import_task_name is defined
+            - import_status is not defined or
+              (import_status.import_image | default([]) | length == 0) or
+              ((import_status.import_image | first).status | default('')) not in ['completed', 'deleted', 'failed']
+          failed_when: false
+
         - name: Clean up S3 on failure
           amazon.aws.s3_object:
             bucket: "{{ s3_bucket }}"

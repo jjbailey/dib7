@@ -98,12 +98,11 @@ The Terraform integration contract. See [image-catalog.md](image-catalog.md).
 
 <!-- markdownlint-disable MD013 -->
 
-| Variable                        | Default                              | Description                                                                                   |
-| ------------------------------- | ------------------------------------ | --------------------------------------------------------------------------------------------- |
-| `aws_import_boot_mode`          | `{{ image_boot_mode }}`              | Boot mode handed to AWS `ImportImage`. Separate only because the API takes it as a parameter. |
-| `gcp_replace_existing_image`    | `true`                               | Delete and recreate a GCP image of the same name rather than failing.                         |
-| `gcp_delete_qcow2_after_import` | `false`                              | Whether to remove the staged QCOW2 from GCS after a successful import.                        |
-| `vsphere_template_name`         | `{{ inventory_hostname }}-base.tmpl` | Name of the template created in the `Templates` folder.                                       |
+| Variable                        | Default                 | Description                                                                                   |
+| ------------------------------- | ----------------------- | --------------------------------------------------------------------------------------------- |
+| `aws_import_boot_mode`          | `{{ image_boot_mode }}` | Boot mode handed to AWS `ImportImage`. Separate only because the API takes it as a parameter. |
+| `gcp_replace_existing_image`    | `true`                  | Delete and recreate a GCP image of the same name rather than failing.                         |
+| `gcp_delete_qcow2_after_import` | `false`                 | Whether to remove the staged QCOW2 from GCS after a successful import.                        |
 
 <!-- markdownlint-enable MD013 -->
 

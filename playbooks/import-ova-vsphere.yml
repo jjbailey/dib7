@@ -129,7 +129,7 @@
       always:
         - name: Display import result
           ansible.builtin.debug:
-            msg: "OVA import exited with return code {{ import_result.rc }}"
+            msg: "OVA import exited with return code {{ import_result.get('rc', 'unknown') }}"
           when: import_result is defined
 
 - name: Report import results

@@ -29,5 +29,4 @@ swap_size: "4096"
 vm_network: "VM Network"
 # Match the compatibility guest ID above for VMware import metadata.
 vm_os_description: "Debian GNU/Linux 12 (64-bit)"
-vsphere_content_library: "Content_Library"
 

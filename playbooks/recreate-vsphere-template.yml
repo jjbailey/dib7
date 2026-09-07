@@ -36,7 +36,7 @@
 
   tasks:
     - name: Include common setup tasks
-      # This loads image_name, vsphere_content_library, and the template defaults.
+      # Inventory variables load image_name; the vSphere vault supplies site-specific library and template values.
       ansible.builtin.include_tasks: common-setup.yml
 
     - name: Include vSphere vault variables
@@ -110,7 +110,7 @@
       always:
         - name: Display template creation result
           ansible.builtin.debug:
-            msg: "Template creation exited with return code {{ template_result.rc }}"
+            msg: "Template creation exited with return code {{ template_result.get('rc', 'unknown') }}"
           when: template_result is defined
 
 - name: Report template results

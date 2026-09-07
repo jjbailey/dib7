@@ -12,7 +12,9 @@ cd "$repo_dir"
 
 # CLAUDE.md mandates the patched venv at ~/.dib7/bin/ansible-playbook, not
 # whatever ansible-playbook happens to be first on PATH.
-ansible_playbook="$HOME/.dib7/bin/ansible-playbook"
+venv_bin="${DIB7_VENV_BIN:-$HOME/.dib7/bin}"
+ansible_playbook="$venv_bin/ansible-playbook"
+python_bin="$venv_bin/python3"
 
 failures=0
 
@@ -21,6 +23,58 @@ fail()
     echo "FAIL: $*" >&2
     failures=$((failures + 1))
 }
+
+echo "== environment =="
+venv_root="${venv_bin%/bin}"
+if [ -x "$ansible_playbook" ] && [ -x "$python_bin" ] &&
+   "$ansible_playbook" --version 2>/dev/null | grep -q "ansible python module location = $venv_root/"; then
+    echo "  ok   venv entry points"
+else
+    fail "missing venv entry point(s) under $venv_bin"
+fi
+
+echo "== collection versions =="
+ansible_galaxy="$venv_bin/ansible-galaxy"
+if "$python_bin" - "$ansible_galaxy" << 'PYTHON'
+import json
+import subprocess
+import sys
+from pathlib import Path
+import yaml
+
+requirements = yaml.safe_load(Path("requirements.yml").read_text())
+installed = json.loads(subprocess.check_output(
+    [sys.argv[1], "collection", "list", "--format", "json"],
+    text=True,
+    stderr=subprocess.DEVNULL,
+))
+versions = {}
+for location in installed.values():
+    for name, metadata in location.items():
+        versions[name] = metadata.get("version")
+missing = []
+for requirement in requirements.get("collections", []):
+    name = requirement["name"]
+    expected = str(requirement["version"])
+    actual = versions.get(name)
+    if actual != expected:
+        missing.append(f"{name}: expected {expected}, found {actual or 'missing'}")
+if missing:
+    raise SystemExit("; ".join(missing))
+PYTHON
+then
+    echo "  ok   pinned Ansible collections"
+else
+    fail "installed Ansible collections do not match requirements.yml"
+fi
+
+echo "== Fedora DIB patch =="
+fedora_element="$($python_bin -c 'import site; print(site.getsitepackages()[0])')/diskimage_builder/elements/fedora/root.d/10-fedora-cloud-image"
+if [ -f "$fedora_element" ] && grep -q 'Fedora-Cloud-Base-Generic' "$fedora_element"; then
+    echo "  ok   Fedora Generic-image patch is applied"
+else
+    fail "Fedora Generic-image patch is missing from the active venv"
+fi
 
 echo "== ansible playbook syntax =="
 for playbook in playbooks/*.yml ; do
@@ -37,8 +91,7 @@ for playbook in playbooks/*.yml ; do
 done
 
 echo "== shell syntax =="
-# bin/ and tests/ helpers plus every element hook, which is where most of
-# the shell in this repo actually lives.
+# bin/, tests/, and local wrappers plus every element hook.
 while IFS= read -r script ; do
     if bash -n "$script" ; then
         echo "  ok   $script"
@@ -46,7 +99,7 @@ while IFS= read -r script ; do
         fail "$script failed bash -n"
     fi
 done < <(
-    find bin tests -type f -name '*.sh' 2> /dev/null
+    find bin tests local -type f -name '*.sh' 2> /dev/null
     find elements -type f \( \
         -path '*/pre-install.d/*' -o \
         -path '*/install.d/*' -o \
@@ -64,15 +117,16 @@ done < <(
 
 echo "== Python syntax =="
 while IFS= read -r script ; do
-    if python3 -m py_compile "$script" ; then
+    if "$python_bin" -m py_compile "$script" ; then
         echo "  ok   $script"
     else
         fail "$script failed py_compile"
     fi
 done < <(find bin -type f -name "*.py" 2> /dev/null)
+rm -rf bin/__pycache__
 
 echo "== catalog schema =="
-if python3 - << 'PYTHON' ; then
+if "$python_bin" - << 'PYTHON' ; then
 import json
 from pathlib import Path
 from jsonschema import Draft202012Validator
@@ -111,7 +165,7 @@ else
 fi
 
 echo "== yaml parse =="
-if python3 - << 'PYTHON' ; then
+if "$python_bin" - << 'PYTHON' ; then
 import sys
 from pathlib import Path
 

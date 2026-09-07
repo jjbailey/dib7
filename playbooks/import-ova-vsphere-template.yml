@@ -92,6 +92,8 @@
           ansible.builtin.include_tasks: publish-image-catalog.yml
           vars:
             catalog_provider: vsphere
+            # The template is a new artifact even when its source OVA upload
+            # was skipped because the content-library item was unchanged.
             catalog_artifact_id: "{{ vsphere_template_name | default(inventory_hostname ~ '.tmpl') }}"
             catalog_artifact_type: content_library_template
             catalog_supersede: true
@@ -129,7 +131,7 @@
       always:
         - name: Display template creation result
           ansible.builtin.debug:
-            msg: "Template creation exited with return code {{ template_result.rc }}"
+            msg: "Template creation exited with return code {{ template_result.get('rc', 'unknown') }}"
           when: template_result is defined
 
 - name: Report template results
