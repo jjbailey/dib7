@@ -47,7 +47,7 @@ flowchart TB
 
 ### Operating Systems by Provider
 
-Validated against provider documentation on 2026-07-28. See the provider-specific
+Validated against provider documentation on 2026-09-06. See the provider-specific
 pages in `doc/` for release and known-issue details. Provider support is
 separate from DIB7 inventory support; re-check the provider matrix before
 enabling a new target release.
@@ -91,8 +91,10 @@ Current provider-supported operating systems:
 - Windows Server through 2025
 
 DIB7 target notes: `ubuntu24044`, `ubuntu26041`, `debian1306`, and `centos10s`
-match the current GCP import matrix. Fedora Server is not listed as a supported
-import target.
+match the current GCP import matrix — with the caveat that GCP lists Debian 13
+as 13.0–13.2 while `debian1306` tracks the rolling `trixie` point release
+(same kernel; confirm the release before importing). Fedora Server is not
+listed as a supported import target.
 
 #### OpenStack Glance
 

@@ -60,7 +60,13 @@ The patch content, for reference:
 
 <!-- markdownlint-enable MD013 MD010 -->
 
-The branch replaces the original Fedora filename calculation exactly once; do not add a second assignment after `fi`, or Fedora 43+ will lose the Generic filename.
+The patch retains the original `SUBRELEASE`/`BASE_IMAGE_FILE` assignment pair
+after the `if/else/fi` block. That duplicate is harmless: by then
+`$SUBRELEASE_REGEXP` is already the Generic pattern (it is set with `:-`, so
+it sticks), and `BASE_IMAGE_FILE` keeps its Generic value via its own `:-`
+default. It does cost one extra image-listing fetch per build, so it can be
+dropped if the patch is ever regenerated — but keep the `:-` guards intact,
+because with them the duplicate cannot overwrite the Generic filename.
 
 `-b` saves the pre-patch original as `10-fedora-cloud-image.orig`, which is
 handy for confirming what changed. Without it `patch` leaves no backup.

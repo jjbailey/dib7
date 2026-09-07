@@ -1,7 +1,8 @@
 # AWS Supported Linux Distributions
 
 Mirrors the "Operating systems supported by VM Import/Export" table in the AWS
-docs. Last checked against upstream on 2026-07-28.
+docs. Last checked against upstream on 2026-09-06 (matrix unchanged from the
+2026-07-28 check).
 
 <https://docs.aws.amazon.com/vm-import/latest/userguide/prerequisites.html>
 

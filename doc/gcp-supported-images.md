@@ -1,7 +1,10 @@
 # GCP Supported Linux Distributions
 
 Mirrors the "Supported operating systems" table for Migrate to Virtual Machines.
-Last checked against upstream on 2026-07-28.
+Last checked against upstream on 2026-09-06 (matrix rows unchanged from the
+2026-07-28 check; the upstream page itself was last updated 2026-08-26). Only
+the distributions dib7 builds are mirrored here; the upstream tables also
+carry SLES 12 SP5 / 15 SP5–SP7 / 16 and Windows rows.
 
 <https://cloud.google.com/migrate/virtual-machines/docs/5.0/discover/supported-os-versions>
 
@@ -73,19 +76,24 @@ written.
 Listed separately under "Operating systems supported by partners":
 
 - Oracle Linux 6.0–10.1
-- Amazon Linux
+
+An earlier revision of this doc also listed Amazon Linux here. The live
+partner table (verified 2026-09-06) lists Oracle Linux only; Amazon Linux 2
+appears upstream only in the AWS-source migration table, not in the partner
+or image-import tables. Not build-affecting — dib7 builds no Amazon Linux
+images.
 
 ## Coverage of the images built here
 
-| Build         | GCP            | Notes                                            |
-| ------------- | -------------- | ------------------------------------------------ |
-| `centos10s`   | Yes            | CentOS Stream 10                                 |
-| `debian1215`  | Yes            | Debian 12.x                                      |
-| `debian1306`  | Yes            | Debian 13.x, in range through 13.2               |
-| `fedora44`    | **Not listed** | Fedora does not appear in the table at all       |
-| `rocky102`    | Yes            | Confirm the point release lands at or below 10.1 |
-| `ubuntu24044` | Yes            | Known good, imports successfully                 |
-| `ubuntu26041` | Yes            | Supported here, unlike AWS — see below           |
+| Build         | GCP            | Notes                                                                                                                                            |
+| ------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `centos10s`   | Yes            | CentOS Stream 10                                                                                                                                 |
+| `debian1215`  | Yes            | Debian 12.x                                                                                                                                      |
+| `debian1306`  | Yes\*          | Debian 13.x — upstream lists 13.0–13.2; the build tracks the rolling `trixie` suite (same kernel), so confirm the point release before importing |
+| `fedora44`    | **Not listed** | Fedora does not appear in the table at all                                                                                                       |
+| `rocky102`    | Yes            | Confirm the point release lands at or below 10.1                                                                                                 |
+| `ubuntu24044` | Yes            | Known good, imports successfully                                                                                                                 |
+| `ubuntu26041` | Yes            | Supported here, unlike AWS — see below                                                                                                           |
 
 Fedora is absent from the M2VM table entirely, in contrast to AWS, which lists
 Fedora 41–43. `fedora44` is therefore off-matrix on both clouds.
