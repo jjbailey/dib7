@@ -128,15 +128,28 @@ try {
         exit 1
     }
 
-    # Remove existing item if it exists
-    try {
-        $existingItem = Get-ContentLibraryItem -ContentLibrary $contentLibrary -Name $ovaName -ErrorAction Stop
-        Write-Verbose "Existing item '$ovaName' found. Removing..."
-        Remove-ContentLibraryItem -ContentLibraryItem $existingItem -Confirm:$false
-        Write-Verbose "Existing item removed."
+    # Skip a byte-identical item already in the library. The local marker is a
+    # fallback because vCenter may normalize or omit the Notes description.
+    $markerPath = "$ovaPath.imported"
+    $expectedMarker = "$($sha1Hash.Hash.ToLower())  $library"
+    $existingItem = Get-ContentLibraryItem -ContentLibrary $contentLibrary -Name $ovaName -ErrorAction SilentlyContinue
+    $recordedNotes = if ($existingItem) { [string]$existingItem.Description } else { '' }
+    $notesMatch = $recordedNotes -and ($recordedNotes -match [regex]::Escape($sha1Hash.Hash.ToLower()))
+    $markerMatch = $false
+    if (Test-Path -LiteralPath $markerPath) {
+        $markerContent = [string](Get-Content -LiteralPath $markerPath -Raw -ErrorAction SilentlyContinue)
+        $markerMatch = ($markerContent.Trim() -eq $expectedMarker)
     }
-    catch {
-        Write-Verbose "Content Library item '$ovaName' not found in library '$library' - this is expected for new uploads."
+
+    if ($existingItem -and ($notesMatch -or $markerMatch)) {
+        Write-Host "Content library item '$ovaName' already matches this OVA (SHA1 $($sha1Hash.Hash.ToLower())); skipping upload."
+        Set-Content -LiteralPath $markerPath -Value $expectedMarker -NoNewline -ErrorAction SilentlyContinue
+        return
+    }
+
+    if ($existingItem) {
+        Write-Verbose "Existing item '$ovaName' does not match this OVA. Removing..."
+        Remove-ContentLibraryItem -ContentLibraryItem $existingItem -Confirm:$false -ErrorAction Stop
     }
 
     # Import the OVA file
@@ -152,6 +165,7 @@ try {
 
     Write-Verbose "Importing OVA file into Content Library..."
     New-ContentLibraryItem @params
+    Set-Content -LiteralPath $markerPath -Value $expectedMarker -NoNewline -ErrorAction SilentlyContinue
     Write-Host "Successfully imported OVA '$ovaFile' as '$ovaName' into Content Library '$library'."
 }
 catch {

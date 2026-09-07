@@ -22,6 +22,10 @@ image_type: "qcow2"
 # Override this path in a deployment-specific vars file or extra vars when the
 # catalog is copied to release storage.
 image_catalog_path: "{{ inventory_dir }}/catalogs/image-catalog.json"
+
+# Safe site defaults; vaults/vsphere.yml may override these when configured.
+vsphere_content_library: "Content_Library"
+vsphere_template_name: "{{ inventory_hostname }}-base.tmpl"
 # Prefer the run passed by the wrapper script; fall back to the stamp
 # verify-stamp.yml read off the artifact itself, which names the run that built
 # it. The two are provably equal whenever both exist, because verify-stamp.yml
@@ -33,6 +37,11 @@ catalog_version: "{{ run_id | default(stage_source_run) | default('manual') }}"
 # Cloud import behavior.
 gcp_replace_existing_image: true
 gcp_delete_qcow2_after_import: false
+
+# OVF metadata defaults. Override per distro when VMware's numeric guest ID
+# differs; vm_os_type remains the authoritative VMware guest string.
+ovf_os_id: "107"
+ovf_os_version: "7"
 
 # Boot mode of the built image. Every group currently builds with
 # block-device-efi-config.yml, so uefi is right for all of them. Override in
@@ -58,8 +67,6 @@ vmdk_file: "{{ image_name }}.vmdk"
 # it. See doc/pipeline-stamps.md.
 build_stamp_file: "{{ image_name }}.built"
 convert_stamp_file: "{{ image_name }}.converted"
-
-vsphere_template_name: "{{ inventory_hostname }}-base.tmpl"
 
 dpkg_opts: "-o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold"
 debian_frontend: "noninteractive"

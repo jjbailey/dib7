@@ -24,7 +24,7 @@
       <Info>A human-readable annotation</Info>
       <Annotation>{{ inventory_hostname }}</Annotation>
     </AnnotationSection>
-    <OperatingSystemSection ovf:id="107" ovf:version="7" vmw:osType="{{ vm_os_type }}">
+    <OperatingSystemSection ovf:id="{{ ovf_os_id }}" ovf:version="{{ ovf_os_version }}" vmw:osType="{{ vm_os_type }}">
       <Info>The operating system installed</Info>
       <Description>{{ vm_os_description }}</Description>
     </OperatingSystemSection>

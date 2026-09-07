@@ -1,4 +1,4 @@
-# DIB7 - Disk Image Builder v7
+# DIB7 - Disk Image Builder
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Ansible](https://img.shields.io/badge/Ansible-2.18.18-orange.svg)](https://ansible.com/)
@@ -47,7 +47,7 @@ flowchart TB
 
 ### Operating Systems by Provider
 
-Validated against provider documentation on 2026-07-28. See the provider-specific
+Validated against provider documentation on 2026-09-06. See the provider-specific
 pages in `doc/` for release and known-issue details. Provider support is
 separate from DIB7 inventory support; re-check the provider matrix before
 enabling a new target release.
@@ -91,8 +91,10 @@ Current provider-supported operating systems:
 - Windows Server through 2025
 
 DIB7 target notes: `ubuntu24044`, `ubuntu26041`, `debian1306`, and `centos10s`
-match the current GCP import matrix. Fedora Server is not listed as a supported
-import target.
+match the current GCP import matrix — with the caveat that GCP lists Debian 13
+as 13.0–13.2 while `debian1306` tracks the rolling `trixie` point release
+(same kernel; confirm the release before importing). Fedora Server is not
+listed as a supported import target.
 
 #### OpenStack Glance
 
@@ -195,9 +197,10 @@ hand-off.
    sudo apt install -y qemu-utils kpartx debootstrap parted dosfstools gdisk squashfs-tools libguestfs-tools lvm2
    ```
 
-   `ovftool`, PowerShell with PowerCLI, and the Google Cloud CLI (`gcloud`) are
-   installed separately and are required by the conversion, vSphere, and GCP
-   workflows respectively. See the playbook dependency list below.
+   `ovftool` 5.0.0 (upgraded from 4.6.3), PowerShell with PowerCLI, and the
+   Google Cloud CLI (`gcloud`) are installed separately and are required by the
+   conversion, vSphere, and GCP workflows respectively. See the playbook
+   dependency list below.
 
 ### Basic Usage
 
@@ -277,27 +280,27 @@ release pipeline.
 
 ```bash
 dib7/
-├── ansible.cfg                 # Ansible configuration
-├── bin/                        # Utility scripts
-│   ├── import-ova-vsphere.ps1  # PowerShell vSphere import script
+├── ansible.cfg                  # Ansible configuration
+├── bin/                         # Utility scripts
+│   ├── import-ova-vsphere.ps1   # PowerShell vSphere import script
 │   ├── import-ova-vsphere-template.ps1  # PowerShell template import script
 │   ├── publish-image-catalog.py # Catalog publisher
 │   ├── reconcile-catalog-aws.py # Marks catalog AMIs retired if gone from AWS
-│   ├── inspect-qcow2.sh        # Script for examining and modifying virtual machines
-│   └── *-vault.sh              # Vault management scripts
-├── block-device-config/       # DIB EFI/GPT block-device layouts
-├── catalogs/                   # Versioned provider artifact catalog and schema
-├── doc/                        # Documentation
-├── elements/                   # DIB elements for custom OS configurations
-├── group_vars/                 # Ansible group variables
-├── hosts.yml                   # Inventory file
-├── patches/                    # Patches applied to the venv (see doc/fedora.md)
-├── playbooks/                  # Ansible playbooks
-├── requirements.txt            # Pinned Python dependencies
-├── requirements.yml            # Pinned Ansible collections
-├── templates/                  # Jinja2 templates
-├── tests/                     # Syntax and data validation
-└── vaults/                     # Encrypted credentials
+│   ├── inspect-qcow2.sh         # Script for examining and modifying virtual machines
+│   └── *-vault.sh               # Vault management scripts
+├── block-device-config/         # DIB EFI/GPT block-device layouts
+├── catalogs/                    # Versioned provider artifact catalog and schema
+├── doc/                         # Documentation
+├── elements/                    # DIB elements for custom OS configurations
+├── group_vars/                  # Ansible group variables
+├── hosts.yml                    # Inventory file
+├── patches/                     # Patches applied to the venv (see doc/fedora.md)
+├── playbooks/                   # Ansible playbooks
+├── requirements.txt             # Pinned Python dependencies
+├── requirements.yml             # Pinned Ansible collections
+├── templates/                   # Jinja2 templates
+├── tests/                       # Syntax and data validation
+└── vaults/                      # Encrypted credentials
 ```
 
 ## Documentation
@@ -326,7 +329,7 @@ dib7/
 - `build-qcow2.yml`: Build base QCOW2 image.
   Dependencies: diskimage-builder.
 - `convert-qcow2-to-ova.yml`: Convert QCOW2 to OVA.
-  Dependencies: qemu-img, ovftool.
+  Dependencies: qemu-img, ovftool 5.0.0 (upgraded from 4.6.3).
 - `import-ova-aws.yml`: Upload OVA to S3, import to AWS AMI.
   Dependencies: `amazon.aws` collection, S3, VM Import.
 - `import-ova-vsphere.yml`: Import OVA to vSphere content library.

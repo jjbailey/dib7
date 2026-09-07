@@ -35,7 +35,7 @@
 
     - name: Backfill the catalog for one image
       block:
-        # The .ova.imported marker is written by import-ova-vsphere-template.ps1
+        # The .ova.imported marker is written by either vSphere OVA import helper
         # once the content library item exists. No marker means the OVA never
         # reached the library, and publishing a catalog entry for it would point
         # Terraform at something that is not there.
@@ -53,7 +53,7 @@
             src: "{{ build_dir }}/{{ ova_file }}.imported"
           register: imported_stamp
 
-        # Marker format is "<content library item id>  <library name>".
+        # Marker format is "<sha1>  <library name>".
         - name: Extract the library the OVA actually landed in
           ansible.builtin.set_fact:
             imported_library: >-
@@ -89,8 +89,10 @@
           when: backfill_version | length == 0
 
         # content_library_ova only, and deliberately not content_library_template.
-        # The marker is written by import-ova-vsphere-template.ps1 at the point
-        # the library item is confirmed, before New-VM builds the template from
+        # The marker is written by an import helper at the point the library item
+        # is confirmed. It proves the OVA reached the library, but not that a
+        # vSphere template exists.
+        # Before New-VM builds the template from
         # it, so it is evidence the OVA reached the library and no evidence at
         # all that the template exists. debian1306 on 2026-08-09 is the proof:
         # marker refreshed 11:42 with that run's SHA1, New-VM failed 11:44.

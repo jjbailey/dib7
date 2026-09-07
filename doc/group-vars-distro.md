@@ -116,12 +116,10 @@ image is built, conditionally on `add_swap`.
 
 <!-- markdownlint-disable MD013 -->
 
-| Variable                  | Value                          | Description                                                                                                                    |
-| ------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
-| `vm_network`              | `VM Network`                   | Network name written into the OVF `NetworkSection`.                                                                            |
-| `vm_os_description`       | e.g. `Ubuntu Linux (64-bit)`   | Human-readable OS description written into the OVF `OperatingSystemSection`.                                                   |
-| `vsphere_content_library` | `Content_Library`              | Target vSphere content library for `import-ova-vsphere.yml` when creating the `vSphere OVA`.                                   |
-| `vsphere_template_name`   | `inventory_hostname-base.tmpl` | Final vSphere template name used by `playbooks/import-ova-vsphere-template.yml` and `playbooks/recreate-vsphere-template.yml`. |
+| Variable            | Value                        | Description                                                                  |
+| ------------------- | ---------------------------- | ---------------------------------------------------------------------------- |
+| `vm_network`        | `VM Network`                 | Network name written into the OVF `NetworkSection`.                          |
+| `vm_os_description` | e.g. `Ubuntu Linux (64-bit)` | Human-readable OS description written into the OVF `OperatingSystemSection`. |
 
 <!-- markdownlint-enable MD013 -->
 
@@ -146,3 +144,5 @@ Variables that differ across the five groups. All other variables are identical.
 All five groups build from the same `~/.dib7` virtualenv. The Fedora patch it
 carries touches only the `fedora` element, so it has no effect on the other
 builds; see [fedora.md](fedora.md).
+
+The vSphere content-library and template-name settings are site-specific and live in `vaults/vsphere.yml`; they are not duplicated in group variables.
