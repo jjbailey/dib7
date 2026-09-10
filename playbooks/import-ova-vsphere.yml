@@ -115,6 +115,7 @@
               rc={{ import_result.rc | default('unknown') }}
               stderr={{ import_result.stderr | default('') | trim }}
               stdout={{ import_result.stdout | default('') | trim }}
+          no_log: true
 
         - name: Report the import failure
           ansible.builtin.debug:
@@ -125,6 +126,7 @@
               rc={{ import_result.rc | default('unknown') }}
               stderr={{ import_result.stderr | default('') | trim }}
               stdout={{ import_result.stdout | default('') | trim }}
+          no_log: true
 
       always:
         - name: Display import result

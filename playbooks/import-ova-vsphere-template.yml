@@ -78,7 +78,9 @@
               - "-templateName"
               - "{{ vsphere_template_name | default(inventory_hostname ~ '.tmpl') }}"
               - "-folder"
-              - "Templates"
+              - "{{ vsphere_template_folder | default('Templates') }}"
+              - "-vmHost"
+              - "{{ vsphere_template_host | default('') }}"
           delegate_to: localhost
           register: template_result
           changed_when: template_result.rc == 0
@@ -117,6 +119,7 @@
               rc={{ template_result.rc | default('unknown') }}
               stderr={{ template_result.stderr | default('') | trim }}
               stdout={{ template_result.stdout | default('') | trim }}
+          no_log: true
 
         - name: Report the template creation failure
           ansible.builtin.debug:
@@ -127,6 +130,7 @@
               rc={{ template_result.rc | default('unknown') }}
               stderr={{ template_result.stderr | default('') | trim }}
               stdout={{ template_result.stdout | default('') | trim }}
+          no_log: true
 
       always:
         - name: Display template creation result

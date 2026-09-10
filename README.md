@@ -71,7 +71,7 @@ Current provider-supported operating systems:
 - RHEL, Rocky Linux, and Oracle Linux through 10.1
 - Windows Server through 2025
 
-DIB7 target notes: `ubuntu24044` matches AWS import support, and
+DIB7 target notes: `ubuntu24045` matches AWS import support, and
 `ubuntu26041` matches the published kernel matrix but currently encounters an
 AWS-side injection failure; see [doc/aws-supported-images.md](doc/aws-supported-images.md).
 `rocky102` is covered only when its resulting point release is no newer than
@@ -90,7 +90,7 @@ Current provider-supported operating systems:
 - AlmaLinux 8.3-8.10, 9.0-9.8, and 10.0-10.2
 - Windows Server through 2025
 
-DIB7 target notes: `ubuntu24044`, `ubuntu26041`, `debian1306`, and `centos10s`
+DIB7 target notes: `ubuntu24045`, `ubuntu26041`, `debian1306`, and `centos10s`
 match the current GCP import matrix — with the caveat that GCP lists Debian 13
 as 13.0–13.2 while `debian1306` tracks the rolling `trixie` point release
 (same kernel; confirm the release before importing). Fedora Server is not
@@ -168,21 +168,24 @@ hand-off.
    interpreter path is what activates the venv and sets the shebangs on the
    installed console scripts.
 
-   Fedora builds additionally need a patched `diskimage-builder` element,
-   applied from the project root:
+   Fedora builds need an installed DIB element that supports Fedora's
+   Generic cloud-image naming. If the installed DIB does not include that fix,
+   apply the repository patch from the project root:
 
    <!-- markdownlint-disable MD013 -->
 
    ```bash
    DIB7_SITE=$(~/.dib7/bin/python3 -c "import site; print(site.getsitepackages()[0])")
    patch -b -d "$DIB7_SITE/diskimage_builder/elements/fedora/root.d" \
-         < patches/diskimage-builder-3.42.0-fedora-generic-image.patch
+         < patches/diskimage-builder-fedora-generic-image.patch
    ```
 
    <!-- markdownlint-enable MD013 -->
 
-   The patch touches only the `fedora` element, so it is inert for the other
-   builds sharing the venv. See [doc/fedora.md](doc/fedora.md).
+   The validation gate checks the installed element and accepts either an
+   upstream fix or this patch. The patch touches only the `fedora` element, so
+   it is inert for the other builds sharing the venv. See
+   [doc/fedora.md](doc/fedora.md).
 
    `requirements.txt` includes `diskimage-builder`, `ansible-core`, `PyYAML`,
    and the controller-side Python SDKs required by the AWS, GCP, and
@@ -229,7 +232,7 @@ release pipeline.
    ~/.dib7/bin/ansible-playbook playbooks/build-qcow2.yml
 
    # Build a specific host
-   ~/.dib7/bin/ansible-playbook playbooks/build-qcow2.yml -l ubuntu24044
+   ~/.dib7/bin/ansible-playbook playbooks/build-qcow2.yml -l ubuntu24045
 
    # Build all hosts in a group
    ~/.dib7/bin/ansible-playbook playbooks/build-qcow2.yml -l ubuntu
@@ -511,10 +514,11 @@ Run the local validation suite before committing changes:
 ./tests/validate.sh
 ```
 
-This checks every actual playbook with Ansible syntax validation, parses
-non-secret YAML files, and runs `bash -n` against the shell helpers. Cloud
-imports still require provider credentials and are intentionally not executed
-by the local suite.
+This checks every actual playbook with Ansible syntax validation, verifies the
+pinned Ansible collections and DIB/Fedora compatibility, validates the catalog
+schema, parses non-secret YAML and PowerShell, and runs `bash -n` against the
+shell helpers. Cloud imports still require provider credentials and are
+intentionally not executed by the local suite.
 
 ## Troubleshooting
 
@@ -525,15 +529,23 @@ by the local suite.
    - Check available disk space (>50GB recommended)
    - Verify Python virtual environment is activated
 
-2. **Cloud Import Failures**
+2. **Stamp-gate failures**
+   - If a stage says an artifact did not complete for the current host, inspect
+     the preceding stage log and its `.built`/`.converted` stamp. Do not bypass
+     the gate by reusing an artifact from an older run; rerun the failed stage
+     with one shared `run_id`.
+
+3. **Cloud Import Failures**
    - Validate vault credentials
    - Check cloud provider quotas and permissions
    - Review cloud provider import logs
+   - AWS imports run only for the inventory's `aws_import` group; `run-all.sh -l
+     all` maps its AWS stage to that group rather than attempting every distro.
    - GCP: reruns delete and replace any existing Compute image with the same
      name by default (`gcp_replace_existing_image: true`); set it to `false`
      first if you need to keep the existing image
 
-3. **Ansible Collection Issues**
+4. **Ansible Collection Issues**
    - Update collections: `~/.dib7/bin/ansible-galaxy collection install --force`
      `<collection>`
    - Check collection compatibility with Ansible version

@@ -1,6 +1,6 @@
 # ansible-core 2.18 requires Python 3.11+ on the control node.
 ansible-core==2.18.18
-diskimage-builder==3.42.0
+diskimage-builder==3.43.0
 
 # Direct Python dependencies used by local repo scripts and validation.
 PyYAML>=6.0

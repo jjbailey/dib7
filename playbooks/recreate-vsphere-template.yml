@@ -58,7 +58,9 @@
               - "-templateName"
               - "{{ vsphere_template_name | default(inventory_hostname ~ '.tmpl') }}"
               - "-folder"
-              - "Templates"
+              - "{{ vsphere_template_folder | default('Templates') }}"
+              - "-vmHost"
+              - "{{ vsphere_template_host | default('') }}"
               - "-UseExistingLibraryItem"
           delegate_to: localhost
           register: template_result

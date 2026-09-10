@@ -133,6 +133,18 @@
             stage_succeeded: true
 
       rescue:
+        - name: Remove failed Glance image
+          openstack.cloud.image:
+            auth: "{{ openstack_auth }}"
+            name: "{{ image_upload.image.id }}"
+            state: absent
+          when:
+            - image_upload is defined
+            - image_upload.image is defined
+            - image_upload.image.id is defined
+          no_log: true
+          failed_when: false
+
         - name: Record that the import failed
           ansible.builtin.set_fact:
             stage_failed: true

@@ -1,0 +1,40 @@
+---
+# .yamllint
+# vim: set tabstop=2 shiftwidth=2 expandtab:
+
+# ansible-lint runs yamllint for its yaml[...] rules. Without this file it uses
+# its own bundled config, which allows no blank line at the end of a file.
+#
+# Every file here deliberately ends with one. VS Code drops the final newline
+# on the last line, which leaves the file with no terminating newline at all -
+# vim reports [noeol] and cat returns the shell prompt mid-line. Keeping a
+# trailing blank line means the content line is still newline-terminated even
+# when the editor eats the last one.
+#
+# Only max-end is relaxed. Runs of blank lines inside a file are still capped,
+# so this does not license stray whitespace anywhere else.
+
+extends: default
+
+rules:
+  empty-lines:
+    max: 2
+    max-start: 0
+    max-end: 1
+
+  # Matches ansible-lint's bundled config rather than yamllint's stricter
+  # default, so adding this file does not turn on rules the repo never had.
+  line-length: disable
+  comments:
+    min-spaces-from-content: 1
+  comments-indentation: disable
+  braces:
+    max-spaces-inside: 1
+  brackets:
+    max-spaces-inside: 1
+  octal-values:
+    forbid-implicit-octal: true
+    forbid-explicit-octal: true
+  truthy:
+    allowed-values: ["true", "false"]
+    check-keys: false

@@ -38,6 +38,7 @@ param(
     [string]$folder,
 
     [string]$vCenterServer,
+    [string]$vmHost,
     [string]$vCenterUser,
     [SecureString]$vCenterPassword,
     [switch]$UseExistingLibraryItem
@@ -174,8 +175,19 @@ try {
     Set-Content -LiteralPath $markerPath -Value $expectedMarker -NoNewline -ErrorAction SilentlyContinue
 
     }
-    $folderObj = Get-Folder -Name $folder -ErrorAction Stop
-    $vmHostObj = Get-VMHost | Where-Object {
+    $folderMatches = @(Get-Folder -Name $folder -ErrorAction Stop)
+    if ($folderMatches.Count -ne 1) {
+        throw "Expected exactly one inventory folder named '$folder', found $($folderMatches.Count). Pass a unique folder name."
+    }
+    $folderObj = $folderMatches[0]
+
+    if ($vmHost) {
+        $vmHostMatches = @(Get-VMHost -Name $vmHost -ErrorAction Stop)
+    }
+    else {
+        $vmHostMatches = @(Get-VMHost)
+    }
+    $vmHostObj = $vmHostMatches | Where-Object {
         $_.ConnectionState -eq "Connected" -and -not $_.ExtensionData.Runtime.InMaintenanceMode
     } | Select-Object -First 1
 

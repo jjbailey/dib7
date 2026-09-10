@@ -28,14 +28,14 @@ Example entry:
 
 ```json
 {
-  "logical_name": "ubuntu24044-base",
+  "logical_name": "ubuntu24045-base",
   "provider": "aws",
   "artifact_id": "ami-0a6f5113e545a1f52",
   "artifact_type": "ami",
   "version": "1786293956",
   "architecture": "amd64",
   "boot_mode": "uefi",
-  "source_build": "ubuntu24044-base",
+  "source_build": "ubuntu24045-base",
   "status": "published",
   "region": "us-west-2"
 }

@@ -68,12 +68,13 @@ else
     fail "installed Ansible collections do not match requirements.yml"
 fi
 
-echo "== Fedora DIB patch =="
+echo "== Fedora DIB compatibility =="
 fedora_element="$($python_bin -c 'import site; print(site.getsitepackages()[0])')/diskimage_builder/elements/fedora/root.d/10-fedora-cloud-image"
 if [ -f "$fedora_element" ] && grep -q 'Fedora-Cloud-Base-Generic' "$fedora_element"; then
-    echo "  ok   Fedora Generic-image patch is applied"
+    echo "  ok   Fedora Generic-image naming is supported"
 else
-    fail "Fedora Generic-image patch is missing from the active venv"
+    dib_version="$($python_bin -c 'from importlib.metadata import version; print(version("diskimage-builder"))' 2>/dev/null || echo unknown)"
+    fail "diskimage-builder $dib_version lacks Fedora Generic-image support; apply patches/diskimage-builder-fedora-generic-image.patch or upgrade to a release that includes it"
 fi
 
 echo "== ansible playbook syntax =="

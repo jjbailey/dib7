@@ -2,15 +2,18 @@
 
 ---
 
-## Patch required to build Fedora Server 43+
+## Fedora Server 43+ compatibility
 
 Fedora changed the naming convention for the cloud image downloads at release
 43: the file is now `Fedora-Cloud-Base-Generic-<release>-<subrelease>.<arch>.qcow2`
-rather than `Fedora-Cloud-Base-<release>-...`. Stock `diskimage-builder` 3.42.0
-only knows the older name, so the download step fails to resolve an image.
+rather than `Fedora-Cloud-Base-<release>-...`. The pinned `diskimage-builder` version must either contain this fix or have
+this repository patch applied; otherwise the download step fails to resolve an
+image. The validation gate checks the installed element rather than trusting
+the package version.
 
-The patch is kept in the repo and applies to the `fedora` element inside the
-`~/.dib7` venv:
+If the installed Fedora element does not already contain
+`Fedora-Cloud-Base-Generic`, apply the repository patch to the `fedora` element
+inside the `~/.dib7` venv:
 
 From the project root:
 
@@ -19,7 +22,7 @@ From the project root:
 ```bash
 DIB7_SITE=$(~/.dib7/bin/python3 -c "import site; print(site.getsitepackages()[0])")
 patch -b -d "$DIB7_SITE/diskimage_builder/elements/fedora/root.d" \
-      < patches/diskimage-builder-3.42.0-fedora-generic-image.patch
+      < patches/diskimage-builder-fedora-generic-image.patch
 ```
 
 <!-- markdownlint-enable MD013 -->
@@ -98,6 +101,7 @@ report `diskimage-builder` 3.42.0. Use the `grep -c` check above.
 
 ## Re-applying after a diskimage-builder upgrade
 
-The patch targets a file inside the installed package, so any `pip install
---upgrade diskimage-builder` silently reverts it. After upgrading, re-apply the
-patch and re-run the verification above.
+The patch targets a file inside the installed package, so an upgrade can
+silently revert it. After upgrading, run `tests/validate.sh`: if the installed
+upstream element contains the Generic naming branch, no patch is needed;
+otherwise re-apply the repository patch and verify again.
