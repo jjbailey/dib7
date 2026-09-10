@@ -92,7 +92,7 @@ images.
 | `debian1306`  | Yes\*          | Debian 13.x — upstream lists 13.0–13.2; the build tracks the rolling `trixie` suite (same kernel), so confirm the point release before importing |
 | `fedora44`    | **Not listed** | Fedora does not appear in the table at all                                                                                                       |
 | `rocky102`    | Yes            | Confirm the point release lands at or below 10.1                                                                                                 |
-| `ubuntu24044` | Yes            | Known good, imports successfully                                                                                                                 |
+| `ubuntu24045` | Yes            | Known good, imports successfully                                                                                                                 |
 | `ubuntu26041` | Yes            | Supported here, unlike AWS — see below                                                                                                           |
 
 Fedora is absent from the M2VM table entirely, in contrast to AWS, which lists

@@ -26,6 +26,10 @@ image_catalog_path: "{{ inventory_dir }}/catalogs/image-catalog.json"
 # Safe site defaults; vaults/vsphere.yml may override these when configured.
 vsphere_content_library: "Content_Library"
 vsphere_template_name: "{{ inventory_hostname }}-base.tmpl"
+# Optional placement constraints for vSphere template creation. An empty host
+# keeps the existing automatic selection of any connected non-maintenance host.
+vsphere_template_folder: "Templates"
+vsphere_template_host: ""
 # Prefer the run passed by the wrapper script; fall back to the stamp
 # verify-stamp.yml read off the artifact itself, which names the run that built
 # it. The two are provably equal whenever both exist, because verify-stamp.yml

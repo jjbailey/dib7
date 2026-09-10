@@ -27,7 +27,8 @@ def live_ami_ids(region, ami_ids):
         batch = ami_ids[start:start + AMI_BATCH_SIZE]
         result = subprocess.run(
             ["aws", "ec2", "describe-images", "--region", region,
-             "--image-ids", *batch, "--output", "json"],
+             "--filters", "Name=image-id,Values=" + ",".join(batch),
+             "--output", "json"],
             capture_output=True, text=True, check=True,
         )
         live.update(image["ImageId"]
@@ -45,7 +46,7 @@ def load_catalog(path):
 
 def write_catalog(path, catalog):
     catalog["images"].sort(
-        key=lambda item: (item["logical_name"], item["provider"], item["artifact_type"], item["version"]))
+        key=lambda item: (item.get("logical_name", ""), item.get("provider", ""), item.get("artifact_type", ""), item.get("version", "")))
     catalog["generated_at"] = dt.datetime.now(dt.timezone.utc).replace(
         microsecond=0).isoformat().replace("+00:00", "Z")
     fd, temporary = tempfile.mkstemp(prefix=path.name + ".", dir=path.parent)
@@ -135,5 +136,5 @@ def main():
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
-    except (OSError, ValueError, json.JSONDecodeError, subprocess.CalledProcessError) as error:
+    except (OSError, ValueError, json.JSONDecodeError, subprocess.CalledProcessError, KeyError) as error:
         raise SystemExit(f"reconcile-catalog-aws: {error}")

@@ -68,7 +68,7 @@ From the project root:
 ```bash
 DIB7_SITE=$(~/.dib7/bin/python3 -c "import site; print(site.getsitepackages()[0])")
 patch -b -d "$DIB7_SITE/diskimage_builder/elements/fedora/root.d" \
-      < patches/diskimage-builder-3.42.0-fedora-generic-image.patch
+      < patches/diskimage-builder-fedora-generic-image.patch
 ```
 
 <!-- markdownlint-enable MD013 -->
@@ -79,7 +79,7 @@ See [fedora.md](fedora.md) for what the patch does and how to verify it.
 
 ```bash
 ~/.dib7/bin/ansible --version              # expect ansible-core 2.18.18
-~/.dib7/bin/disk-image-create --version    # expect 3.42.0
+~/.dib7/bin/disk-image-create --version    # expect 3.43.0
 ```
 
 Confirm the venv resolves its own packages:

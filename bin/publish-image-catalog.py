@@ -101,7 +101,8 @@ def main():
             old for old in catalog["images"] if match(old) != key]
         catalog["images"].append(entry)
         catalog["images"].sort(key=lambda item: (
-            item["logical_name"], item["provider"], item["artifact_type"], item["version"]))
+            item.get("logical_name", ""), item.get("provider", ""),
+            item.get("artifact_type", ""), item.get("version", "")))
         catalog["generated_at"] = dt.datetime.now(dt.timezone.utc).replace(
             microsecond=0).isoformat().replace("+00:00", "Z")
 
@@ -127,5 +128,5 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except (OSError, ValueError, json.JSONDecodeError) as error:
+    except (OSError, ValueError, json.JSONDecodeError, KeyError) as error:
         raise SystemExit(f"publish-image-catalog: {error}")
