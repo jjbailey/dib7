@@ -39,6 +39,7 @@ vsphere_template_host: ""
 catalog_version: "{{ run_id | default(stage_source_run) | default('manual') }}"
 
 # Cloud import behavior.
+gcp_import_location: "us-central1"
 gcp_replace_existing_image: true
 gcp_delete_qcow2_after_import: false
 

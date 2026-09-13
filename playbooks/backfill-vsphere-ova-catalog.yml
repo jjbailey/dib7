@@ -94,7 +94,7 @@
         # vSphere template exists.
         # Before New-VM builds the template from
         # it, so it is evidence the OVA reached the library and no evidence at
-        # all that the template exists. debian1306 on 2026-08-09 is the proof:
+        # all that the template exists. debian1307 on 2026-08-09 is the proof:
         # marker refreshed 11:42 with that run's SHA1, New-VM failed 11:44.
         # Backfilling a template row off this marker would put an entry in the
         # catalog for a template vCenter never created.

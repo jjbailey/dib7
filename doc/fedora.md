@@ -38,7 +38,7 @@ The patch content, for reference:
 ```diff
 --- 10-fedora-cloud-image~	2026-05-16 18:59:13.544979462 -0700
 +++ 10-fedora-cloud-image	2026-05-16 19:01:12.385447740 -0700
-@@ -53,9 +53,20 @@
+@@ -53,9 +53,17 @@
      esac
      # We have curl write headers to stderr so that we can debug fedora
      # mirror locations that don't have valid subreleases in their paths.
@@ -53,23 +53,12 @@ The patch content, for reference:
      SUBRELEASE=$(head -1 < <(curl -Lis -D /dev/stderr $DIB_CLOUD_IMAGES/ | grep -o -P $SUBRELEASE_REGEXP | sort -r))
      BASE_IMAGE_FILE=${BASE_IMAGE_FILE:-Fedora-Cloud-Base-$DIB_RELEASE-$SUBRELEASE.$ARCH.qcow2}
 +fi
-+
-+    SUBRELEASE=$(head -1 < <(curl -Lis -D /dev/stderr $DIB_CLOUD_IMAGES/ | grep -o -P $SUBRELEASE_REGEXP | sort -r))
-+    BASE_IMAGE_FILE=${BASE_IMAGE_FILE:-Fedora-Cloud-Base-$DIB_RELEASE-$SUBRELEASE.$ARCH.qcow2}
      BASE_IMAGE_TAR=Fedora-Cloud-Base-$DIB_RELEASE-$SUBRELEASE.$ARCH.tgz
      IMAGE_LOCATION=$DIB_CLOUD_IMAGES/$BASE_IMAGE_FILE
      CACHED_IMAGE=$DIB_IMAGE_CACHE/$BASE_IMAGE_FILE
 ```
 
 <!-- markdownlint-enable MD013 MD010 -->
-
-The patch retains the original `SUBRELEASE`/`BASE_IMAGE_FILE` assignment pair
-after the `if/else/fi` block. That duplicate is harmless: by then
-`$SUBRELEASE_REGEXP` is already the Generic pattern (it is set with `:-`, so
-it sticks), and `BASE_IMAGE_FILE` keeps its Generic value via its own `:-`
-default. It does cost one extra image-listing fetch per build, so it can be
-dropped if the patch is ever regenerated — but keep the `:-` guards intact,
-because with them the duplicate cannot overwrite the Generic filename.
 
 `-b` saves the pre-patch original as `10-fedora-cloud-image.orig`, which is
 handy for confirming what changed. Without it `patch` leaves no backup.
@@ -97,7 +86,7 @@ imported is exactly as broken as no patch at all. If check 1 points somewhere
 unexpected, see [python3-virtualenv.md](python3-virtualenv.md).
 
 Version output cannot distinguish a patched from an unpatched install: both
-report `diskimage-builder` 3.42.0. Use the `grep -c` check above.
+report `diskimage-builder` 3.43.0. Use the `grep -c` check above.
 
 ## Re-applying after a diskimage-builder upgrade
 

@@ -39,7 +39,7 @@ matters. An import whose kernel is off the matrix comes back as
 - Debian 12.2, 12.4, 12.7 — 6.1.0
 - Debian 6.0.0–6.0.8, 7.0.0–7.8.0, 10 are EOL per AWS
 
-Note that Debian 13 (trixie) is not yet listed, which `debian1306` builds.
+Note that Debian 13 (trixie) is not yet listed, which `debian1307` builds.
 
 ## Fedora
 
@@ -82,39 +82,38 @@ Note that Fedora 44 is not yet listed, which `fedora44` builds.
 
 ## Known issues
 
-### Ubuntu 26.04 fails during injection
+### Ubuntu 26.04 injection failure resolved (2026-09-12)
 
-As of 2026-07-28, importing `ubuntu26041-base.ova` fails even though 26.04 with
-kernel 7.0.0 is on the matrix above and the build produces exactly
-`linux-image-7.0.0-28-generic`:
+On 2026-07-28, importing `ubuntu26041-base.ova` failed even though 26.04 with
+kernel 7.0.0 was on the matrix above (the build then produced
+`linux-image-7.0.0-28-generic`):
 
 ```text
 "status": "deleted",
 "status_message": "SERVER_ERROR : injection : AWS initiated task cancellation"
 ```
 
-Snapshot conversion completes first, so the disk and the streamOptimized VMDK
-are fine. The failure is in the injection stage, where AWS activates the LVM
+Snapshot conversion completed first, so the disk and the streamOptimized VMDK
+were fine. The failure was in the injection stage, where AWS activates the LVM
 volume group, installs ENA/NVMe drivers and rewrites grub.
 
 `SERVER_ERROR` is an AWS-side crash, not a rejection. Anything AWS detects as an
 image problem comes back as a `ClientError` instead. Diffing the 26.04 and 24.04
-build logs turns up no structural difference — same disk layout, same EFI
+build logs turned up no structural difference — same disk layout, same EFI
 bootloader install, same initramfs-tools initrd, same kernel arguments. The only
-deltas are the release itself and grub 2.14 vs 2.12, so the likely cause is that
-the injection tooling does not yet handle 26.04 despite the docs table listing
-it.
+deltas were the release itself and grub 2.14 vs 2.12, so the likely cause was
+that the injection tooling did not yet handle 26.04 despite the docs table
+listing it.
 
-Options, in order:
+That no longer holds. An external vSphere-to-AWS migration test on 2026-09-12
+successfully imported the same guest OS and launched an instance. The migration
+workflow and its cloud identifiers are maintained outside this repository, so
+they are not cited here as an in-tree playbook or reproducible local evidence.
+The direct DIB OVA path (`playbooks/import-ova-aws.yml`) has not been retried
+since the July failure,
+so if it fails again while the vSphere-roundtrip path works, suspect the DIB
+artifact rather than the OS. Until then, treat 26.04 as supported on AWS, as
+listed — the docs table and live behavior now agree.
 
-1. Retry once, in case it is transient.
-2. Bypass injection with `aws ec2 import-snapshot` plus `aws ec2 register-image
---boot-mode uefi --ena-support`. There is no `ec2_snapshot_import` module in
-   amazon.aws 11.4.0, so this means shelling out. Confirm `ena` and `nvme` are
-   in the initramfs first.
-3. Open an AWS support case with the import task ID. A `SERVER_ERROR` is their
-   bug to fix.
-
-GCP lists and imports Ubuntu 26.04 without trouble, so if the image is needed in
-a cloud before AWS is fixed, that is the path that works today. See
+GCP also lists and imports Ubuntu 26.04 without trouble. See
 [gcp-supported-images.md](gcp-supported-images.md).

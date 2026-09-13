@@ -112,9 +112,12 @@ vcenter_password: "my-admin-password"
 # Optional site overrides; group_vars/all supplies safe defaults.
 vsphere_content_library: "my-content-library"
 vsphere_template_name: "inventory-item-base.tmpl"
+vsphere_template_folder: "Templates"
+vsphere_template_host: ""
 ```
 
-`vsphere_content_library` and `vsphere_template_name` override the defaults
+`vsphere_content_library`, `vsphere_template_name`, `vsphere_template_folder`, and
+`vsphere_template_host` override the defaults
 in `group_vars/all/main.yml` when present. They are used by the vSphere
 playbooks; the encrypted vault is optional for these non-secret settings.
 
