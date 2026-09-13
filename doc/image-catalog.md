@@ -99,22 +99,27 @@ pin - the single row is current state by construction, and the artifact behind
 it is replaced by the next run - so a deployment that must not move underneath
 itself has to capture the catalog at release time instead of resolving it live.
 
-## AWS reconciliation
+## Catalog reconciliation
 
-AWS is documented above as additive: the pipeline never deregisters an AMI, so
-old entries should stay `published` indefinitely. In practice something
-outside the pipeline - an AMI-lifecycle cron, cost cleanup, etc. - has been
-deregistering old AMIs anyway, leaving the catalog claiming `published` for
-AMIs that no longer exist.
+The provider reconcilers compare published catalog rows with live cloud state
+and remove stale rows entirely. They also remove rows already marked `retired`,
+so the catalog does not accumulate historical tombstones. Each script reads a
+snapshot without holding the lock during cloud calls, then re-reads the catalog
+under an exclusive lock before an atomic replacement.
 
-`bin/reconcile-catalog-aws.py --catalog catalogs/image-catalog.json` closes
-that gap. It groups every `published` `aws` entry by region, calls `aws ec2
-describe-images` per region, and marks any entry whose AMI id is no longer
-returned as `status: retired`, writing the catalog back under the same lock
-file `publish-image-catalog.py` uses. Pass `--dry-run` to see what would be
-retired without writing anything. It is a manual/scheduled reconciliation
-pass against cloud reality, not part of the automated build pipeline -
-`tests/validate.sh` only checks catalog shape, never live AWS state.
+```bash
+bin/reconcile-catalog-aws.py --dry-run
+bin/reconcile-catalog-gcp.py --dry-run
+bin/reconcile-catalog-openstack.py --dry-run
+```
+
+AWS groups AMI checks by region and supports `--region` and `--profile`. GCP
+checks image self-links and infers the project when the catalog contains one;
+use `--project` or `--credentials-file` when needed. OpenStack checks Glance
+image IDs through the selected clouds.yaml entry and supports `--cloud` and
+`--project-id`. All three scripts accept `--force` when more than half of the
+active provider rows would be removed. `tests/validate.sh` checks syntax and
+catalog shape, but deliberately does not perform live cloud calls.
 
 ## Release capture
 

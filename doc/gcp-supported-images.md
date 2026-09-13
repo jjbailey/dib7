@@ -89,7 +89,7 @@ images.
 | ------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `centos10s`   | Yes            | CentOS Stream 10                                                                                                                                 |
 | `debian1215`  | Yes            | Debian 12.x                                                                                                                                      |
-| `debian1306`  | Yes\*          | Debian 13.x — upstream lists 13.0–13.2; the build tracks the rolling `trixie` suite (same kernel), so confirm the point release before importing |
+| `debian1307`  | Yes\*          | Debian 13.x — upstream lists 13.0–13.2; the build tracks the rolling `trixie` suite (same kernel), so confirm the point release before importing |
 | `fedora44`    | **Not listed** | Fedora does not appear in the table at all                                                                                                       |
 | `rocky102`    | Yes            | Confirm the point release lands at or below 10.1                                                                                                 |
 | `ubuntu24045` | Yes            | Known good, imports successfully                                                                                                                 |
@@ -98,11 +98,11 @@ images.
 Fedora is absent from the M2VM table entirely, in contrast to AWS, which lists
 Fedora 41–43. `fedora44` is therefore off-matrix on both clouds.
 
-## Ubuntu 26.04 imports to GCP but not to AWS
+## Ubuntu 26.04 imports to GCP and AWS
 
-GCP lists Ubuntu 26.04 as supported. AWS also lists it, but its import fails
-during the injection stage with a `SERVER_ERROR` — see
-[aws-supported-images.md](aws-supported-images.md). If a 26.04 image is needed in
-a cloud before that is resolved, GCP is the path that works today.
+GCP lists Ubuntu 26.04 as supported, and imports work there. AWS also lists
+it, and the July injection-stage `SERVER_ERROR` is resolved — a 26.04.1 guest
+imported cleanly on 2026-09-12. See
+[aws-supported-images.md](aws-supported-images.md).
 
 The reverse holds for Debian 13: supported here, but AWS stops at 12.7.

@@ -71,12 +71,12 @@ Current provider-supported operating systems:
 - RHEL, Rocky Linux, and Oracle Linux through 10.1
 - Windows Server through 2025
 
-DIB7 target notes: `ubuntu24045` matches AWS import support, and
-`ubuntu26041` matches the published kernel matrix but currently encounters an
-AWS-side injection failure; see [doc/aws-supported-images.md](doc/aws-supported-images.md).
+DIB7 target notes: `ubuntu24045` and `ubuntu26041` both match AWS import
+support — the July 26.04 injection failure is resolved, see
+[doc/aws-supported-images.md](doc/aws-supported-images.md).
 `rocky102` is covered only when its resulting point release is no newer than
 10.1; verify the cloud image point release before importing. `debian1215`,
-`debian1306`, `fedora44`, and `centos10s` are not listed for AWS VM Import/Export.
+`debian1307`, `fedora44`, and `centos10s` are not listed for AWS VM Import/Export.
 
 #### GCP Compute Engine Image Import
 
@@ -90,9 +90,9 @@ Current provider-supported operating systems:
 - AlmaLinux 8.3-8.10, 9.0-9.8, and 10.0-10.2
 - Windows Server through 2025
 
-DIB7 target notes: `ubuntu24045`, `ubuntu26041`, `debian1306`, and `centos10s`
+DIB7 target notes: `ubuntu24045`, `ubuntu26041`, `debian1307`, and `centos10s`
 match the current GCP import matrix — with the caveat that GCP lists Debian 13
-as 13.0–13.2 while `debian1306` tracks the rolling `trixie` point release
+as 13.0–13.2 while `debian1307` tracks the rolling `trixie` point release
 (same kernel; confirm the release before importing). Fedora Server is not
 listed as a supported import target.
 
@@ -200,7 +200,7 @@ hand-off.
    sudo apt install -y qemu-utils kpartx debootstrap parted dosfstools gdisk squashfs-tools libguestfs-tools lvm2
    ```
 
-   `ovftool` 5.0.0 (upgraded from 4.6.3), PowerShell with PowerCLI, and the
+   `ovftool` (tested with 5.0.0), PowerShell with PowerCLI, and the
    Google Cloud CLI (`gcloud`) are installed separately and are required by the
    conversion, vSphere, and GCP workflows respectively. See the playbook
    dependency list below.
@@ -229,13 +229,13 @@ release pipeline.
 
    ```bash
    # Build all hosts in the inventory
-   ~/.dib7/bin/ansible-playbook playbooks/build-qcow2.yml
+   ~/.dib7/bin/ansible-playbook -e "run_id=$RUN_ID" playbooks/build-qcow2.yml
 
    # Build a specific host
-   ~/.dib7/bin/ansible-playbook playbooks/build-qcow2.yml -l ubuntu24045
+   ~/.dib7/bin/ansible-playbook -e "run_id=$RUN_ID" playbooks/build-qcow2.yml -l ubuntu24045
 
    # Build all hosts in a group
-   ~/.dib7/bin/ansible-playbook playbooks/build-qcow2.yml -l ubuntu
+   ~/.dib7/bin/ansible-playbook -e "run_id=$RUN_ID" playbooks/build-qcow2.yml -l ubuntu
    ```
 
    Omit `-l` to run against every host in `hosts.yml`. Use `-l` only when you
@@ -246,20 +246,20 @@ release pipeline.
    **AWS:**
 
    ```bash
-   ~/.dib7/bin/ansible-playbook playbooks/convert-qcow2-to-ova.yml -l <host-or-group> --ask-vault-pass
-   ~/.dib7/bin/ansible-playbook playbooks/import-ova-aws.yml -l <host-or-group> --ask-vault-pass
+   ~/.dib7/bin/ansible-playbook -e "run_id=$RUN_ID" playbooks/convert-qcow2-to-ova.yml -l <host-or-group> --ask-vault-pass
+   ~/.dib7/bin/ansible-playbook -e "run_id=$RUN_ID" playbooks/import-ova-aws.yml -l <host-or-group> --ask-vault-pass
    ```
 
    **GCP:**
 
    ```bash
-   ~/.dib7/bin/ansible-playbook playbooks/import-qcow2-gcp.yml -l <host-or-group> --ask-vault-pass
+   ~/.dib7/bin/ansible-playbook -e "run_id=$RUN_ID" playbooks/import-qcow2-gcp.yml -l <host-or-group> --ask-vault-pass
    ```
 
    **OpenStack:**
 
    ```bash
-   ~/.dib7/bin/ansible-playbook playbooks/import-qcow2-openstack.yml -l <host-or-group> --ask-vault-pass
+   ~/.dib7/bin/ansible-playbook -e "run_id=$RUN_ID" playbooks/import-qcow2-openstack.yml -l <host-or-group> --ask-vault-pass
    ```
 
    **vSphere:**
@@ -270,12 +270,12 @@ release pipeline.
 
    ```bash
    # vSphere OVA (content library item) only
-   ~/.dib7/bin/ansible-playbook playbooks/convert-qcow2-to-ova.yml -l <host-or-group> --ask-vault-pass
-   ~/.dib7/bin/ansible-playbook playbooks/import-ova-vsphere.yml -l <host-or-group> --ask-vault-pass
+   ~/.dib7/bin/ansible-playbook -e "run_id=$RUN_ID" playbooks/convert-qcow2-to-ova.yml -l <host-or-group> --ask-vault-pass
+   ~/.dib7/bin/ansible-playbook -e "run_id=$RUN_ID" playbooks/import-ova-vsphere.yml -l <host-or-group> --ask-vault-pass
 
    # vSphere Template instead
-   ~/.dib7/bin/ansible-playbook playbooks/convert-qcow2-to-ova.yml -l <host-or-group> --ask-vault-pass
-   ~/.dib7/bin/ansible-playbook playbooks/import-ova-vsphere-template.yml \
+   ~/.dib7/bin/ansible-playbook -e "run_id=$RUN_ID" playbooks/convert-qcow2-to-ova.yml -l <host-or-group> --ask-vault-pass
+   ~/.dib7/bin/ansible-playbook -e "run_id=$RUN_ID" playbooks/import-ova-vsphere-template.yml \
      -l <host-or-group> --ask-vault-pass
    ```
 
@@ -288,7 +288,9 @@ dib7/
 │   ├── import-ova-vsphere.ps1   # PowerShell vSphere import script
 │   ├── import-ova-vsphere-template.ps1  # PowerShell template import script
 │   ├── publish-image-catalog.py # Catalog publisher
-│   ├── reconcile-catalog-aws.py # Marks catalog AMIs retired if gone from AWS
+│   ├── reconcile-catalog-aws.py # Removes catalog AMIs gone from AWS
+│   ├── reconcile-catalog-gcp.py # Removes catalog images gone from GCP
+│   ├── reconcile-catalog-openstack.py # Removes catalog images gone from OpenStack
 │   ├── inspect-qcow2.sh         # Script for examining and modifying virtual machines
 │   └── *-vault.sh               # Vault management scripts
 ├── block-device-config/         # DIB EFI/GPT block-device layouts
@@ -332,7 +334,7 @@ dib7/
 - `build-qcow2.yml`: Build base QCOW2 image.
   Dependencies: diskimage-builder.
 - `convert-qcow2-to-ova.yml`: Convert QCOW2 to OVA.
-  Dependencies: qemu-img, ovftool 5.0.0 (upgraded from 4.6.3).
+  Dependencies: qemu-img and ovftool (tested with 5.0.0).
 - `import-ova-aws.yml`: Upload OVA to S3, import to AWS AMI.
   Dependencies: `amazon.aws` collection, S3, VM Import.
 - `import-ova-vsphere.yml`: Import OVA to vSphere content library.
@@ -516,9 +518,10 @@ Run the local validation suite before committing changes:
 
 This checks every actual playbook with Ansible syntax validation, verifies the
 pinned Ansible collections and DIB/Fedora compatibility, validates the catalog
-schema, parses non-secret YAML and PowerShell, and runs `bash -n` against the
-shell helpers. Cloud imports still require provider credentials and are
-intentionally not executed by the local suite.
+schema, parses non-secret YAML and PowerShell, runs `bash -n` against the
+shell helpers, and compiles the Python utilities with `py_compile`. Cloud imports
+still require provider credentials and are intentionally not executed by the local
+suite.
 
 ## Troubleshooting
 
@@ -555,7 +558,7 @@ intentionally not executed by the local suite.
 Run playbooks with verbose output:
 
 ```bash
-~/.dib7/bin/ansible-playbook playbooks/build-qcow2.yml -vvv
+~/.dib7/bin/ansible-playbook -e "run_id=$RUN_ID" playbooks/build-qcow2.yml -vvv
 ```
 
 ## Contributing
