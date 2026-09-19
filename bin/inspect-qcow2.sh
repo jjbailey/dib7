@@ -1,5 +1,5 @@
 #!/bin/bash
-# inspect-qcow2.sh
+# bin/inspect-qcow2.sh
 # vim: set tabstop=4 shiftwidth=4 expandtab:
 
 # a script for examining and modifying virtual machine filesystems

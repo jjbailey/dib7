@@ -1,5 +1,5 @@
 #!/bin/bash
-# gcp-vault.sh
+# bin/gcp-vault.sh
 # vim: set tabstop=4 shiftwidth=4 expandtab:
 
 set -eu

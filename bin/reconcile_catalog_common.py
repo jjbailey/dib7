@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
-# reconcile_catalog_common.py
+# bin/reconcile_catalog_common.py
 # vim: set tabstop=4 shiftwidth=4 expandtab:
+
+
 
 """Shared helpers for provider image-catalog reconcilers."""
 

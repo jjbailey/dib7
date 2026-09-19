@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
-# reconcile-catalog-aws.py
+# bin/reconcile-catalog-aws.py
 # vim: set tabstop=4 shiftwidth=4 expandtab:
+
+
 
 """Remove AWS catalog entries when their AMIs are gone."""
 

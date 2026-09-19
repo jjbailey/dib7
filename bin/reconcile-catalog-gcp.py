@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
-# reconcile-catalog-gcp.py
+# bin/reconcile-catalog-gcp.py
 # vim: set tabstop=4 shiftwidth=4 expandtab:
+
+
 
 """Remove GCP catalog entries when their images are gone."""
 

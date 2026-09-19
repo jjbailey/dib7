@@ -23,8 +23,8 @@ build to a cloud-ready artifact.
 
 ### Phase 2: Conversion (Format Transformation)
 
-- **Transformation**: `convert-qcow2-to-ova.yml` converts master QCOW2 to OVA
-  for vSphere/AWS.
+- **Transformation**: `convert-qcow2-to-ova.yml` uses `qemu-img` and `ovftool`
+  to convert the master QCOW2 to OVA for vSphere/AWS.
 - **Provenance**: The build and conversion stages stamp their successful
   artifacts. Every import verifies the preceding stamp before it consumes an
   artifact, preventing a failed stage from publishing an older file left in

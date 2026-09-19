@@ -15,15 +15,8 @@
         - name: Include common setup tasks
           ansible.builtin.include_tasks: common-setup.yml
 
-        - name: Include OpenStack vault variables
-          ansible.builtin.include_vars:
-            file: "../vaults/openstack.yml"
-
-        - name: Verify OpenStack credentials are valid
-          openstack.cloud.auth:
-            auth: "{{ openstack_auth }}"
-          register: openstack_auth_check
-          no_log: true
+        - name: Select the OpenStack project for this run
+          ansible.builtin.include_tasks: tasks/select-openstack-project.yml
 
         - name: Require a QCOW2 built by this run
           ansible.builtin.include_tasks: verify-stamp.yml
@@ -44,12 +37,14 @@
         - name: Check if image already exists in OpenStack
           openstack.cloud.image_info:
             auth: "{{ openstack_auth }}"
+            region_name: "{{ openstack_region_name }}"
             name: "{{ image_name }}"
           register: existing_image
 
         - name: Delete existing image if it exists
           openstack.cloud.image:
             auth: "{{ openstack_auth }}"
+            region_name: "{{ openstack_region_name }}"
             name: "{{ image_name }}"
             state: absent
           when: existing_image.images | length > 0
@@ -57,6 +52,7 @@
         - name: Wait for existing image deletion to complete
           openstack.cloud.image_info:
             auth: "{{ openstack_auth }}"
+            region_name: "{{ openstack_region_name }}"
             name: "{{ image_name }}"
           register: deleted_image_status
           until: deleted_image_status.images | default([]) | length == 0
@@ -67,6 +63,7 @@
         - name: Upload QCOW2 to OpenStack
           openstack.cloud.image:
             auth: "{{ openstack_auth }}"
+            region_name: "{{ openstack_region_name }}"
             name: "{{ image_name }}"
             filename: "{{ build_dir }}/{{ qcow2_file }}"
             disk_format: qcow2
@@ -83,6 +80,7 @@
         - name: Wait for import to complete
           openstack.cloud.image_info:
             auth: "{{ openstack_auth }}"
+            region_name: "{{ openstack_region_name }}"
             name: "{{ image_name }}"
           register: image_status
           until: >
@@ -123,8 +121,8 @@
             catalog_artifact_type: glance_image
             catalog_supersede: true
             catalog_boot_mode: "{{ image_boot_mode }}"
-            catalog_project: "{{ openstack_auth.project_name }}"
-            catalog_region: "{{ openstack_auth.region_name | default(None, true) }}"
+            catalog_project: "{{ openstack_target_project_name }}"
+            catalog_region: "{{ openstack_region_name }}"
 
         # Last task in the block, so a host only counts as succeeded if the
         # import and the catalog publish both worked.
@@ -136,6 +134,7 @@
         - name: Remove failed Glance image
           openstack.cloud.image:
             auth: "{{ openstack_auth }}"
+            region_name: "{{ openstack_region_name }}"
             name: "{{ image_upload.image.id }}"
             state: absent
           when:

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
-# publish-image-catalog.py
+# bin/publish-image-catalog.py
 # vim: set tabstop=4 shiftwidth=4 expandtab:
+
+
 
 """Atomically merge one published image into the DIB7 image catalog."""
 

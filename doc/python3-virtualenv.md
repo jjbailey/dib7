@@ -124,7 +124,7 @@ source ~/.dib7/bin/activate
 ## Upgrading
 
 `requirements.txt` pins `ansible-core` and `diskimage-builder`. After changing a
-pin, reinstall and re-verify:
+pin, reinstall, re-apply the Fedora patch if needed, and re-verify:
 
 ```bash
 ~/.dib7/bin/python3 -m pip install -r requirements.txt
