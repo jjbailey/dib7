@@ -315,7 +315,7 @@ dib7/
 - `doc/ansible-galaxy.md` - installing and verifying the Ansible Galaxy
   collections used by DIB7
 - `doc/aws-supported-images.md` - AWS VM Import/Export Linux distribution support
-- `doc/fedora.md` - diskimage-builder patch required to build Fedora Server 43+
+- `doc/fedora.md` - Fedora Server 43+ diskimage-builder compatibility and patch
 - `doc/gcloud.md` - installing the Google Cloud CLI (`gcloud`)
 - `doc/gcp-supported-images.md` - GCP Compute Engine Linux distribution support
 - `doc/group-vars-all.md` - defaults shared by all builds
@@ -350,6 +350,7 @@ dib7/
   Dependencies: gcloud (including `gcloud storage`).
 - `import-qcow2-openstack.yml`: Import QCOW2 to OpenStack.
   Dependencies: `openstack.cloud` collection.
+  Set `OPENSTACK_TARGET_PROJECT` when using multiple projects; it may be a vault key, project name, or project ID.
 - `backfill-vsphere-ova-catalog.yml`: Rebuild missing vSphere OVA catalog rows
   for artifacts already imported into the content library.
 
@@ -384,29 +385,78 @@ service_account_key: |
 ### OpenStack Vault (`vaults/openstack.yml`)
 
 ```yaml
-openstack_auth:
-  auth_url: "https://keystone.example.com:5000/v3"
-  username: "my-username"
-  password: "my-password"
-  project_name: "my-project"
-  user_domain_name: "Default"
-  project_domain_name: "Default"
+openstack_projects:
+  my-project-a:
+    auth_url: "https://keystone.example.com:5000/v3"
+    username: "my-username"
+    password: "my-password"
+    project_name: "my-project-a"
+    project_id: "project-id-a"
+    region_name: "my-region"
+    user_domain_name: "Default"
+    project_domain_name: "Default"
+  my-project-b:
+    auth_url: "https://keystone.example.com:5000/v3"
+    username: "my-username"
+    password: "my-password"
+    project_name: "my-project-b"
+    project_id: "project-id-b"
+    region_name: "my-region"
+    user_domain_name: "Default"
+    project_domain_name: "Default"
+
+# A legacy single-project openstack_auth mapping remains supported.
 ```
 
 ### vSphere Vault (`vaults/vsphere.yml`)
 
+`vsphere_projects`, a mapping of vCenter key to a vCenter entry:
+`vcenter_hostname`, `vcenter_username`, `vcenter_password`, optional
+`datacenter` (falls back to `"Datacenter"`), and optional `validate_certs`
+(default `true`). One run targets one vCenter, selected with
+`-e vsphere_target_vcenter=<key-or-hostname>`; the selector
+(`playbooks/tasks/select-vcenter.yml`) matches a vault key or a
+`vcenter_hostname`, auto-selects a single-entry map, and fails loud listing
+available keys. A legacy vault holding only the flat
+`vcenter_hostname`/`vcenter_username`/`vcenter_password` still works
+unmodified: with no explicit `-e vsphere_target_vcenter` the legacy
+credentials are used as-is even when `vsphere_projects` is also present (the
+same rule as `openstack_projects` in `vaults/openstack.yml`).
+
 ```yaml
-vcenter_hostname: "vcenter.example.com"
-vcenter_username: "administrator@vsphere.local"
-vcenter_password: "secure-password"
-vsphere_content_library: "my-content-library"
-vsphere_template_name: "inventory-item-base.tmpl"
+vsphere_projects:
+  example:
+    vcenter_hostname: "vc.example.com"
+    vcenter_username: "administrator@example.com"
+    vcenter_password: "secure-password"
+    datacenter: "Datacenter"
+    validate_certs: false
+  other-site:
+    vcenter_hostname: "vc.other.example.com"
+    vcenter_username: "administrator@other.example.com"
+    vcenter_password: "other-secure-password"
+    datacenter: "Other-DC"
+    validate_certs: true
+
+# A legacy single-vCenter flat vcenter_hostname/vcenter_username/
+# vcenter_password block remains supported.
 ```
 
-The template playbook also uses this non-secret variable. The template
-name follows the `<inventory item>-base.tmpl` convention:
+The `local/run-vsphere.sh`, `run-all.sh`, and `run-openstack.sh` wrappers
+pass `VSPHERE_TARGET_VCENTER` / `OPENSTACK_TARGET_PROJECT` through to the
+import playbooks when set.
+
+The selector is byte-identical to migrate-vmware's (the source of truth for
+this logic) apart from its file path, and also derives the `GOVC_URL` /
+`GOVC_USERNAME` / `GOVC_PASSWORD` / `GOVC_INSECURE` and lowercase `govc_*`
+variables that repo's govc/ovftool tasks consume. Nothing in this repo reads
+them today; they are kept for parity so the two selectors stay in lockstep.
+
+The template playbook also uses these non-secret variables (site defaults in
+`group_vars/all/main.yml`):
 
 ```yaml
+vsphere_content_library: "my-content-library"
 vsphere_template_name: "inventory-item-base.tmpl"
 ```
 
@@ -491,7 +541,7 @@ and whether each phase runs inside or outside the chroot.
 ```bash
 # Test basic DIB functionality
 export DIB_RELEASE=noble
-disk-image-create ubuntu vm -o test-ubuntu
+~/.dib7/bin/disk-image-create ubuntu vm -o test-ubuntu
 
 # Inspect QCOW2 contents
 ./bin/inspect-qcow2.sh -i test-ubuntu.qcow2
@@ -543,7 +593,7 @@ suite.
    - Check cloud provider quotas and permissions
    - Review cloud provider import logs
    - AWS imports run only for the inventory's `aws_import` group; `run-all.sh -l
-     all` maps its AWS stage to that group rather than attempting every distro.
+all` maps its AWS stage to that group rather than attempting every distro.
    - GCP: reruns delete and replace any existing Compute image with the same
      name by default (`gcp_replace_existing_image: true`); set it to `false`
      first if you need to keep the existing image

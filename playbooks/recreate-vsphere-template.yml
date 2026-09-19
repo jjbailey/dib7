@@ -39,10 +39,10 @@
       # Inventory variables load image_name; the vSphere vault supplies site-specific library and template values.
       ansible.builtin.include_tasks: common-setup.yml
 
-    - name: Include vSphere vault variables
-      ansible.builtin.include_vars:
-        file: "../vaults/vsphere.yml"
-      no_log: true
+    # Resolve the vCenter credentials from the multi-vCenter vault; the
+    # selector honors -e vsphere_target_vcenter and the legacy flat vault.
+    - name: Resolve the vCenter credentials from the vault
+      ansible.builtin.include_tasks: tasks/select-vcenter.yml
 
     - name: Recreate vSphere template from library OVA
       block:

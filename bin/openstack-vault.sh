@@ -1,5 +1,5 @@
 #!/bin/bash
-# openstack-vault.sh
+# bin/openstack-vault.sh
 # vim: set tabstop=4 shiftwidth=4 expandtab:
 
 set -eu

@@ -87,19 +87,35 @@ from a bad region.
 vaults/openstack.yml
 
 ```txt
-openstack_auth:
-  auth_url: "https://keystone.example.com:5000/v3"
-  username: "my-username"
-  password: "my-password"
-  project_name: "my-project"
-  user_domain_name: "Default"
-  project_domain_name: "Default"
-  # region_name: "my-region"  # only needed for multi-region clouds
+openstack_projects:
+  my-project-a:
+    auth_url: "https://keystone.example.com:5000/v3"
+    username: "my-username"
+    password: "my-password"
+    project_name: "my-project-a"
+    project_id: "project-id-a"
+    region_name: "my-region"
+    user_domain_name: "Default"
+    project_domain_name: "Default"
+  my-project-b:
+    auth_url: "https://keystone.example.com:5000/v3"
+    username: "my-username"
+    password: "my-password"
+    project_name: "my-project-b"
+    project_id: "project-id-b"
+    region_name: "my-region"
+    user_domain_name: "Default"
+    project_domain_name: "Default"
+
+# A legacy single-project openstack_auth mapping remains supported.
 ```
 
-`region_name` is optional and only required for multi-region clouds; omit it
-for single-region clouds. When set, it is also recorded as `region` on the
-image's catalog entry.
+A vault may contain either the legacy single `openstack_auth` mapping or an
+`openstack_projects` mapping. Select a project with
+`-e openstack_target_project=<vault-key-or-project-name-or-project-id>`; a
+single-entry map is selected automatically. Quote numeric project names and IDs.
+`region_name` should be set for multi-region clouds and is recorded on the
+image catalog entry.
 
 ## vSphere Vault
 

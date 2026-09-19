@@ -1,5 +1,5 @@
 #!/bin/bash
-# aws-vault.sh
+# bin/aws-vault.sh
 # vim: set tabstop=4 shiftwidth=4 expandtab:
 
 set -eu

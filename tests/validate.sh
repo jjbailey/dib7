@@ -1,5 +1,5 @@
 #!/bin/bash
-# validate.sh
+# tests/validate.sh
 # vim: set tabstop=4 shiftwidth=4 expandtab:
 
 # Without set -e every check below could fail, be ignored, and the script would
@@ -116,6 +116,63 @@ done < <(
         \) 2> /dev/null
 )
 
+echo "== vault schema =="
+# Optional: decrypt the vsphere/openstack vaults and check the multi-vcenter /
+# multi-project schema. Skipped silently when the vault password is missing so
+# the gate still runs on machines without credentials.
+vault_pass="${VAULT_PASSWORD_FILE:-$HOME/.ssh/dib-vault-pass}"
+if [ -s "$vault_pass" ] && [ -x "$venv_bin/ansible-vault" ] ; then
+    if "$python_bin" - "$vault_pass" << 'PYTHON' ; then
+import os
+import subprocess
+import sys
+
+import yaml
+
+passfile = sys.argv[1]
+
+def load(vault):
+    vault_bin = os.environ.get("DIB7_VENV_BIN", os.path.expanduser("~/.dib7/bin"))
+    out = subprocess.run(
+        [os.path.join(vault_bin, "ansible-vault"),
+         "decrypt", "--vault-password-file", passfile, "-"],
+        input=open(vault, encoding="utf-8").read(),
+        capture_output=True, text=True, check=True,
+    ).stdout
+    return yaml.safe_load(out)
+
+vsphere = load("vaults/vsphere.yml")
+legacy_ok = all(str(vsphere.get(key) or "").strip()
+                for key in ("vcenter_hostname", "vcenter_username", "vcenter_password"))
+projects = vsphere.get("vsphere_projects") or {}
+if not legacy_ok and not projects:
+    raise SystemExit("vaults/vsphere.yml: neither the legacy flat vcenter_* "
+                     "credentials nor vsphere_projects entries found")
+for name, entry in projects.items():
+    for key in ("vcenter_hostname", "vcenter_username", "vcenter_password"):
+        if not str(entry.get(key) or "").strip():
+            raise SystemExit(f"vaults/vsphere.yml: vsphere_projects[{name!r}] {key} missing or empty")
+
+ostack = load("vaults/openstack.yml")
+projects = ostack.get("openstack_projects") or {}
+legacy = ostack.get("openstack_auth") or {}
+if not projects and not legacy:
+    raise SystemExit("vaults/openstack.yml: neither openstack_projects nor openstack_auth found")
+for name, entry in projects.items():
+    for key in ("auth_url", "username", "password", "project_name"):
+        if not str(entry.get(key) or "").strip():
+            raise SystemExit(f"vaults/openstack.yml: openstack_projects[{name!r}] {key} missing or empty")
+    if str(entry.get("project_name")) != str(name):
+        raise SystemExit(f"vaults/openstack.yml: openstack_projects[{name!r}] project_name disagrees with its key")
+PYTHON
+    echo "  ok   vault schemas (vsphere/openstack)"
+else
+    fail "vault schema check failed"
+fi
+else
+    echo "  skip vault schema check (no vault password or ansible-vault)"
+fi
+
 echo "== Python syntax =="
 while IFS= read -r script ; do
     if "$python_bin" -m py_compile "$script" ; then
@@ -187,6 +244,13 @@ PYTHON
     echo "  ok   all yaml parsed"
 else
     fail "YAML parse error"
+fi
+
+echo "== focused unit tests =="
+if "$python_bin" -m unittest discover -s tests -p 'test_*.py' ; then
+    echo "  ok   catalog publication/reconcile tests"
+else
+    fail "focused unit tests failed"
 fi
 
 if [ "$failures" -ne 0 ] ; then
