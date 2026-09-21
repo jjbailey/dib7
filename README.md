@@ -200,7 +200,7 @@ hand-off.
    sudo apt install -y qemu-utils kpartx debootstrap parted dosfstools gdisk squashfs-tools libguestfs-tools lvm2
    ```
 
-   `ovftool` (tested with 5.0.0), PowerShell with PowerCLI, and the
+   `ovftool` (tested with 5.1.0), PowerShell with PowerCLI, and the
    Google Cloud CLI (`gcloud`) are installed separately and are required by the
    conversion, vSphere, and GCP workflows respectively. See the playbook
    dependency list below.
@@ -334,7 +334,7 @@ dib7/
 - `build-qcow2.yml`: Build base QCOW2 image.
   Dependencies: diskimage-builder.
 - `convert-qcow2-to-ova.yml`: Convert QCOW2 to OVA.
-  Dependencies: qemu-img and ovftool (tested with 5.0.0).
+  Dependencies: qemu-img and ovftool (tested with 5.1.0).
 - `import-ova-aws.yml`: Upload OVA to S3, import to AWS AMI.
   Dependencies: `amazon.aws` collection, S3, VM Import.
 - `import-ova-vsphere.yml`: Import OVA to vSphere content library.
