@@ -157,7 +157,7 @@ hand-off.
    builds from it. See
    [doc/python3-virtualenv.md](doc/python3-virtualenv.md).
 
-2. **Pinned Ansible/Python dependencies**
+2. **Pinned Ansible/Python Dependencies**
 
    ```bash
    ~/.dib7/bin/python3 -m pip install -r requirements.txt
@@ -339,6 +339,7 @@ dib7/
 - `doc/ansible-galaxy.md` - installing and verifying the Ansible Galaxy
   collections used by DIB7
 - `doc/aws-supported-images.md` - AWS VM Import/Export Linux distribution support
+- `doc/centos.md` - CentOS Stream 10 cloud-image compatibility and patching
 - `doc/fedora.md` - Fedora Server 43+ diskimage-builder compatibility and patch
 - `doc/gcloud.md` - installing the Google Cloud CLI (`gcloud`)
 - `doc/gcp-supported-images.md` - GCP Compute Engine Linux distribution support
