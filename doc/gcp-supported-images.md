@@ -85,6 +85,8 @@ images.
 
 ## Coverage of the images built here
 
+<!-- markdownlint-disable MD013 -->
+
 | Build         | GCP            | Notes                                                                                                                                            |
 | ------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `centos10s`   | Yes            | CentOS Stream 10                                                                                                                                 |
@@ -94,6 +96,8 @@ images.
 | `rocky102`    | Yes            | Confirm the point release lands at or below 10.1                                                                                                 |
 | `ubuntu24045` | Yes            | Known good, imports successfully                                                                                                                 |
 | `ubuntu26041` | Yes            | Supported here, unlike AWS — see below                                                                                                           |
+
+<!-- markdownlint-enable MD013 -->
 
 Fedora is absent from the M2VM table entirely, in contrast to AWS, which lists
 Fedora 41–43. `fedora44` is therefore off-matrix on both clouds.

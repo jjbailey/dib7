@@ -78,11 +78,11 @@ else
 fi
 
 echo "== ansible playbook syntax =="
+task_files="playbooks/common-setup.yml playbooks/publish-image-catalog.yml playbooks/verify-stamp.yml $(echo playbooks/tasks/*.yml)"
 for playbook in playbooks/*.yml ; do
-    # These are tasks files, not playbooks; they are syntax-checked when
-    # included by the real playbooks.
-    case "$(basename "$playbook")" in
-        common-setup.yml | publish-image-catalog.yml | verify-stamp.yml) continue ;;
+    # Tasks files are checked separately below.
+    case " $task_files " in
+        *" $playbook "*) continue ;;
     esac
     if "$ansible_playbook" -i hosts.yml "$playbook" --syntax-check > /dev/null ; then
         echo "  ok   $playbook"
@@ -91,8 +91,38 @@ for playbook in playbooks/*.yml ; do
     fi
 done
 
+# --syntax-check does not follow include_tasks, so a tasks file is never parsed
+# as tasks through its callers. Wrap each one in a static import_tasks play.
+wrapper_dir="$(mktemp -d)"
+trap 'rm -rf "$wrapper_dir"' EXIT
+for task_file in $task_files ; do
+    cat > "$wrapper_dir/wrapper.yml" << EOF
+- hosts: localhost
+  gather_facts: false
+  tasks:
+    - ansible.builtin.import_tasks: $repo_dir/$task_file
+EOF
+    if "$ansible_playbook" -i hosts.yml "$wrapper_dir/wrapper.yml" --syntax-check > /dev/null ; then
+        echo "  ok   $task_file (tasks)"
+    else
+        fail "$task_file failed --syntax-check as a tasks file"
+    fi
+done
+
+echo "== include_tasks targets =="
+# A mistyped include path passes --syntax-check and only fails mid-pipeline.
+include_targets="$(grep -hoE '^[[:space:]]*(ansible\.builtin\.)?include_tasks:[[:space:]]*[^[:space:]]+' playbooks/*.yml playbooks/tasks/*.yml |
+    sed -E 's/.*include_tasks:[[:space:]]*//' | sort -u)"
+for target in $include_targets ; do
+    if [ -f "playbooks/$target" ] ; then
+        echo "  ok   playbooks/$target"
+    else
+        fail "include_tasks target playbooks/$target does not exist"
+    fi
+done
+
 echo "== shell syntax =="
-# bin/, tests/, and local wrappers plus every element hook.
+# bin/ and tests/ (plus local/ where it exists) and every element hook.
 while IFS= read -r script ; do
     if bash -n "$script" ; then
         echo "  ok   $script"

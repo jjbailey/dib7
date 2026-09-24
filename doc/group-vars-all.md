@@ -50,7 +50,6 @@ different extensions.
 
 | Variable     | Value                    | Description                                        |
 | ------------ | ------------------------ | -------------------------------------------------- |
-| `mf_file`    | `{{ image_name }}.mf`    | OVA manifest file (SHA checksums).                 |
 | `ova_file`   | `{{ image_name }}.ova`   | Final OVA archive.                                 |
 | `ovf_file`   | `{{ image_name }}.ovf`   | OVF descriptor XML.                                |
 | `qcow2_file` | `{{ image_name }}.qcow2` | QCOW2 disk image (primary build output).           |
@@ -64,8 +63,7 @@ different extensions.
 
 Each stage writes a stamp holding the `run_id` that produced the artifact next
 to it, and the following stage refuses to consume an artifact whose stamp is
-missing or from an older run. See `local/pipeline-stamps.md` (internal-only,
-not part of the public dib7 mirror).
+missing or from an older run.
 
 <!-- markdownlint-disable MD013 -->
 

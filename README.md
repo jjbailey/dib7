@@ -187,6 +187,19 @@ hand-off.
    it is inert for the other builds sharing the venv. See
    [doc/fedora.md](doc/fedora.md).
 
+   CentOS Stream 10 builds need the corresponding fix for CentOS's new
+   GenericCloud filename convention. Apply it from the project root:
+
+   ```bash
+   patch -b -d "$DIB7_SITE/diskimage_builder/elements/centos/root.d" \
+         < patches/diskimage-builder-centos10-generic-image.patch
+   ```
+
+   This patch is specific to `10-stream` and is inert for other CentOS
+   releases. See [doc/centos.md](doc/centos.md). Reapply it after upgrading
+   `diskimage-builder` unless the installed element has gained the upstream
+   fix.
+
    `requirements.txt` includes `diskimage-builder`, `ansible-core`, `PyYAML`,
    and the controller-side Python SDKs required by the AWS, GCP, and
    OpenStack playbooks. The project is validated with ansible-core 2.18.18.
@@ -197,7 +210,8 @@ hand-off.
 3. **System Dependencies**
 
    ```bash
-   sudo apt install -y qemu-utils kpartx debootstrap parted dosfstools gdisk squashfs-tools libguestfs-tools lvm2
+   sudo apt install -y qemu-utils kpartx debootstrap parted dosfstools \
+       gdisk squashfs-tools libguestfs-tools lvm2
    ```
 
    `ovftool` (tested with 5.1.0), PowerShell with PowerCLI, and the
@@ -229,13 +243,16 @@ release pipeline.
 
    ```bash
    # Build all hosts in the inventory
-   ~/.dib7/bin/ansible-playbook -e "run_id=$RUN_ID" playbooks/build-qcow2.yml
+   ~/.dib7/bin/ansible-playbook playbooks/build-qcow2.yml \
+     -e "run_id=$RUN_ID"
 
    # Build a specific host
-   ~/.dib7/bin/ansible-playbook -e "run_id=$RUN_ID" playbooks/build-qcow2.yml -l ubuntu24045
+   ~/.dib7/bin/ansible-playbook playbooks/build-qcow2.yml \
+     -e "run_id=$RUN_ID" -l ubuntu24045
 
    # Build all hosts in a group
-   ~/.dib7/bin/ansible-playbook -e "run_id=$RUN_ID" playbooks/build-qcow2.yml -l ubuntu
+   ~/.dib7/bin/ansible-playbook playbooks/build-qcow2.yml \
+     -e "run_id=$RUN_ID" -l ubuntu
    ```
 
    Omit `-l` to run against every host in `hosts.yml`. Use `-l` only when you
@@ -246,20 +263,24 @@ release pipeline.
    **AWS:**
 
    ```bash
-   ~/.dib7/bin/ansible-playbook -e "run_id=$RUN_ID" playbooks/convert-qcow2-to-ova.yml -l <host-or-group> --ask-vault-pass
-   ~/.dib7/bin/ansible-playbook -e "run_id=$RUN_ID" playbooks/import-ova-aws.yml -l <host-or-group> --ask-vault-pass
+   ~/.dib7/bin/ansible-playbook playbooks/convert-qcow2-to-ova.yml \
+     -e "run_id=$RUN_ID" -l <host-or-group> --ask-vault-pass
+   ~/.dib7/bin/ansible-playbook playbooks/import-ova-aws.yml \
+     -e "run_id=$RUN_ID" -l <host-or-group> --ask-vault-pass
    ```
 
    **GCP:**
 
    ```bash
-   ~/.dib7/bin/ansible-playbook -e "run_id=$RUN_ID" playbooks/import-qcow2-gcp.yml -l <host-or-group> --ask-vault-pass
+   ~/.dib7/bin/ansible-playbook playbooks/import-qcow2-gcp.yml \
+     -e "run_id=$RUN_ID" -l <host-or-group> --ask-vault-pass
    ```
 
    **OpenStack:**
 
    ```bash
-   ~/.dib7/bin/ansible-playbook -e "run_id=$RUN_ID" playbooks/import-qcow2-openstack.yml -l <host-or-group> --ask-vault-pass
+   ~/.dib7/bin/ansible-playbook playbooks/import-qcow2-openstack.yml \
+     -e "run_id=$RUN_ID" -l <host-or-group> --ask-vault-pass
    ```
 
    **vSphere:**
@@ -270,13 +291,16 @@ release pipeline.
 
    ```bash
    # vSphere OVA (content library item) only
-   ~/.dib7/bin/ansible-playbook -e "run_id=$RUN_ID" playbooks/convert-qcow2-to-ova.yml -l <host-or-group> --ask-vault-pass
-   ~/.dib7/bin/ansible-playbook -e "run_id=$RUN_ID" playbooks/import-ova-vsphere.yml -l <host-or-group> --ask-vault-pass
+   ~/.dib7/bin/ansible-playbook playbooks/convert-qcow2-to-ova.yml \
+     -e "run_id=$RUN_ID" -l <host-or-group> --ask-vault-pass
+   ~/.dib7/bin/ansible-playbook playbooks/import-ova-vsphere.yml \
+     -e "run_id=$RUN_ID" -l <host-or-group> --ask-vault-pass
 
    # vSphere Template instead
-   ~/.dib7/bin/ansible-playbook -e "run_id=$RUN_ID" playbooks/convert-qcow2-to-ova.yml -l <host-or-group> --ask-vault-pass
-   ~/.dib7/bin/ansible-playbook -e "run_id=$RUN_ID" playbooks/import-ova-vsphere-template.yml \
-     -l <host-or-group> --ask-vault-pass
+   ~/.dib7/bin/ansible-playbook playbooks/convert-qcow2-to-ova.yml \
+     -e "run_id=$RUN_ID" -l <host-or-group> --ask-vault-pass
+   ~/.dib7/bin/ansible-playbook playbooks/import-ova-vsphere-template.yml \
+     -e "run_id=$RUN_ID" -l <host-or-group> --ask-vault-pass
    ```
 
 ## Project Structure
@@ -340,7 +364,9 @@ dib7/
 - `import-ova-vsphere.yml`: Import OVA to vSphere content library.
   This produces the `vSphere OVA` branch in the workflow.
   Dependencies: pwsh, PowerCLI.
-- `recreate-vsphere-template.yml`: Recreate a vSphere template from an OVA already in the content library; no local upload is required. Dependencies: pwsh, PowerCLI.
+- `recreate-vsphere-template.yml`: Recreate a vSphere template from an OVA
+  already in the content library; no local upload is required.
+  Dependencies: pwsh, PowerCLI.
 - `import-ova-vsphere-template.yml`: Import the vSphere OVA and create
   a vSphere template in `Templates`.
   Dependencies: pwsh, PowerCLI.
@@ -350,7 +376,8 @@ dib7/
   Dependencies: gcloud (including `gcloud storage`).
 - `import-qcow2-openstack.yml`: Import QCOW2 to OpenStack.
   Dependencies: `openstack.cloud` collection.
-  Set `OPENSTACK_TARGET_PROJECT` when using multiple projects; it may be a vault key, project name, or project ID.
+  Set `OPENSTACK_TARGET_PROJECT` when using multiple projects; it may be a
+  vault key, project name, or project ID.
 - `backfill-vsphere-ova-catalog.yml`: Rebuild missing vSphere OVA catalog rows
   for artifacts already imported into the content library.
 
@@ -442,10 +469,6 @@ vsphere_projects:
 # vcenter_password block remains supported.
 ```
 
-The `local/run-vsphere.sh`, `run-all.sh`, and `run-openstack.sh` wrappers
-pass `VSPHERE_TARGET_VCENTER` / `OPENSTACK_TARGET_PROJECT` through to the
-import playbooks when set.
-
 The selector is byte-identical to migrate-vmware's (the source of truth for
 this logic) apart from its file path, and also derives the `GOVC_URL` /
 `GOVC_USERNAME` / `GOVC_PASSWORD` / `GOVC_INSECURE` and lowercase `govc_*`
@@ -514,7 +537,7 @@ and whether each phase runs inside or outside the chroot.
 - `image_name`: Image base name (default: `{{ inventory_hostname }}-base`)
 - `image_size`: Image size in GB (default: `35`)
 - `image_type`: Image format (default: `qcow2`; passed to DIB with `-t`)
-- `qcow2_file`, `vmdk_file`, `ovf_file`, `ova_file`, `mf_file`: Derived output filenames
+- `qcow2_file`, `vmdk_file`, `ovf_file`, `ova_file`: Derived output filenames
 - `gcp_replace_existing_image`: Replace an existing Compute image on rerun
   (default: `true`); set to `false` to make `import-qcow2-gcp.yml` fail
   instead of deleting the existing image
@@ -592,8 +615,8 @@ suite.
    - Validate vault credentials
    - Check cloud provider quotas and permissions
    - Review cloud provider import logs
-   - AWS imports run only for the inventory's `aws_import` group; `run-all.sh -l
-all` maps its AWS stage to that group rather than attempting every distro.
+   - AWS imports are meant only for the inventory's `aws_import` group; limit
+     the AWS stage with `-l aws_import` rather than attempting every distro.
    - GCP: reruns delete and replace any existing Compute image with the same
      name by default (`gcp_replace_existing_image: true`); set it to `false`
      first if you need to keep the existing image

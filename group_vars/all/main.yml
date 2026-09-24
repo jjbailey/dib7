@@ -30,7 +30,7 @@ vsphere_template_name: "{{ inventory_hostname }}-base.tmpl"
 # keeps the existing automatic selection of any connected non-maintenance host.
 vsphere_template_folder: "Templates"
 vsphere_template_host: ""
-# Prefer the run passed by the wrapper script; fall back to the stamp
+# Prefer the run passed with -e run_id; fall back to the stamp
 # verify-stamp.yml read off the artifact itself, which names the run that built
 # it. The two are provably equal whenever both exist, because verify-stamp.yml
 # fails the stage when they differ - the fallback only carries a stage run by
@@ -59,7 +59,6 @@ image_boot_mode: "uefi"
 # because the AWS API takes it as an import parameter as well.
 aws_import_boot_mode: "{{ image_boot_mode }}"
 
-mf_file: "{{ image_name }}.mf"
 ova_file: "{{ image_name }}.ova"
 ovf_file: "{{ image_name }}.ovf"
 qcow2_file: "{{ image_name }}.qcow2"
@@ -69,7 +68,7 @@ vmdk_file: "{{ image_name }}.vmdk"
 # to it, and the following stage refuses to consume an artifact whose stamp is
 # missing or from an older run. Without them a stage that never executed leaves
 # yesterday's qcow2/ova in place and the rest of the pipeline happily publishes
-# it. See doc/pipeline-stamps.md.
+# it.
 build_stamp_file: "{{ image_name }}.built"
 convert_stamp_file: "{{ image_name }}.converted"
 

@@ -11,7 +11,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 ROOT = Path(__file__).resolve().parents[1]
 BIN = ROOT / "bin"
@@ -27,6 +27,7 @@ def load_script(filename, module_name):
 
 publish = load_script("publish-image-catalog.py", "publish_image_catalog")
 reconcile_common = load_script("reconcile_catalog_common.py", "reconcile_catalog_common_test")
+reconcile_aws = load_script("reconcile-catalog-aws.py", "reconcile_catalog_aws")
 
 
 class CatalogEntryTests(unittest.TestCase):
@@ -132,6 +133,22 @@ class ReconcileSafetyTests(unittest.TestCase):
                 "project-a", False, False)
             self.assertEqual(result, 1)
             self.assertEqual([image["artifact_id"] for image in json.loads(path.read_text())["images"]], ["active"])
+
+
+class AwsCommandTests(unittest.TestCase):
+    def describe_images_argv(self, profile):
+        result = Mock(stdout='{"Images": []}')
+        with patch.object(reconcile_aws.subprocess, "run", return_value=result) as run:
+            reconcile_aws.live_ami_ids("us-east-1", ["ami-1"], profile)
+        return run.call_args.args[0]
+
+    def test_region_and_profile_keep_their_values(self):
+        argv = self.describe_images_argv("lab")
+        self.assertEqual(argv[argv.index("--region") + 1], "us-east-1")
+        self.assertEqual(argv[argv.index("--profile") + 1], "lab")
+
+    def test_no_profile_argument_without_profile(self):
+        self.assertNotIn("--profile", self.describe_images_argv(None))
 
 
 if __name__ == "__main__":

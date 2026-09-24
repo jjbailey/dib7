@@ -56,9 +56,7 @@ Included with `include_tasks`, never run standalone. `ansible-playbook
 
 - **`common-setup.yml`**: Provides variables for tasks.
 - **`verify-stamp.yml`**: Refuses to consume an artifact the previous stage did
-  not produce this run, and records the run that did produce it. See
-  `local/pipeline-stamps.md` (internal-only, not part of the public dib7
-  mirror).
+  not produce this run, and records the run that did produce it.
 - **`publish-image-catalog.yml`**: Writes one entry into the image catalog.
   Included by each import playbook after its import succeeds. See
   [image-catalog.md](image-catalog.md).
@@ -72,7 +70,8 @@ Included with `include_tasks`, never run standalone. `ansible-playbook
 - **`import-ova-vsphere.yml`** (vSphere): Deploys OVA to vCenter content
   library. This is the `vSphere OVA` branch in the workflow diagram; the
   template playbook produces the `vSphere Template` branch.
-- **`recreate-vsphere-template.yml`** (vSphere): Recreates a template from an OVA already in the content library without uploading a local OVA.
+- **`recreate-vsphere-template.yml`** (vSphere): Recreates a template from an
+  OVA already in the content library without uploading a local OVA.
 - **`import-ova-vsphere-template.yml`** (vSphere): Deploys the OVA and converts
   it into a template in the `Templates` folder — the `vSphere Template` branch.
 - **`import-ova-aws.yml`** (AWS): Imports OVA as AMI via VM Import/Export.

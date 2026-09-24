@@ -139,4 +139,5 @@ playbooks; the encrypted vault is optional for these non-secret settings.
 
 `vsphere_content_library` is used by `import-ova-vsphere.yml` to create the
 `vSphere OVA`, and `vsphere_template_name` is used by
-`import-ova-vsphere-template.yml` to create the `vSphere Template`, or `recreate-vsphere-template.yml` to recreate it from an existing library OVA.
+`import-ova-vsphere-template.yml` to create the `vSphere Template`, or
+`recreate-vsphere-template.yml` to recreate it from an existing library OVA.

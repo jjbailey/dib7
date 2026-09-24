@@ -57,7 +57,7 @@ the installed console scripts. Calling a `pip` wrapper directly installs under
 whichever interpreter that wrapper's own shebang names, which can quietly place
 packages outside the venv.
 
-## 5. Apply the Fedora Patch
+## 5. Apply the DIB Compatibility Patches
 
 Required only if you build Fedora, but harmless otherwise:
 
@@ -74,6 +74,19 @@ patch -b -d "$DIB7_SITE/diskimage_builder/elements/fedora/root.d" \
 <!-- markdownlint-enable MD013 -->
 
 See [fedora.md](fedora.md) for what the patch does and how to verify it.
+
+CentOS Stream 10 builds also require the CentOS filename patch:
+
+```bash
+patch -b -d "$DIB7_SITE/diskimage_builder/elements/centos/root.d" \
+      < patches/diskimage-builder-centos10-generic-image.patch
+```
+
+It is specific to `10-stream` and harmless for other CentOS releases. See
+[centos.md](centos.md) for what it changes and how to verify it. Reapply it
+
+after upgrading `diskimage-builder` unless the installed element includes the
+upstream fix.
 
 ## 6. Verify Installation
 
@@ -98,7 +111,7 @@ copy silently keeps running whatever the original resolved.
 
 ```bash
 sudo apt install -y qemu-utils kpartx debootstrap \
-    parted dosfstools gdisk squashfs-tools
+    parted dosfstools gdisk squashfs-tools libguestfs-tools lvm2
 ```
 
 ## 8. Test a Simple Image Build
