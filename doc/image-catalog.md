@@ -121,6 +121,26 @@ image IDs through the selected clouds.yaml entry and supports `--cloud` and
 active provider rows would be removed. `tests/validate.sh` checks syntax and
 catalog shape, but deliberately does not perform live cloud calls.
 
+### OpenStack credentials
+
+Before connecting, `reconcile-catalog-openstack.py` checks for the credentials
+needed by the OpenStack SDK. With password authentication, export these
+variables (project ID may be used instead of project name):
+
+```bash
+export OS_AUTH_URL=https://keystone.example.com:5000/v3
+export OS_USERNAME=my-username
+export OS_PASSWORD=...
+export OS_PROJECT_NAME=my-project
+# Or use OS_PROJECT_ID instead of OS_PROJECT_NAME.
+```
+
+`OS_USER_ID` may be used instead of `OS_USERNAME`, and `OS_TOKEN` instead of
+`OS_PASSWORD` when using token authentication. If credentials are stored in a
+`clouds.yaml` entry, pass its name with `--cloud <name>` or set `OS_CLOUD`
+instead; those modes do not require the individual `OS_*` variables. Missing
+credentials are reported before any OpenStack connection is attempted.
+
 ## Release capture
 
 That is what makes the release step load-bearing rather than optional: a

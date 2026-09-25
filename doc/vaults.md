@@ -117,6 +117,11 @@ single-entry map is selected automatically. Quote numeric project names and IDs.
 `region_name` should be set for multi-region clouds and is recorded on the
 image catalog entry.
 
+The catalog reconciliation script is a separate CLI workflow and uses the
+OpenStack SDK environment variables or a `clouds.yaml` entry, rather than
+reading `vaults/openstack.yml` directly. See [image-catalog.md](image-catalog.md)
+for the required `OS_*` variables and the `--cloud`/`OS_CLOUD` alternatives.
+
 ## vSphere Vault
 
 `vaults/vsphere.yml`

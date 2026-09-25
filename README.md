@@ -345,7 +345,7 @@ dib7/
 - `doc/gcp-supported-images.md` - GCP Compute Engine Linux distribution support
 - `doc/group-vars-all.md` - defaults shared by all builds
 - `doc/group-vars-distro.md` - per-distro variables and differences
-- `doc/image-catalog.md` - catalog format and Terraform hand-off contract
+- `doc/image-catalog.md` - catalog format, reconciliation, and Terraform hand-off contract
 - `doc/phases.md` - DIB phase subdirectories, execution order, and chroot behavior
 - `doc/playbooks-overview.md` - what each playbook does and when to run it
 - `doc/python3-virtualenv.md` - setting up the diskimage-builder Python
@@ -606,7 +606,7 @@ suite.
    - Check available disk space (>50GB recommended)
    - Verify Python virtual environment is activated
 
-2. **Stamp-gate failures**
+2. **Stamp-gate Failures**
    - If a stage says an artifact did not complete for the current host, inspect
      the preceding stage log and its `.built`/`.converted` stamp. Do not bypass
      the gate by reusing an artifact from an older run; rerun the failed stage
