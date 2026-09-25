@@ -8,11 +8,37 @@
 
 import argparse
 import json
+import os
 from pathlib import Path
 
 import openstack
 
 from reconcile_catalog_common import read_snapshot, reconcile
+
+
+def validate_openstack_environment(cloud):
+    """Fail with actionable credentials guidance before connecting to OpenStack."""
+    if cloud or os.environ.get("OS_CLOUD"):
+        return
+
+    required = {
+        "OS_AUTH_URL": ("OS_AUTH_URL",),
+        "OS_USERNAME or OS_USER_ID": ("OS_USERNAME", "OS_USER_ID"),
+        "OS_PASSWORD or OS_TOKEN": ("OS_PASSWORD", "OS_TOKEN"),
+        "OS_PROJECT_NAME or OS_PROJECT_ID": (
+            "OS_PROJECT_NAME", "OS_PROJECT_ID"),
+    }
+    missing = [
+        description for description, variables in required.items()
+        if not any(os.environ.get(variable, "").strip() for variable in variables)
+    ]
+    if missing:
+        raise ValueError(
+            "missing required OpenStack environment variable(s): "
+            + ", ".join(missing)
+            + "; set the OS_* credentials or use --cloud with a configured "
+            "clouds.yaml entry"
+        )
 
 
 def project_name(connection):
@@ -46,6 +72,8 @@ def main():
     if not projects and not args.project_id:
         print("no OpenStack catalog entries found")
         return 0
+
+    validate_openstack_environment(args.cloud)
 
     region_names = {
         str(image.get("region"))
