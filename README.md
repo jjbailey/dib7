@@ -340,6 +340,8 @@ dib7/
   collections used by DIB7
 - `doc/aws-supported-images.md` - AWS VM Import/Export Linux distribution support
 - `doc/centos.md` - CentOS Stream 10 cloud-image compatibility and patching
+- [DIB7 contact sheet](doc/dib7-contact-sheet.png) - visual overview of the project and image pipeline
+- [DIB7 presentation](doc/dib7-presentation.pptx) - project presentation slides
 - `doc/fedora.md` - Fedora Server 43+ diskimage-builder compatibility and patch
 - `doc/gcloud.md` - installing the Google Cloud CLI (`gcloud`)
 - `doc/gcp-supported-images.md` - GCP Compute Engine Linux distribution support
