@@ -145,4 +145,6 @@ All five groups build from the same `~/.dib7` virtualenv. The Fedora patch it
 carries touches only the `fedora` element, so it has no effect on the other
 builds; see [fedora.md](fedora.md).
 
-The vSphere content-library and template-name settings are site-specific and live in `vaults/vsphere.yml`; they are not duplicated in group variables.
+The vSphere content-library and template settings are not per-distro: their
+defaults are in `group_vars/all/main.yml`, and `vaults/vsphere.yml` may
+override them for a site.

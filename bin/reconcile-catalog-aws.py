@@ -21,10 +21,11 @@ AMI_BATCH_SIZE = 100
 def live_ami_ids(region, ami_ids, profile=None):
     live = set()
     for start in range(0, len(ami_ids), AMI_BATCH_SIZE):
-        command = ["aws", "ec2", "describe-images", "--region", region, "--filters",
-                   "Name=image-id,Values=" + ",".join(ami_ids[start:start + AMI_BATCH_SIZE]), "--output", "json"]
+        command = ["aws", "ec2", "describe-images"]
         if profile:
-            command[4:4] = ["--profile", profile]
+            command += ["--profile", profile]
+        command += ["--region", region, "--filters",
+                    "Name=image-id,Values=" + ",".join(ami_ids[start:start + AMI_BATCH_SIZE]), "--output", "json"]
         result = subprocess.run(
             command, capture_output=True, text=True, check=True)
         live.update(item["ImageId"]

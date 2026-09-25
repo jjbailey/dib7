@@ -2,7 +2,6 @@
 # playbooks/verify-stamp.yml
 # vim: set tabstop=2 shiftwidth=2 expandtab:
 
-# ansible-lint skip-file
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ansible/ansible-lint/main/src/ansiblelint/schemas/tasks.json
 
 # Assert that the previous pipeline stage produced its artifact during this run.
@@ -13,8 +12,8 @@
 #   stamp_producer - name of the stage that should have written it
 #
 # The run_id comparison is skipped when run_id is undefined, so a stage can
-# still be driven by hand without the wrapper script. The existence check
-# always applies.
+# still be driven by hand without -e run_id. The existence check always
+# applies.
 
 - name: Stat the stage stamp written by {{ stamp_producer }}
   ansible.builtin.stat:

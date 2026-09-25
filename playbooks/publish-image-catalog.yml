@@ -2,7 +2,6 @@
 # playbooks/publish-image-catalog.yml
 # vim: set tabstop=2 shiftwidth=2 expandtab:
 
-# ansible-lint skip-file
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ansible/ansible-lint/main/src/ansiblelint/schemas/tasks.json
 
 # Shared task file, not a playbook - included via include_tasks. Include it only
@@ -33,7 +32,7 @@
 - name: Merge image into the published catalog
   ansible.builtin.command:
     argv: >-
-      {{ ['python3',
+      {{ [ansible_playbook_python,
           playbook_dir ~ '/../bin/publish-image-catalog.py',
           '--catalog',
           image_catalog_path | default(inventory_dir ~ '/catalogs/image-catalog.json', true),

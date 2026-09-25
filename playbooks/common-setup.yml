@@ -2,7 +2,6 @@
 # playbooks/common-setup.yml
 # vim: set tabstop=2 shiftwidth=2 expandtab:
 
-# ansible-lint skip-file
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ansible/ansible-lint/main/src/ansiblelint/schemas/tasks.json
 
 # Common setup tasks shared across multiple playbooks.

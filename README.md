@@ -47,7 +47,7 @@ flowchart TB
 
 ### Operating Systems by Provider
 
-Validated against provider documentation on 2026-09-06. See the provider-specific
+Validated against provider documentation on 2026-09-25. See the provider-specific
 pages in `doc/` for release and known-issue details. Provider support is
 separate from DIB7 inventory support; re-check the provider matrix before
 enabling a new target release.
@@ -157,7 +157,7 @@ hand-off.
    builds from it. See
    [doc/python3-virtualenv.md](doc/python3-virtualenv.md).
 
-2. **Pinned Ansible/Python dependencies**
+2. **Pinned Ansible/Python Dependencies**
 
    ```bash
    ~/.dib7/bin/python3 -m pip install -r requirements.txt
@@ -187,6 +187,19 @@ hand-off.
    it is inert for the other builds sharing the venv. See
    [doc/fedora.md](doc/fedora.md).
 
+   CentOS Stream 10 builds need the corresponding fix for CentOS's new
+   GenericCloud filename convention. Apply it from the project root:
+
+   ```bash
+   patch -b -d "$DIB7_SITE/diskimage_builder/elements/centos/root.d" \
+         < patches/diskimage-builder-centos10-generic-image.patch
+   ```
+
+   This patch is specific to `10-stream` and is inert for other CentOS
+   releases. See [doc/centos.md](doc/centos.md). Reapply it after upgrading
+   `diskimage-builder` unless the installed element has gained the upstream
+   fix.
+
    `requirements.txt` includes `diskimage-builder`, `ansible-core`, `PyYAML`,
    and the controller-side Python SDKs required by the AWS, GCP, and
    OpenStack playbooks. The project is validated with ansible-core 2.18.18.
@@ -197,10 +210,11 @@ hand-off.
 3. **System Dependencies**
 
    ```bash
-   sudo apt install -y qemu-utils kpartx debootstrap parted dosfstools gdisk squashfs-tools libguestfs-tools lvm2
+   sudo apt install -y qemu-utils kpartx debootstrap parted dosfstools \
+       gdisk squashfs-tools libguestfs-tools lvm2
    ```
 
-   `ovftool` (tested with 5.0.0), PowerShell with PowerCLI, and the
+   `ovftool` (tested with 5.1.0), PowerShell with PowerCLI, and the
    Google Cloud CLI (`gcloud`) are installed separately and are required by the
    conversion, vSphere, and GCP workflows respectively. See the playbook
    dependency list below.
@@ -229,13 +243,16 @@ release pipeline.
 
    ```bash
    # Build all hosts in the inventory
-   ~/.dib7/bin/ansible-playbook -e "run_id=$RUN_ID" playbooks/build-qcow2.yml
+   ~/.dib7/bin/ansible-playbook playbooks/build-qcow2.yml \
+     -e "run_id=$RUN_ID"
 
    # Build a specific host
-   ~/.dib7/bin/ansible-playbook -e "run_id=$RUN_ID" playbooks/build-qcow2.yml -l ubuntu24045
+   ~/.dib7/bin/ansible-playbook playbooks/build-qcow2.yml \
+     -e "run_id=$RUN_ID" -l ubuntu24045
 
    # Build all hosts in a group
-   ~/.dib7/bin/ansible-playbook -e "run_id=$RUN_ID" playbooks/build-qcow2.yml -l ubuntu
+   ~/.dib7/bin/ansible-playbook playbooks/build-qcow2.yml \
+     -e "run_id=$RUN_ID" -l ubuntu
    ```
 
    Omit `-l` to run against every host in `hosts.yml`. Use `-l` only when you
@@ -246,20 +263,24 @@ release pipeline.
    **AWS:**
 
    ```bash
-   ~/.dib7/bin/ansible-playbook -e "run_id=$RUN_ID" playbooks/convert-qcow2-to-ova.yml -l <host-or-group> --ask-vault-pass
-   ~/.dib7/bin/ansible-playbook -e "run_id=$RUN_ID" playbooks/import-ova-aws.yml -l <host-or-group> --ask-vault-pass
+   ~/.dib7/bin/ansible-playbook playbooks/convert-qcow2-to-ova.yml \
+     -e "run_id=$RUN_ID" -l <host-or-group> --ask-vault-pass
+   ~/.dib7/bin/ansible-playbook playbooks/import-ova-aws.yml \
+     -e "run_id=$RUN_ID" -l <host-or-group> --ask-vault-pass
    ```
 
    **GCP:**
 
    ```bash
-   ~/.dib7/bin/ansible-playbook -e "run_id=$RUN_ID" playbooks/import-qcow2-gcp.yml -l <host-or-group> --ask-vault-pass
+   ~/.dib7/bin/ansible-playbook playbooks/import-qcow2-gcp.yml \
+     -e "run_id=$RUN_ID" -l <host-or-group> --ask-vault-pass
    ```
 
    **OpenStack:**
 
    ```bash
-   ~/.dib7/bin/ansible-playbook -e "run_id=$RUN_ID" playbooks/import-qcow2-openstack.yml -l <host-or-group> --ask-vault-pass
+   ~/.dib7/bin/ansible-playbook playbooks/import-qcow2-openstack.yml \
+     -e "run_id=$RUN_ID" -l <host-or-group> --ask-vault-pass
    ```
 
    **vSphere:**
@@ -270,13 +291,16 @@ release pipeline.
 
    ```bash
    # vSphere OVA (content library item) only
-   ~/.dib7/bin/ansible-playbook -e "run_id=$RUN_ID" playbooks/convert-qcow2-to-ova.yml -l <host-or-group> --ask-vault-pass
-   ~/.dib7/bin/ansible-playbook -e "run_id=$RUN_ID" playbooks/import-ova-vsphere.yml -l <host-or-group> --ask-vault-pass
+   ~/.dib7/bin/ansible-playbook playbooks/convert-qcow2-to-ova.yml \
+     -e "run_id=$RUN_ID" -l <host-or-group> --ask-vault-pass
+   ~/.dib7/bin/ansible-playbook playbooks/import-ova-vsphere.yml \
+     -e "run_id=$RUN_ID" -l <host-or-group> --ask-vault-pass
 
    # vSphere Template instead
-   ~/.dib7/bin/ansible-playbook -e "run_id=$RUN_ID" playbooks/convert-qcow2-to-ova.yml -l <host-or-group> --ask-vault-pass
-   ~/.dib7/bin/ansible-playbook -e "run_id=$RUN_ID" playbooks/import-ova-vsphere-template.yml \
-     -l <host-or-group> --ask-vault-pass
+   ~/.dib7/bin/ansible-playbook playbooks/convert-qcow2-to-ova.yml \
+     -e "run_id=$RUN_ID" -l <host-or-group> --ask-vault-pass
+   ~/.dib7/bin/ansible-playbook playbooks/import-ova-vsphere-template.yml \
+     -e "run_id=$RUN_ID" -l <host-or-group> --ask-vault-pass
    ```
 
 ## Project Structure
@@ -315,12 +339,15 @@ dib7/
 - `doc/ansible-galaxy.md` - installing and verifying the Ansible Galaxy
   collections used by DIB7
 - `doc/aws-supported-images.md` - AWS VM Import/Export Linux distribution support
+- `doc/centos.md` - CentOS Stream 10 cloud-image compatibility and patching
+- [DIB7 contact sheet](doc/dib7-contact-sheet.png) - visual overview of the project and image pipeline
+- [DIB7 presentation](doc/dib7-presentation.pptx) - project presentation slides
 - `doc/fedora.md` - Fedora Server 43+ diskimage-builder compatibility and patch
 - `doc/gcloud.md` - installing the Google Cloud CLI (`gcloud`)
 - `doc/gcp-supported-images.md` - GCP Compute Engine Linux distribution support
 - `doc/group-vars-all.md` - defaults shared by all builds
 - `doc/group-vars-distro.md` - per-distro variables and differences
-- `doc/image-catalog.md` - catalog format and Terraform hand-off contract
+- `doc/image-catalog.md` - catalog format, reconciliation, and Terraform hand-off contract
 - `doc/phases.md` - DIB phase subdirectories, execution order, and chroot behavior
 - `doc/playbooks-overview.md` - what each playbook does and when to run it
 - `doc/python3-virtualenv.md` - setting up the diskimage-builder Python
@@ -334,13 +361,15 @@ dib7/
 - `build-qcow2.yml`: Build base QCOW2 image.
   Dependencies: diskimage-builder.
 - `convert-qcow2-to-ova.yml`: Convert QCOW2 to OVA.
-  Dependencies: qemu-img and ovftool (tested with 5.0.0).
+  Dependencies: qemu-img and ovftool (tested with 5.1.0).
 - `import-ova-aws.yml`: Upload OVA to S3, import to AWS AMI.
   Dependencies: `amazon.aws` collection, S3, VM Import.
 - `import-ova-vsphere.yml`: Import OVA to vSphere content library.
   This produces the `vSphere OVA` branch in the workflow.
   Dependencies: pwsh, PowerCLI.
-- `recreate-vsphere-template.yml`: Recreate a vSphere template from an OVA already in the content library; no local upload is required. Dependencies: pwsh, PowerCLI.
+- `recreate-vsphere-template.yml`: Recreate a vSphere template from an OVA
+  already in the content library; no local upload is required.
+  Dependencies: pwsh, PowerCLI.
 - `import-ova-vsphere-template.yml`: Import the vSphere OVA and create
   a vSphere template in `Templates`.
   Dependencies: pwsh, PowerCLI.
@@ -350,7 +379,8 @@ dib7/
   Dependencies: gcloud (including `gcloud storage`).
 - `import-qcow2-openstack.yml`: Import QCOW2 to OpenStack.
   Dependencies: `openstack.cloud` collection.
-  Set `OPENSTACK_TARGET_PROJECT` when using multiple projects; it may be a vault key, project name, or project ID.
+  Set `OPENSTACK_TARGET_PROJECT` when using multiple projects; it may be a
+  vault key, project name, or project ID.
 - `backfill-vsphere-ova-catalog.yml`: Rebuild missing vSphere OVA catalog rows
   for artifacts already imported into the content library.
 
@@ -442,10 +472,6 @@ vsphere_projects:
 # vcenter_password block remains supported.
 ```
 
-The `local/run-vsphere.sh`, `run-all.sh`, and `run-openstack.sh` wrappers
-pass `VSPHERE_TARGET_VCENTER` / `OPENSTACK_TARGET_PROJECT` through to the
-import playbooks when set.
-
 The selector is byte-identical to migrate-vmware's (the source of truth for
 this logic) apart from its file path, and also derives the `GOVC_URL` /
 `GOVC_USERNAME` / `GOVC_PASSWORD` / `GOVC_INSECURE` and lowercase `govc_*`
@@ -514,7 +540,7 @@ and whether each phase runs inside or outside the chroot.
 - `image_name`: Image base name (default: `{{ inventory_hostname }}-base`)
 - `image_size`: Image size in GB (default: `35`)
 - `image_type`: Image format (default: `qcow2`; passed to DIB with `-t`)
-- `qcow2_file`, `vmdk_file`, `ovf_file`, `ova_file`, `mf_file`: Derived output filenames
+- `qcow2_file`, `vmdk_file`, `ovf_file`, `ova_file`: Derived output filenames
 - `gcp_replace_existing_image`: Replace an existing Compute image on rerun
   (default: `true`); set to `false` to make `import-qcow2-gcp.yml` fail
   instead of deleting the existing image
@@ -582,7 +608,7 @@ suite.
    - Check available disk space (>50GB recommended)
    - Verify Python virtual environment is activated
 
-2. **Stamp-gate failures**
+2. **Stamp-gate Failures**
    - If a stage says an artifact did not complete for the current host, inspect
      the preceding stage log and its `.built`/`.converted` stamp. Do not bypass
      the gate by reusing an artifact from an older run; rerun the failed stage
@@ -592,8 +618,8 @@ suite.
    - Validate vault credentials
    - Check cloud provider quotas and permissions
    - Review cloud provider import logs
-   - AWS imports run only for the inventory's `aws_import` group; `run-all.sh -l
-all` maps its AWS stage to that group rather than attempting every distro.
+   - AWS imports are meant only for the inventory's `aws_import` group; limit
+     the AWS stage with `-l aws_import` rather than attempting every distro.
    - GCP: reruns delete and replace any existing Compute image with the same
      name by default (`gcp_replace_existing_image: true`); set it to `false`
      first if you need to keep the existing image

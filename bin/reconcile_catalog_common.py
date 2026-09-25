@@ -79,7 +79,7 @@ def reconcile(path, provider, stale, retired, scope_match, scope_label, dry_run,
         "provider") == provider and image.get("status") == "published" and scope_match(image)]
     if stale and active and len(stale) * 2 > len(active) and not force:
         raise ValueError(
-            f"refusing to remove {len(stale)} of {len(active)} active {provider} entries; inspect --dry-run and rerun with --force if intentional")
+            f"refusing to remove {len(stale)} of {len(active)} active {provider} entries in {scope_label}; inspect --dry-run and rerun with --force if intentional")
     keys = {image_key(image) for image, _ in removals}
     lock_path = path.with_name(path.name + ".lock")
     with lock_path.open("a+", encoding="utf-8") as lock:

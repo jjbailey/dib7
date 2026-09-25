@@ -1,3 +1,4 @@
+---
 # Disk Image Builder configuration for EFI-enabled system with LVM
 # This config creates a GPT partitioned image with EFI support and logical volumes for system directories
 

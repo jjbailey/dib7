@@ -31,22 +31,14 @@ done
 
 set -euo pipefail
 
-# Determine disk format from a recognized extension (case-insensitive).
-# Leave an unrecognized filename unchanged; guestfish can inspect it without
-# requiring the caller to rename files such as "disk.snapshot".
+# Lowercase a recognized extension (case-insensitive match). guestfish
+# autodetects the format, so an unrecognized filename such as "disk.snapshot"
+# is left unchanged.
 image_dir="$(dirname -- "$image_name")"
 image_base="$(basename -- "$image_name")"
 shopt -s nocasematch
-if [[ $image_base =~ \.qcow2$ ]] ; then
-    disk_format=qcow2
-    image_base="${image_base%.*}"
-    image_name="$image_dir/$image_base.$disk_format"
-elif [[ $image_base =~ \.vmdk$ ]] ; then
-    disk_format=vmdk
-    image_base="${image_base%.*}"
-    image_name="$image_dir/$image_base.$disk_format"
-else
-    disk_format=qcow2
+if [[ $image_base =~ \.(qcow2|vmdk)$ ]] ; then
+    image_name="$image_dir/${image_base%.*}.${BASH_REMATCH[1],,}"
 fi
 shopt -u nocasematch
 

@@ -5,11 +5,12 @@
 ## Fedora Server 43+ compatibility
 
 Fedora changed the naming convention for the cloud image downloads at release
-43: the file is now `Fedora-Cloud-Base-Generic-<release>-<subrelease>.<arch>.qcow2`
-rather than `Fedora-Cloud-Base-<release>-...`. The pinned `diskimage-builder` version must either contain this fix or have
-this repository patch applied; otherwise the download step fails to resolve an
-image. The validation gate checks the installed element rather than trusting
-the package version.
+43: the file is now
+`Fedora-Cloud-Base-Generic-<release>-<subrelease>.<arch>.qcow2` rather than
+`Fedora-Cloud-Base-<release>-...`. The pinned `diskimage-builder` version must
+either contain this fix or have this repository patch applied; otherwise the
+download step fails to resolve an image. The validation gate checks the
+installed element rather than trusting the package version.
 
 If the installed Fedora element does not already contain
 `Fedora-Cloud-Base-Generic`, apply the repository patch to the `fedora` element

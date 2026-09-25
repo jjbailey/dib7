@@ -1,3 +1,4 @@
+---
 # Default single partition loopback using a GPT based partition table
 
 - local_loop:
