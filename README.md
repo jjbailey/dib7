@@ -47,7 +47,7 @@ flowchart TB
 
 ### Operating Systems by Provider
 
-Validated against provider documentation on 2026-09-06. See the provider-specific
+Validated against provider documentation on 2026-09-25. See the provider-specific
 pages in `doc/` for release and known-issue details. Provider support is
 separate from DIB7 inventory support; re-check the provider matrix before
 enabling a new target release.

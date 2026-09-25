@@ -1,8 +1,8 @@
 # GCP Supported Linux Distributions
 
 Mirrors the "Supported operating systems" table for Migrate to Virtual Machines.
-Last checked against upstream on 2026-09-06 (matrix rows unchanged from the
-2026-07-28 check; the upstream page itself was last updated 2026-08-26). Only
+Last checked against upstream on 2026-09-25 (matrix rows unchanged from the
+2026-07-28 check; the upstream page itself was last updated 2026-09-24). Only
 the distributions dib7 builds are mirrored here; the upstream tables also
 carry SLES 12 SP5 / 15 SP5–SP7 / 16 and Windows rows.
 
@@ -39,7 +39,9 @@ different support matrix and is not what this repo uses.
 - CentOS Stream 9
 - CentOS Stream 10
 
-CentOS Stream 8 has been dropped from the table since this doc was last written.
+CentOS Stream 8 has been moved upstream to the "Operating systems with
+migration support only" section (for EOL operating systems) and is no
+longer listed for standard image imports.
 
 ## Debian
 
@@ -68,8 +70,9 @@ Standard and SAP variants are both listed.
 - Ubuntu 24.04
 - Ubuntu 26.04
 
-Ubuntu 18.04 and 20.04 have been dropped from the table since this doc was last
-written.
+Ubuntu 18.04 and 20.04 have been moved upstream to the "Operating systems
+with migration support only" section (for EOL operating systems) and are no
+longer listed for standard image imports.
 
 ## Supported by partners
 
