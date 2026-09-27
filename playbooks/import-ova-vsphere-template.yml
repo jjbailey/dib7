@@ -102,6 +102,7 @@
             catalog_boot_mode: "{{ image_boot_mode }}"
             catalog_scope:
               content_library: "{{ vsphere_content_library }}"
+              vcenter: "{{ vsphere_target_name }}"
 
         # Last task in the block, so a host only counts as succeeded if the
         # template creation and the catalog publish both worked.

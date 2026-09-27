@@ -135,7 +135,7 @@
           openstack.cloud.image:
             auth: "{{ openstack_auth }}"
             region_name: "{{ openstack_region_name }}"
-            name: "{{ image_upload.image.id }}"
+            name: "{{ image_name }}"
             state: absent
           when:
             - image_upload is defined

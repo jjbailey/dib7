@@ -2,7 +2,6 @@
 # tests/test_catalog.py
 # vim: set tabstop=4 shiftwidth=4 expandtab:
 
-
 """Focused tests for image publication and reconciliation safety."""
 
 import importlib.util
@@ -17,18 +16,15 @@ ROOT = Path(__file__).resolve().parents[1]
 BIN = ROOT / "bin"
 sys.path.insert(0, str(BIN))
 
-
 def load_script(filename, module_name):
     spec = importlib.util.spec_from_file_location(module_name, BIN / filename)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
 
-
 publish = load_script("publish-image-catalog.py", "publish_image_catalog")
 reconcile_common = load_script("reconcile_catalog_common.py", "reconcile_catalog_common_test")
 reconcile_aws = load_script("reconcile-catalog-aws.py", "reconcile_catalog_aws")
-
 
 class CatalogEntryTests(unittest.TestCase):
     def image(self, **updates):
@@ -51,6 +47,22 @@ class CatalogEntryTests(unittest.TestCase):
             publish.validate(self.image(provider="oracle"))
         with self.assertRaisesRegex(ValueError, "unsupported status"):
             publish.validate(self.image(status="active"))
+
+    def test_publish_supersede_keeps_projects_separate(self):
+        with tempfile.TemporaryDirectory() as directory:
+            catalog = Path(directory) / "image-catalog.json"
+            first = Path(directory) / "first.json"
+            second = Path(directory) / "second.json"
+            first.write_text(json.dumps(self.image(artifact_id="project-a", project="project-a")))
+            second.write_text(json.dumps(self.image(artifact_id="project-b", project="project-b")))
+
+            with patch.object(sys, "argv", ["publish", "--catalog", str(catalog), "--entry", str(first), "--supersede"]):
+                publish.main()
+            with patch.object(sys, "argv", ["publish", "--catalog", str(catalog), "--entry", str(second), "--supersede"]):
+                publish.main()
+
+            images = json.loads(catalog.read_text())["images"]
+            self.assertEqual({image["artifact_id"] for image in images}, {"project-a", "project-b"})
 
     def test_publish_supersede_replaces_matching_artifact_only(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -75,7 +87,6 @@ class CatalogEntryTests(unittest.TestCase):
             self.assertIn("new", {image["artifact_id"] for image in images})
             self.assertNotIn("old", {image["artifact_id"] for image in images})
             self.assertIn("ami-1", {image["artifact_id"] for image in images})
-
 
 class ReconcileSafetyTests(unittest.TestCase):
     def image(self, artifact_id, status="published", provider="openstack", scope="project-a"):
@@ -134,7 +145,6 @@ class ReconcileSafetyTests(unittest.TestCase):
             self.assertEqual(result, 1)
             self.assertEqual([image["artifact_id"] for image in json.loads(path.read_text())["images"]], ["active"])
 
-
 class AwsCommandTests(unittest.TestCase):
     def describe_images_argv(self, profile):
         result = Mock(stdout='{"Images": []}')
@@ -149,7 +159,6 @@ class AwsCommandTests(unittest.TestCase):
 
     def test_no_profile_argument_without_profile(self):
         self.assertNotIn("--profile", self.describe_images_argv(None))
-
 
 if __name__ == "__main__":
     unittest.main()

@@ -2,8 +2,6 @@
 # bin/reconcile-catalog-openstack.py
 # vim: set tabstop=4 shiftwidth=4 expandtab:
 
-
-
 """Remove OpenStack image-catalog entries when their images are gone."""
 
 import argparse
@@ -11,10 +9,10 @@ import json
 import os
 from pathlib import Path
 
+import keystoneauth1.exceptions
 import openstack
 
 from reconcile_catalog_common import read_snapshot, reconcile
-
 
 def validate_openstack_environment(cloud):
     """Fail with actionable credentials guidance before connecting to OpenStack."""
@@ -40,13 +38,11 @@ def validate_openstack_environment(cloud):
             "clouds.yaml entry"
         )
 
-
 def project_name(connection):
     try:
         return str(connection.current_project.name)
     except (AttributeError, TypeError, openstack.exceptions.SDKException):
         return None
-
 
 def main():
     repo_dir = Path(__file__).resolve().parents[1]
@@ -156,9 +152,14 @@ def main():
         authenticated_name or authenticated_id, args.dry_run, args.force,
     )
 
-
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
-    except (OSError, ValueError, json.JSONDecodeError, openstack.exceptions.SDKException) as error:
+    except (
+        OSError,
+        ValueError,
+        json.JSONDecodeError,
+        openstack.exceptions.SDKException,
+        keystoneauth1.exceptions.ClientException,
+    ) as error:
         raise SystemExit(f"reconcile-catalog-openstack: {error}")

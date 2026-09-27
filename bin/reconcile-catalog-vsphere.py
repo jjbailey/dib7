@@ -2,8 +2,6 @@
 # bin/reconcile-catalog-vsphere.py
 # vim: set tabstop=4 shiftwidth=4 expandtab:
 
-
-
 """Remove vSphere catalog entries whose artifacts are gone."""
 from __future__ import annotations
 import argparse
@@ -30,7 +28,6 @@ try {
 }
 """
 
-
 def query_live_artifacts(library):
     required = ("vcenter_hostname", "vcenter_username", "vcenter_password")
     missing = [name for name in required if not os.environ.get(name)]
@@ -47,19 +44,21 @@ def query_live_artifacts(library):
         raise ValueError(f"PowerCLI returned invalid JSON: {error}") from error
     return set(document.get("library_items", [])), set(document.get("templates", []))
 
-
 def main():
     repo_dir = Path(__file__).resolve().parents[1]
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--catalog", type=Path,
                         default=repo_dir / "catalogs/image-catalog.json")
     parser.add_argument("--library")
+    parser.add_argument("--vcenter", help="only reconcile entries for this vCenter key/hostname")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
     catalog = read_snapshot(args.catalog)
     libraries = {image.get("scope", {}).get("content_library") for image in catalog["images"]
                  if image.get("provider") == "vsphere" and image.get("scope", {}).get("content_library")}
+    vcenters = {image.get("scope", {}).get("vcenter") for image in catalog["images"]
+                if image.get("provider") == "vsphere" and image.get("scope", {}).get("vcenter")}
     if not libraries:
         print("no vSphere catalog entries found")
         return 0
@@ -68,10 +67,15 @@ def main():
     if not library:
         raise ValueError(
             "catalog contains multiple vSphere content libraries; provide --library")
+    vcenter = args.vcenter or (next(iter(vcenters)) if len(vcenters) == 1 else None)
+    if len(vcenters) > 1 and not vcenter:
+        raise ValueError("catalog contains multiple vSphere vCenters; provide --vcenter")
     library_items, templates = query_live_artifacts(library)
 
     def scope_match(image):
-        return image.get("scope", {}).get("content_library") == library
+        image_scope = image.get("scope", {})
+        return (image_scope.get("content_library") == library
+                and (not vcenter or image_scope.get("vcenter") == vcenter))
     retired = [image for image in catalog["images"] if image.get("provider") == "vsphere"
                and image.get("status") == "retired" and scope_match(image)]
     stale = []
@@ -88,9 +92,8 @@ def main():
                 "unsupported vSphere artifact type: " + image["artifact_type"])
         if not present:
             stale.append((image, "artifact not found"))
-    print(f"vSphere scope: content_library={library}")
+    print(f"vSphere scope: vcenter={vcenter or 'legacy/all'}, content_library={library}")
     return reconcile(args.catalog, "vsphere", stale, retired, scope_match, library, args.dry_run, args.force)
-
 
 if __name__ == "__main__":
     try:

@@ -58,7 +58,12 @@ Included with `include_tasks`, never run standalone. `ansible-playbook
 - **`verify-stamp.yml`**: Refuses to consume an artifact the previous stage did
   not produce this run, and records the run that did produce it.
 - **`publish-image-catalog.yml`**: Writes one entry into the image catalog.
-  Included by each import playbook after its import succeeds. See
+  Included by each import playbook after its import succeeds.
+- **`tasks/select-aws-project.yml`**, **`tasks/select-gcp-project.yml`**,
+  **`tasks/select-openstack-project.yml`**, and
+  **`tasks/select-vcenter.yml`**: Select one provider target from the
+  corresponding multi-target Vault, with legacy flat-Vault compatibility.
+  See
   [image-catalog.md](image-catalog.md).
 
 ### Cloud Import / Publishing
