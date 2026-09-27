@@ -2,8 +2,6 @@
 # bin/reconcile_catalog_common.py
 # vim: set tabstop=4 shiftwidth=4 expandtab:
 
-
-
 """Shared helpers for provider image-catalog reconcilers."""
 
 import datetime as dt
@@ -13,10 +11,8 @@ import os
 import stat
 import tempfile
 
-
 def now_utc():
     return dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-
 
 def load_catalog(path):
     if not path.exists():
@@ -27,7 +23,6 @@ def load_catalog(path):
             "catalog must have schema_version 1 and an images list")
     return catalog
 
-
 def read_snapshot(path):
     lock_path = path.with_name(path.name + ".lock")
     with lock_path.open("a+", encoding="utf-8") as lock:
@@ -36,10 +31,8 @@ def read_snapshot(path):
         fcntl.flock(lock, fcntl.LOCK_UN)
     return catalog
 
-
 def image_key(image):
     return (image.get("logical_name"), image.get("artifact_type"), image.get("artifact_id"), image.get("version"))
-
 
 def write_catalog(path, catalog):
     catalog["images"].sort(key=lambda item: (item.get("logical_name", ""), item.get(
@@ -61,7 +54,6 @@ def write_catalog(path, catalog):
     finally:
         if os.path.exists(temporary):
             os.unlink(temporary)
-
 
 def reconcile(path, provider, stale, retired, scope_match, scope_label, dry_run, force):
     removals = stale + [(image, "already retired") for image in retired]

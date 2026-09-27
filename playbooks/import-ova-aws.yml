@@ -14,9 +14,8 @@
     - name: Include common setup tasks
       ansible.builtin.include_tasks: common-setup.yml
 
-    - name: Include AWS vault variables
-      ansible.builtin.include_vars:
-        file: "../vaults/aws.yml"
+    - name: Select the AWS project for this run
+      ansible.builtin.include_tasks: tasks/select-aws-project.yml
 
     - name: Validate AWS import configuration
       ansible.builtin.assert:
@@ -29,6 +28,7 @@
           vmimport_role_name before importing an OVA.
 
     - name: Import OVA to AMI
+      environment: "{{ aws_task_env | default({}) }}"
       block:
         - name: Require an OVA converted by this run
           ansible.builtin.include_tasks: verify-stamp.yml
@@ -133,6 +133,7 @@
             catalog_artifact_type: ami
             catalog_region: "{{ aws_region }}"
             catalog_boot_mode: "{{ image_boot_mode }}"
+            catalog_project: "{{ aws_account_id if (aws_account_id | default('') | length > 0) else aws_target_project_name }}"
 
         - name: Remove OVA from S3 after successful import
           amazon.aws.s3_object:

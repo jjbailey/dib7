@@ -23,9 +23,8 @@
         - name: Include common setup tasks
           ansible.builtin.include_tasks: common-setup.yml
 
-        - name: Include GCP vault variables
-          ansible.builtin.include_vars:
-            file: "../vaults/gcp.yml"
+        - name: Select the GCP project for this run
+          ansible.builtin.include_tasks: tasks/select-gcp-project.yml
 
         - name: Require a QCOW2 built by this run
           ansible.builtin.include_tasks: verify-stamp.yml
@@ -64,7 +63,10 @@
         # the key file has already been deleted.
         - name: Record the activated gcloud account for later revocation
           ansible.builtin.set_fact:
-            gcloud_active_account: "{{ (service_account_key | from_json).client_email }}"
+            gcloud_active_account: >-
+              {{ service_account_key.client_email
+                 if service_account_key is mapping
+                 else (service_account_key | from_json).client_email }}
           no_log: true
 
         - name: Verify source file exists

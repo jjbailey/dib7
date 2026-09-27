@@ -10,7 +10,10 @@ contain site-specific identifiers, so do not publish it when synchronizing a
 public source tree.
 
 The schema is [catalogs/image-catalog.schema.json](../catalogs/image-catalog.schema.json).
-Each entry is identified by `(logical_name, provider, artifact_type, version)`.
+Each entry is identified by `(logical_name, provider, artifact_type, version,
+project, region, scope)`. For superseding providers, `version` is omitted
+from replacement matching; project/region/scope remain part of the identity so
+separate cloud projects, regions, and vCenters cannot evict one another.
 Re-publishing that same tuple replaces the entry atomically. Whether older
 versions survive alongside the new one is a per-provider policy described
 below. A small lock file prevents concurrent publishers from losing entries.
@@ -58,12 +61,12 @@ a new run destroys what the older rows point at:
 Note that a unique-looking `artifact_id` is not the test - OpenStack mints a
 fresh UUID every upload and still supersedes, because the previous image is
 deleted. The publishers for the three superseding providers pass `--supersede`,
-which drops `version` from the match so a new entry replaces every version of
-that artifact.
+which drops `version` from the match while retaining project, region, and
+scope, so a new entry replaces every version of that artifact in the same
+target scope.
 
 The practical rule for consumers: **for `gcp`, `openstack`, and `vsphere` there
-is exactly one row per image per `artifact_type`, and it is always current
-state.** Version pinning is only meaningful for `aws`.
+is exactly one current row per image, artifact type, and target scope.** Version pinning is only meaningful for `aws`.
 
 A publisher only ever rewrites rows matching its own `provider`, so entries for
 other providers are left untouched. That is what makes it safe to re-run one
@@ -113,13 +116,31 @@ bin/reconcile-catalog-gcp.py --dry-run
 bin/reconcile-catalog-openstack.py --dry-run
 ```
 
-AWS groups AMI checks by region and supports `--region` and `--profile`. GCP
-checks image self-links and infers the project when the catalog contains one;
-use `--project` or `--credentials-file` when needed. OpenStack checks Glance
-image IDs through the selected clouds.yaml entry and supports `--cloud` and
-`--project-id`. All three scripts accept `--force` when more than half of the
-active provider rows would be removed. `tests/validate.sh` checks syntax and
-catalog shape, but deliberately does not perform live cloud calls.
+Each reconciler works on one target scope and auto-selects it when the catalog
+holds exactly one; when the catalog holds several targets for a provider, the
+script fails and names the flag to disambiguate:
+
+- **AWS** groups AMI checks by region and supports `--region` and `--profile`.
+  The scope is the account, selected with `--project` (`--account-id` is an
+  alias) when the catalog contains rows for more than one AWS account.
+- **GCP** checks image self-links and infers the project when the catalog
+  contains one; use `--project` or `--credentials-file` when needed. The
+  resolved credentials must belong to the selected project, and the script
+  fails with both project IDs when they disagree.
+- **OpenStack** checks Glance image IDs through the selected clouds.yaml entry
+  and supports `--cloud`, `--project-id`, and `--region-name`. It requires
+  `--project-id` when the catalog holds several OpenStack projects and
+  `--region-name` when it holds several regions, and it verifies the
+  authenticated project against the selection before touching anything.
+- **vSphere** checks content-library items and templates through
+  `pwsh`/PowerCLI, which requires `vcenter_hostname`, `vcenter_username`, and
+  `vcenter_password` in the environment. It selects the content library
+  automatically when the catalog holds one (`--library` otherwise) and narrows
+  the scope with `--vcenter` when the catalog holds several vCenters.
+
+All four scripts accept `--force` when more than half of the active provider
+rows in the selected scope would be removed. `tests/validate.sh` checks syntax
+and catalog shape, but deliberately does not perform live cloud calls.
 
 ### OpenStack credentials
 

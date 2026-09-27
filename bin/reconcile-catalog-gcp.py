@@ -2,8 +2,6 @@
 # bin/reconcile-catalog-gcp.py
 # vim: set tabstop=4 shiftwidth=4 expandtab:
 
-
-
 """Remove GCP catalog entries when their images are gone."""
 
 import argparse
@@ -14,7 +12,6 @@ import google.auth
 from google.auth.transport.requests import AuthorizedSession
 
 from reconcile_catalog_common import read_snapshot, reconcile
-
 
 def main():
     repo_dir = Path(__file__).resolve().parents[1]
@@ -40,10 +37,14 @@ def main():
     credentials_args = {"scopes": [
         "https://www.googleapis.com/auth/cloud-platform"]}
     if args.credentials_file:
-        credentials, _ = google.auth.load_credentials_from_file(
+        credentials, credential_project = google.auth.load_credentials_from_file(
             args.credentials_file, **credentials_args)
     else:
-        credentials, _ = google.auth.default(**credentials_args)
+        credentials, credential_project = google.auth.default(**credentials_args)
+    credential_project = credential_project or getattr(credentials, "project_id", None)
+    if credential_project and str(credential_project) != str(project):
+        raise ValueError(
+            f"resolved GCP credentials belong to project {credential_project}, not --project {project}")
     session = AuthorizedSession(credentials)
     def scope_match(image): return image.get("project") == project
     retired = [image for image in catalog["images"] if image.get(
@@ -59,7 +60,6 @@ def main():
             response.raise_for_status()
     print(f"GCP scope: project={project}")
     return reconcile(args.catalog, "gcp", stale, retired, scope_match, project, args.dry_run, args.force)
-
 
 if __name__ == "__main__":
     try:

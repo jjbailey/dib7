@@ -2,8 +2,6 @@
 # bin/publish-image-catalog.py
 # vim: set tabstop=4 shiftwidth=4 expandtab:
 
-
-
 """Atomically merge one published image into the DIB7 image catalog."""
 
 import argparse
@@ -15,7 +13,6 @@ import pathlib
 import stat
 import tempfile
 
-
 REQUIRED = {
     "logical_name", "provider", "artifact_id", "artifact_type", "version",
     "architecture", "boot_mode", "source_build", "status",
@@ -23,6 +20,11 @@ REQUIRED = {
 PROVIDERS = {"aws", "gcp", "openstack", "vsphere"}
 STATUSES = {"published", "retired"}
 
+def scope_identity(entry):
+    """Return the provider scope that must remain distinct in the catalog."""
+    return (entry.get("project"), entry.get("region"),
+            json.dumps(entry.get("scope") or {}, sort_keys=True,
+                       separators=(",", ":")))
 
 def validate(entry):
     missing = sorted(REQUIRED - entry.keys())
@@ -35,7 +37,6 @@ def validate(entry):
     for name in REQUIRED:
         if not isinstance(entry[name], str) or not entry[name].strip():
             raise ValueError(name + " must be a non-empty string")
-
 
 def main():
     parser = argparse.ArgumentParser()
@@ -66,8 +67,8 @@ def main():
             raise ValueError(
                 "catalog must have schema_version 1 and an images list")
 
-        # artifact_type is part of the identity so one image can be published as
-        # more than one kind of artifact per provider per run - a vSphere OVA
+        # artifact_type and provider scope are part of the identity so one image
+        # can be published as multiple artifact kinds and targets - a vSphere OVA
         # and the template built from it, an AMI and a snapshot. Without it the
         # second publisher silently evicts the first.
         #
@@ -85,20 +86,22 @@ def main():
         #               id, so older versions stay independently deployable
         # Only AWS is additive; the other three supersede.
         #
-        # Rows for other providers are never examined, so a publisher only ever
-        # rewrites its own provider's slice of the catalog.
+        # Rows for other providers or other project/region/scope slices are never
+        # examined, so a publisher only rewrites its own target slice.
         if args.supersede:
             key = (entry["logical_name"], entry["provider"],
-                   entry["artifact_type"])
+                   entry["artifact_type"], *scope_identity(entry))
 
             def match(old): return (old.get("logical_name"),
-                                    old.get("provider"), old.get("artifact_type"))
+                                    old.get("provider"), old.get("artifact_type"),
+                                    *scope_identity(old))
         else:
             key = (entry["logical_name"], entry["provider"],
-                   entry["artifact_type"], entry["version"])
+                   entry["artifact_type"], entry["version"], *scope_identity(entry))
 
             def match(old): return (old.get("logical_name"), old.get(
-                "provider"), old.get("artifact_type"), old.get("version"))
+                "provider"), old.get("artifact_type"), old.get("version"),
+                *scope_identity(old))
         catalog["images"] = [
             old for old in catalog["images"] if match(old) != key]
         catalog["images"].append(entry)
@@ -125,7 +128,6 @@ def main():
         finally:
             if os.path.exists(temporary):
                 os.unlink(temporary)
-
 
 if __name__ == "__main__":
     try:

@@ -323,7 +323,7 @@ dib7/
 ├── elements/                    # DIB elements for custom OS configurations
 ├── group_vars/                  # Ansible group variables
 ├── hosts.yml                    # Inventory file
-├── patches/                     # Patches applied to the venv (see doc/fedora.md)
+├── patches/                     # Patches applied to the venv (see doc/fedora.md and doc/centos.md)
 ├── playbooks/                   # Ansible playbooks
 ├── requirements.txt             # Pinned Python dependencies
 ├── requirements.yml             # Pinned Ansible collections
@@ -364,6 +364,8 @@ dib7/
   Dependencies: qemu-img and ovftool (tested with 5.1.0).
 - `import-ova-aws.yml`: Upload OVA to S3, import to AWS AMI.
   Dependencies: `amazon.aws` collection, S3, VM Import.
+  Set `AWS_TARGET_PROJECT` when using multiple accounts; it may be a vault
+  key or account ID.
 - `import-ova-vsphere.yml`: Import OVA to vSphere content library.
   This produces the `vSphere OVA` branch in the workflow.
   Dependencies: pwsh, PowerCLI.
@@ -377,6 +379,8 @@ dib7/
   to GCS, and by default deletes and replaces any existing Compute image of
   the same name (see `gcp_replace_existing_image`).
   Dependencies: gcloud (including `gcloud storage`).
+  Set `GCP_TARGET_PROJECT` when using multiple projects; it may be a vault
+  key or project ID.
 - `import-qcow2-openstack.yml`: Import QCOW2 to OpenStack.
   Dependencies: `openstack.cloud` collection.
   Set `OPENSTACK_TARGET_PROJECT` when using multiple projects; it may be a
@@ -392,25 +396,39 @@ vault files:
 ### AWS Vault (`vaults/aws.yml`)
 
 ```yaml
-aws_region: "my-region"
-s3_bucket: "my-bucket"
-vmimport_role_name: "vmimport-role"
+aws_projects:
+  "123456789012":
+    aws_account_id: "123456789012"
+    aws_region: "my-region"
+    s3_bucket: "my-bucket"
+    vmimport_role_name: "vmimport-role"
+    # Optional profile or access-key fields.
 ```
+
+Select one AWS account with `-e aws_target_project=<key-or-account-id>`; a
+single-entry map is selected automatically. A legacy flat mapping remains
+supported for one account.
 
 ### GCP Vault (`vaults/gcp.yml`)
 
 ```yaml
-gcp_project: "my-project"
-gcs_bucket: "my-image-bucket"
-# Region that runs the import job, not a bucket or image location.
-# See doc/vaults.md.
-gcp_import_location: "us-central1"
-service_account_key: |
-  {
-    "type": "service_account",
-    ...
-  }
+gcp_projects:
+  my-project:
+    gcp_project: "my-project"
+    gcs_bucket: "my-image-bucket"
+    # Region that runs the import job, not a bucket or image location.
+    # See doc/vaults.md.
+    gcp_import_location: "us-central1"
+    service_account_key: |
+      {
+        "type": "service_account",
+        ...
+      }
 ```
+
+Select one GCP project with `-e gcp_target_project=<key-or-project-id>`; a
+single-entry map is selected automatically. A legacy flat mapping remains
+supported for one project.
 
 ### OpenStack Vault (`vaults/openstack.yml`)
 
@@ -593,11 +611,12 @@ Run the local validation suite before committing changes:
 ```
 
 This checks every actual playbook with Ansible syntax validation, verifies the
-pinned Ansible collections and DIB/Fedora compatibility, validates the catalog
-schema, parses non-secret YAML and PowerShell, runs `bash -n` against the
-shell helpers, and compiles the Python utilities with `py_compile`. Cloud imports
-still require provider credentials and are intentionally not executed by the local
-suite.
+pinned Ansible collections and the Fedora and CentOS Stream 10 DIB
+compatibility, validates the catalog schema, parses non-secret YAML and
+PowerShell, runs `bash -n` against the shell helpers, compiles the Python
+utilities with `py_compile`, and runs the focused catalog unit tests in
+`tests/test_catalog.py`. Cloud imports still require provider credentials and
+are intentionally not executed by the local suite.
 
 ## Troubleshooting
 

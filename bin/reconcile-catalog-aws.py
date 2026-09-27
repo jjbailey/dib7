@@ -2,8 +2,6 @@
 # bin/reconcile-catalog-aws.py
 # vim: set tabstop=4 shiftwidth=4 expandtab:
 
-
-
 """Remove AWS catalog entries when their AMIs are gone."""
 
 import argparse
@@ -17,6 +15,12 @@ from reconcile_catalog_common import read_snapshot, reconcile
 
 AMI_BATCH_SIZE = 100
 
+def authenticated_account(profile=None):
+    command = ["aws", "sts", "get-caller-identity", "--query", "Account", "--output", "text"]
+    if profile:
+        command += ["--profile", profile]
+    result = subprocess.run(command, capture_output=True, text=True, check=True)
+    return result.stdout.strip()
 
 def live_ami_ids(region, ami_ids, profile=None):
     live = set()
@@ -32,22 +36,42 @@ def live_ami_ids(region, ami_ids, profile=None):
                     for item in json.loads(result.stdout).get("Images", []))
     return live
 
-
 def main():
     repo_dir = Path(__file__).resolve().parents[1]
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--catalog", type=Path,
                         default=repo_dir / "catalogs/image-catalog.json")
     parser.add_argument("--region")
+    parser.add_argument("--project", "--account-id", dest="project",
+                        help="only reconcile this AWS account/project")
     parser.add_argument("--profile")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
     catalog = read_snapshot(args.catalog)
+    projects = {image.get("project") for image in catalog["images"]
+                if image.get("provider") == "aws" and image.get("project")}
+    if args.project:
+        project = str(args.project)
+    elif len(projects) == 1:
+        project = str(next(iter(projects)))
+    elif len(projects) > 1:
+        raise ValueError("catalog contains multiple AWS projects; provide --project")
+    else:
+        project = None
+
+    if project and project.isdigit() and len(project) == 12:
+        actual_account = authenticated_account(args.profile)
+        if actual_account != project:
+            raise ValueError(
+                f"authenticated AWS account {actual_account} does not match --project {project}")
+
     grouped = defaultdict(list)
     retired = []
     for image in catalog["images"]:
         if image.get("provider") != "aws" or (args.region and image.get("region") != args.region):
+            continue
+        if project and image.get("project") != project:
             continue
         if image.get("status") == "retired":
             retired.append(image)
@@ -64,11 +88,11 @@ def main():
         stale.extend((image, "AMI not found")
                      for image in images if image["artifact_id"] not in live)
 
-    def scope_match(image): return not args.region or image.get(
-        "region") == args.region
-    print(f"AWS scope: region={args.region or 'all catalog regions'}")
-    return reconcile(args.catalog, "aws", stale, retired, scope_match, args.region, args.dry_run, args.force)
-
+    def scope_match(image):
+        return ((not args.region or image.get("region") == args.region)
+                and (not project or image.get("project") == project))
+    print(f"AWS scope: project={project or 'legacy/all'}, region={args.region or 'all catalog regions'}")
+    return reconcile(args.catalog, "aws", stale, retired, scope_match, project or args.region or "AWS catalog", args.dry_run, args.force)
 
 if __name__ == "__main__":
     try:

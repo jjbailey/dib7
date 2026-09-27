@@ -77,6 +77,15 @@ else
     fail "diskimage-builder $dib_version lacks Fedora Generic-image support; apply patches/diskimage-builder-fedora-generic-image.patch or upgrade to a release that includes it"
 fi
 
+echo "== CentOS Stream 10 DIB compatibility =="
+centos_element="$($python_bin -c 'import site; print(site.getsitepackages()[0])')/diskimage_builder/elements/centos/root.d/10-centos-cloud-image"
+if [ -f "$centos_element" ] && grep -qF 'CentOS-Stream-${DIB_FLAVOR}-10-' "$centos_element"; then
+    echo "  ok   CentOS Stream 10 GenericCloud-image naming is supported"
+else
+    dib_version="$($python_bin -c 'from importlib.metadata import version; print(version("diskimage-builder"))' 2>/dev/null || echo unknown)"
+    fail "diskimage-builder $dib_version lacks CentOS Stream 10 GenericCloud-image support; apply patches/diskimage-builder-centos10-generic-image.patch or upgrade to a release that includes it"
+fi
+
 echo "== ansible playbook syntax =="
 task_files="playbooks/common-setup.yml playbooks/publish-image-catalog.yml playbooks/verify-stamp.yml $(echo playbooks/tasks/*.yml)"
 for playbook in playbooks/*.yml ; do
@@ -153,6 +162,7 @@ echo "== vault schema =="
 vault_pass="${VAULT_PASSWORD_FILE:-$HOME/.ssh/dib-vault-pass}"
 if [ -s "$vault_pass" ] && [ -x "$venv_bin/ansible-vault" ] ; then
     if "$python_bin" - "$vault_pass" << 'PYTHON' ; then
+import json
 import os
 import subprocess
 import sys
@@ -194,8 +204,39 @@ for name, entry in projects.items():
             raise SystemExit(f"vaults/openstack.yml: openstack_projects[{name!r}] {key} missing or empty")
     if str(entry.get("project_name")) != str(name):
         raise SystemExit(f"vaults/openstack.yml: openstack_projects[{name!r}] project_name disagrees with its key")
+
+aws = load("vaults/aws.yml")
+aws_projects = aws.get("aws_projects") or {}
+aws_entries = aws_projects.items() if aws_projects else (["legacy", aws],) if aws.get("aws_region") else []
+if not aws_entries:
+    raise SystemExit("vaults/aws.yml: neither aws_projects nor legacy aws_region found")
+for name, entry in aws_entries:
+    for key in ("aws_region", "s3_bucket", "vmimport_role_name"):
+        if not str(entry.get(key) or "").strip():
+            raise SystemExit(f"vaults/aws.yml: aws_projects[{name!r}] {key} missing or empty")
+    account = entry.get("aws_account_id", entry.get("account_id"))
+    if account is not None and not str(account).strip():
+        raise SystemExit(f"vaults/aws.yml: aws_projects[{name!r}] account ID is empty")
+
+gcp = load("vaults/gcp.yml")
+gcp_projects = gcp.get("gcp_projects") or {}
+gcp_entries = gcp_projects.items() if gcp_projects else (["legacy", gcp],) if gcp.get("gcp_project") else []
+if not gcp_entries:
+    raise SystemExit("vaults/gcp.yml: neither gcp_projects nor legacy gcp_project found")
+for name, entry in gcp_entries:
+    for key in ("gcp_project", "gcs_bucket", "gcp_import_location", "service_account_key"):
+        if not str(entry.get(key) or "").strip():
+            raise SystemExit(f"vaults/gcp.yml: gcp_projects[{name!r}] {key} missing or empty")
+    if gcp_projects and str(entry.get("gcp_project")) != str(name):
+        raise SystemExit(f"vaults/gcp.yml: gcp_projects[{name!r}] gcp_project disagrees with its key")
+    try:
+        client_email = json.loads(entry["service_account_key"]).get("client_email")
+    except (TypeError, json.JSONDecodeError) as error:
+        raise SystemExit(f"vaults/gcp.yml: gcp_projects[{name!r}] service_account_key is not valid JSON: {error}")
+    if not str(client_email or "").strip():
+        raise SystemExit(f"vaults/gcp.yml: gcp_projects[{name!r}] service_account_key.client_email missing or empty")
 PYTHON
-    echo "  ok   vault schemas (vsphere/openstack)"
+    echo "  ok   vault schemas (vsphere/openstack/aws/gcp)"
 else
     fail "vault schema check failed"
 fi

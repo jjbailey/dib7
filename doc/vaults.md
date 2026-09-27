@@ -21,39 +21,43 @@ VAULT=vaults/aws-staging.yml bin/aws-vault.sh
 
 vaults/aws.yml
 
-```txt
-aws_region: "my-region"
-s3_bucket: "my-bucket"
-vmimport_role_name: "vmimport-role"
+```yaml
+aws_projects:
+  "123456789012":
+    aws_account_id: "123456789012"
+    aws_region: "my-region"
+    s3_bucket: "my-bucket"
+    vmimport_role_name: "vmimport-role"
+    # Optional: aws_profile, aws_access_key_id,
+    # aws_secret_access_key, aws_session_token
 ```
+
+Select an account with `-e aws_target_project=<key-or-account-id>`. A
+single-entry map is auto-selected. A legacy flat mapping containing
+`aws_region`, `s3_bucket`, and `vmimport_role_name` remains supported.
 
 ## GCP Vault
 
 vaults/gcp.yml
 
-```txt
-gcp_project: "my-project"
-gcs_bucket: "my-bucket"
-gcp_import_location: "us-central1"
-
-service_account_key: |
-  {
-    "type": "service_account",
-    "project_id": "my-project",
-    "private_key_id": "my-private-key-id",
-    "private_key": "-----BEGIN PRIVATE KEY-----
-     ..."
-    "client_email": you@...iam.gserviceaccount.com",
-    "client_id": "my-client-id",
-    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-    "token_uri": "https://oauth2.googleapis.com/token",
-    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-    "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/...iam.gserviceaccount.com",
-    "universe_domain": "googleapis.com"
-  }
-
-service_account_contents: "{{ service_account_key }}"
+```yaml
+gcp_projects:
+  my-project:
+    gcp_project: "my-project"
+    gcs_bucket: "my-bucket"
+    gcp_import_location: "us-central1"
+    service_account_key: |
+      {
+        "type": "service_account",
+        "project_id": "my-project",
+        "client_email": "you@my-project.iam.gserviceaccount.com"
+      }
 ```
+
+Select a project with `-e gcp_target_project=<key-or-project-id>`. A
+single-entry map is auto-selected. A legacy flat mapping containing
+`gcp_project`, `gcs_bucket`, `gcp_import_location`, and `service_account_key`
+remains supported.
 
 ### `gcp_import_location`
 
@@ -126,23 +130,25 @@ for the required `OS_*` variables and the `--cloud`/`OS_CLOUD` alternatives.
 
 `vaults/vsphere.yml`
 
-```txt
-vcenter_hostname: "my-vcenter"
-vcenter_username: "my-admin-user"
-vcenter_password: "my-admin-password"
-# Optional site overrides; group_vars/all supplies safe defaults.
-vsphere_content_library: "my-content-library"
-vsphere_template_name: "inventory-item-base.tmpl"
-vsphere_template_folder: "Templates"
-vsphere_template_host: ""
+```yaml
+vsphere_projects:
+  example:
+    vcenter_hostname: "my-vcenter"
+    vcenter_username: "my-admin-user"
+    vcenter_password: "my-admin-password"
+    datacenter: "Datacenter"
+    validate_certs: true
+  other-site:
+    vcenter_hostname: "other-vcenter"
+    vcenter_username: "my-admin-user"
+    vcenter_password: "other-password"
+    datacenter: "Other-Datacenter"
+    validate_certs: true
+
+# A legacy flat vcenter_hostname/vcenter_username/vcenter_password mapping
+# remains supported.
 ```
 
-`vsphere_content_library`, `vsphere_template_name`, `vsphere_template_folder`, and
-`vsphere_template_host` override the defaults
-in `group_vars/all/main.yml` when present. They are used by the vSphere
-playbooks; the encrypted vault is optional for these non-secret settings.
-
-`vsphere_content_library` is used by `import-ova-vsphere.yml` to create the
-`vSphere OVA`, and `vsphere_template_name` is used by
-`import-ova-vsphere-template.yml` to create the `vSphere Template`, or
-`recreate-vsphere-template.yml` to recreate it from an existing library OVA.
+Select a vCenter with `-e vsphere_target_vcenter=<key-or-hostname>`. A
+single-entry map is auto-selected. The selected vCenter key is recorded in
+image-catalog scope so same-named content libraries remain distinct.
