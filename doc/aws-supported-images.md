@@ -80,6 +80,26 @@ Note that Fedora 44 is not yet listed, which `fedora44` builds.
 - Ubuntu 25.10 — 6.17.0
 - Ubuntu 26.04 — 7.0.0
 
+## Coverage of the images built here
+
+<!-- markdownlint-disable MD013 -->
+
+| Build         | AWS            | Notes                                                                                                           |
+| ------------- | -------------- | --------------------------------------------------------------------------------------------------------------- |
+| `centos10s`   | **Not listed** | Upstream lists CentOS Stream 9 only                                                                             |
+| `debian1215`  | **Not listed** | The rolling `bookworm` point release is not one of the listed 12.2 / 12.4 / 12.7                                |
+| `debian1307`  | **Not listed** | Upstream stops at Debian 12.7                                                                                   |
+| `fedora44`    | **Not listed** | Upstream lists Fedora 41–43                                                                                     |
+| `rocky102`    | Yes\*          | Covered for point releases at or below 10.1; verify the cloud image point release before importing              |
+| `ubuntu24045` | Yes            | Upstream lists Ubuntu 24.04                                                                                     |
+| `ubuntu26041` | Yes            | Upstream lists Ubuntu 26.04; the July injection failure is resolved, see below                                  |
+
+<!-- markdownlint-enable MD013 -->
+
+This mirrors the "Coverage of the images built here" table in
+[gcp-supported-images.md](gcp-supported-images.md). The README links here rather
+than repeating it.
+
 ## Known issues
 
 ### Ubuntu 26.04 injection failure resolved (2026-09-12)

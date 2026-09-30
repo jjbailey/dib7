@@ -9,8 +9,13 @@ defaults from `group_vars/all/main.yml`. The following groups are defined:
 - `group_vars/rocky/main.yml`
 - `group_vars/ubuntu/main.yml`
 
-All five files share the same variable structure. See the
-[Per-Distro Differences](#per-distro-differences) section for values that vary.
+Each file now holds only what actually differs between distros -
+`elements_base`, `vm_os_type` and `vm_os_description`. Everything the five
+groups share (block device, bootloader command line, element path, VM sizing,
+swap and network) is defined once in `group_vars/all/main.yml`; see
+[group-vars-all.md](group-vars-all.md). The
+[Per-Distro Differences](#per-distro-differences) table is therefore the whole
+per-distro story.
 
 ---
 
@@ -26,7 +31,9 @@ builds from the single `~/.dib7` virtualenv, so all three now live in
 ## Disk Image Builder (DIB) Settings
 
 These variables are exported as environment variables when `disk-image-create`
-is invoked in `playbooks/build-qcow2.yml`.
+is invoked in `playbooks/build-qcow2.yml`. They are identical for every distro,
+so they are defined once in `group_vars/all/main.yml`; they are documented here
+because they are DIB inputs.
 
 <!-- markdownlint-disable MD013 MD060 -->
 
@@ -62,6 +69,9 @@ DIB elements are the modular build components assembled by `disk-image-create`.
 
 <!-- markdownlint-enable MD013 MD060 -->
 
+`elements_path` and `elements_custom` are shared and live in
+`group_vars/all/main.yml`; only `elements_base` is per-distro.
+
 The `elements_base` for each group:
 
 <!-- markdownlint-disable MD013 -->
@@ -92,20 +102,24 @@ Used in `templates/ovf-file.j2` to generate the OVF descriptor for VMware.
 
 <!-- markdownlint-enable MD013 -->
 
+`vm_memory_mb` and `vm_cpus` are shared and live in
+`group_vars/all/main.yml`; only `vm_os_type` is per-distro.
+
 ---
 
 ## Swap Configuration
 
 Controls whether a swap logical volume is created inside the built image.
 The swap setup runs via `guestfish` in `playbooks/build-qcow2.yml` after the
-image is built, conditionally on `add_swap`.
+image is built, conditionally on `add_swap`. All three are shared and live in
+`group_vars/all/main.yml`.
 
 <!-- markdownlint-disable MD013 -->
 
 | Variable      | Value                     | Description                                                                |
 | ------------- | ------------------------- | -------------------------------------------------------------------------- |
 | `add_swap`    | `true`                    | When `true`, enables the swap configuration task after image build.        |
-| `swap_device` | `/dev/mapper/vg1-lv_swap` | Block device path for the swap LV, added to `/etc/fstab` inside the image. |
+| `swap_device` | `/dev/mapper/{{ dib_vg_name }}-lv_swap` | Block device path for the swap LV, added to `/etc/fstab` inside the image. |
 | `swap_size`   | `4096`                    | Swap LV size in MB, passed to `lvcreate`.                                  |
 
 <!-- markdownlint-enable MD013 -->
@@ -123,11 +137,16 @@ image is built, conditionally on `add_swap`.
 
 <!-- markdownlint-enable MD013 -->
 
+`vm_network` is shared and lives in `group_vars/all/main.yml`;
+`vm_os_description` is per-distro.
+
 ---
 
 ## Per-Distro Differences
 
-Variables that differ across the five groups. All other variables are identical.
+Variables that differ across the five groups. These three are the only
+variables defined in the per-distro files; everything else is defined once in
+`group_vars/all/main.yml` and is identical for all five groups.
 
 <!-- markdownlint-disable MD013 MD060 -->
 

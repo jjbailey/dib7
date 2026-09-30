@@ -5,13 +5,11 @@
 """Atomically merge one published image into the DIB7 image catalog."""
 
 import argparse
-import datetime as dt
 import fcntl
 import json
-import os
 import pathlib
-import stat
-import tempfile
+
+from reconcile_catalog_common import load_catalog, write_catalog
 
 REQUIRED = {
     "logical_name", "provider", "artifact_id", "artifact_type", "version",
@@ -59,13 +57,13 @@ def main():
     lock_path = path.with_name(path.name + ".lock")
     with lock_path.open("a+", encoding="utf-8") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
+        # load_catalog enforces schema_version 1 and an images list. Only the
+        # missing-file case is ours: a first publish legitimately starts from an
+        # empty catalog.
         if path.exists():
-            catalog = json.loads(path.read_text(encoding="utf-8"))
+            catalog = load_catalog(path)
         else:
             catalog = {"schema_version": 1, "images": []}
-        if catalog.get("schema_version") != 1 or not isinstance(catalog.get("images"), list):
-            raise ValueError(
-                "catalog must have schema_version 1 and an images list")
 
         # artifact_type and provider scope are part of the identity so one image
         # can be published as multiple artifact kinds and targets - a vSphere OVA
@@ -105,29 +103,9 @@ def main():
         catalog["images"] = [
             old for old in catalog["images"] if match(old) != key]
         catalog["images"].append(entry)
-        catalog["images"].sort(key=lambda item: (
-            item.get("logical_name", ""), item.get("provider", ""),
-            item.get("artifact_type", ""), item.get("version", "")))
-        catalog["generated_at"] = dt.datetime.now(dt.timezone.utc).replace(
-            microsecond=0).isoformat().replace("+00:00", "Z")
-
-        fd, temporary = tempfile.mkstemp(
-            prefix=path.name + ".", dir=path.parent)
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as output:
-                json.dump(catalog, output, indent=2, sort_keys=False)
-                output.write("\n")
-                output.flush()
-                os.fsync(output.fileno())
-            try:
-                mode = stat.S_IMODE(os.stat(path).st_mode)
-            except FileNotFoundError:
-                mode = 0o644
-            os.chmod(temporary, mode)
-            os.replace(temporary, path)
-        finally:
-            if os.path.exists(temporary):
-                os.unlink(temporary)
+        # Sorts, stamps generated_at, and replaces the file atomically. Shared
+        # with the provider reconcilers so the two writers cannot drift.
+        write_catalog(path, catalog)
 
 if __name__ == "__main__":
     try:

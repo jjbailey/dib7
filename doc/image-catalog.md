@@ -131,12 +131,17 @@ script fails and names the flag to disambiguate:
   and supports `--cloud`, `--project-id`, and `--region-name`. It requires
   `--project-id` when the catalog holds several OpenStack projects and
   `--region-name` when it holds several regions, and it verifies the
-  authenticated project against the selection before touching anything.
+  authenticated project against the selection before touching anything. A row
+  recorded for a different region is left alone. A row with no region predates
+  the field and is still checked.
 - **vSphere** checks content-library items and templates through
   `pwsh`/PowerCLI, which requires `vcenter_hostname`, `vcenter_username`, and
   `vcenter_password` in the environment. It selects the content library
-  automatically when the catalog holds one (`--library` otherwise) and narrows
-  the scope with `--vcenter` when the catalog holds several vCenters.
+  automatically when the catalog holds one (`--library` otherwise). Pass
+  `--vcenter` when the catalog holds several vCenters, or when some rows name a
+  vCenter and others do not. A row with no `scope.vcenter` is not treated as
+  every vCenter. Removal deletes the exact row that was checked, not every row
+  that shares its artifact name.
 
 All four scripts accept `--force` when more than half of the active provider
 rows in the selected scope would be removed. `tests/validate.sh` checks syntax

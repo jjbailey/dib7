@@ -57,6 +57,11 @@ Included with `include_tasks`, never run standalone. `ansible-playbook
 - **`common-setup.yml`**: Provides variables for tasks.
 - **`verify-stamp.yml`**: Refuses to consume an artifact the previous stage did
   not produce this run, and records the run that did produce it.
+- **`tasks/fail-if-stage-failed.yml`**: The failure summary shared by the
+  "Report ... results" play that closes every playbook. Fail-closed by default
+  (any host that did not reach `stage_succeeded` counts as a failure);
+  `stage_failure_mode: explicit` is used only by the backfill playbook, where
+  hosts ended early by `meta: end_host` are not errors.
 - **`publish-image-catalog.yml`**: Writes one entry into the image catalog.
   Included by each import playbook after its import succeeds.
 - **`tasks/select-aws-project.yml`**, **`tasks/select-gcp-project.yml`**,

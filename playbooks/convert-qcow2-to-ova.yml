@@ -166,17 +166,20 @@
       rescue:
         - name: Record that the conversion failed
           ansible.builtin.set_fact:
-            stage_failed: true
             stage_error: >-
-              {{ ansible_failed_task.name }}:
-              {{ ansible_failed_result.msg | default('no message') | trim }}
+              {{ ansible_failed_task.name | default('unknown task') }}:
+              {{ (ansible_failed_result.stderr | default('', true))
+                 or (ansible_failed_result.stdout | default('', true))
+                 or (ansible_failed_result.msg | default('', true))
+                 or 'unknown error' }}
+              {{ ('rc=' ~ ansible_failed_result.rc) if ansible_failed_result.rc is defined else '' }}
 
         - name: Report the conversion failure
           ansible.builtin.debug:
             msg: >-
               CONVERT FAILED for {{ inventory_hostname }} at task
               '{{ ansible_failed_task.name }}'.
-              {{ ansible_failed_result.msg | default('') | trim }}
+              {{ stage_error }}
 
 - name: Report conversion results
   hosts: "{{ target_hosts | default('all') }}"
@@ -185,22 +188,7 @@
 
   tasks:
     - name: Fail if any image failed to convert
-      ansible.builtin.fail:
-        msg: |-
-          convert-qcow2-to-ova failed for {{ convert_failures | length }} of
-          {{ ansible_play_hosts_all | length }} hosts:
-          {% for host in convert_failures %}
-            {{ host }}: {{ hostvars[host].stage_error | default('see log') | trim }}
-          {% endfor %}
-      # Pinned to one host rather than run_once - see build-qcow2.yml.
-      when:
-        - inventory_hostname == ansible_play_hosts_all[0]
-        - convert_failures | length > 0
+      ansible.builtin.include_tasks: tasks/fail-if-stage-failed.yml
       vars:
-        convert_failures: >-
-          {{ ansible_play_hosts_all
-             | map('extract', hostvars)
-             | rejectattr('stage_succeeded', 'defined')
-             | map(attribute='inventory_hostname')
-             | list }}
+        stage_name: convert-qcow2-to-ova
 

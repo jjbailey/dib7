@@ -113,13 +113,13 @@
       rescue:
         - name: Record that the template creation failed
           ansible.builtin.set_fact:
-            stage_failed: true
             stage_error: >-
-              {{ ansible_failed_task.name }}:
-              {{ ansible_failed_result.msg | default('no message') | trim }}
-              rc={{ template_result.rc | default('unknown') }}
-              stderr={{ template_result.stderr | default('') | trim }}
-              stdout={{ template_result.stdout | default('') | trim }}
+              {{ ansible_failed_task.name | default('unknown task') }}:
+              {{ (ansible_failed_result.stderr | default('', true))
+                 or (ansible_failed_result.stdout | default('', true))
+                 or (ansible_failed_result.msg | default('', true))
+                 or 'unknown error' }}
+              {{ ('rc=' ~ ansible_failed_result.rc) if ansible_failed_result.rc is defined else '' }}
           no_log: true
 
         - name: Report the template creation failure
@@ -127,10 +127,7 @@
             msg: >-
               TEMPLATE FAILED for {{ inventory_hostname }} at task
               '{{ ansible_failed_task.name }}'.
-              {{ ansible_failed_result.msg | default('') | trim }}
-              rc={{ template_result.rc | default('unknown') }}
-              stderr={{ template_result.stderr | default('') | trim }}
-              stdout={{ template_result.stdout | default('') | trim }}
+              {{ stage_error }}
           no_log: true
 
       always:
@@ -146,26 +143,7 @@
 
   tasks:
     - name: Fail if any template failed to be created
-      ansible.builtin.fail:
-        msg: |-
-          import-ova-vsphere-template failed for {{ template_failures | length }} of
-          {{ ansible_play_hosts_all | length }} hosts:
-          {% for host in template_failures %}
-            {{ host }}: {{ hostvars[host].stage_error | default('see log') | trim }}
-          {% endfor %}
-      # Pinned to one host rather than run_once - see build-qcow2.yml.
-      when:
-        - inventory_hostname == ansible_play_hosts_all[0]
-        - template_failures | length > 0
+      ansible.builtin.include_tasks: tasks/fail-if-stage-failed.yml
       vars:
-        # Fail-closed, matching build-qcow2.yml: anything that did not reach
-        # the success marker counts as a failure. Keying off stage_failed
-        # instead would let a host that never ran the rescue - an unreachable
-        # host, for one - pass as though it had produced a template.
-        template_failures: >-
-          {{ ansible_play_hosts_all
-             | map('extract', hostvars)
-             | rejectattr('stage_succeeded', 'defined')
-             | map(attribute='inventory_hostname')
-             | list }}
+        stage_name: import-ova-vsphere-template
 

@@ -145,6 +145,27 @@ class ReconcileSafetyTests(unittest.TestCase):
             self.assertEqual(result, 1)
             self.assertEqual([image["artifact_id"] for image in json.loads(path.read_text())["images"]], ["active"])
 
+class ExactRowRemovalTests(unittest.TestCase):
+    def test_shared_artifact_key_removes_only_the_discovered_row(self):
+        stale = {
+            "logical_name": "centos10s-base", "provider": "vsphere",
+            "artifact_id": "centos10s-base.ova", "artifact_type": "content_library_ova",
+            "version": "1790476201", "status": "published",
+            "scope": {"content_library": "Content_Library", "vcenter": "legacy"},
+        }
+        twin = dict(stale)
+        twin["scope"] = {"content_library": "Content_Library"}
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "image-catalog.json"
+            path.write_text(json.dumps({"schema_version": 1, "images": [stale, twin]}))
+            result = reconcile_common.reconcile(
+                path, "vsphere", [(stale, "artifact not found")], [],
+                lambda image: True, "legacy", False, True)
+            remaining = json.loads(path.read_text())["images"]
+            self.assertEqual(result, 1)
+            self.assertEqual(len(remaining), 1)
+            self.assertNotIn("vcenter", remaining[0]["scope"])
+
 class AwsCommandTests(unittest.TestCase):
     def describe_images_argv(self, profile):
         result = Mock(stdout='{"Images": []}')
@@ -159,6 +180,17 @@ class AwsCommandTests(unittest.TestCase):
 
     def test_no_profile_argument_without_profile(self):
         self.assertNotIn("--profile", self.describe_images_argv(None))
+
+class CatalogSchemaTests(unittest.TestCase):
+    """The catalog's shape is declared twice; keep the two declarations equal."""
+
+    def test_publish_constants_track_the_catalog_schema(self):
+        schema = json.loads((ROOT / "catalogs/image-catalog.schema.json").read_text())
+        item = schema["properties"]["images"]["items"]
+        self.assertFalse(item["additionalProperties"])
+        self.assertEqual(publish.REQUIRED, set(item["required"]))
+        self.assertEqual(publish.PROVIDERS, set(item["properties"]["provider"]["enum"]))
+        self.assertEqual(publish.STATUSES, set(item["properties"]["status"]["enum"]))
 
 if __name__ == "__main__":
     unittest.main()
