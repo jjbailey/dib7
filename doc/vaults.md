@@ -62,7 +62,7 @@ remains supported.
 ### `gcp_import_location`
 
 The region the Migrate to Virtual Machines _import job_ runs in - the value
-passed to `gcloud migration vms image-imports --location`. It is easy to
+passed to `gcloud compute migration image-imports --location`. It is easy to
 misread this as a storage setting, so, concretely, it does **not** control:
 
 - **Where `gcs_bucket` lives.** A bucket's location is fixed when the bucket

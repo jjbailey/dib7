@@ -116,11 +116,11 @@ image is built, conditionally on `add_swap`. All three are shared and live in
 
 <!-- markdownlint-disable MD013 -->
 
-| Variable      | Value                     | Description                                                                |
-| ------------- | ------------------------- | -------------------------------------------------------------------------- |
-| `add_swap`    | `true`                    | When `true`, enables the swap configuration task after image build.        |
+| Variable      | Value                                   | Description                                                                |
+| ------------- | --------------------------------------- | -------------------------------------------------------------------------- |
+| `add_swap`    | `true`                                  | When `true`, enables the swap configuration task after image build.        |
 | `swap_device` | `/dev/mapper/{{ dib_vg_name }}-lv_swap` | Block device path for the swap LV, added to `/etc/fstab` inside the image. |
-| `swap_size`   | `4096`                    | Swap LV size in MB, passed to `lvcreate`.                                  |
+| `swap_size`   | `4096`                                  | Swap LV size in MB, passed to `lvcreate`.                                  |
 
 <!-- markdownlint-enable MD013 -->
 

@@ -62,11 +62,10 @@ canonical copies, so add detail there rather than here:
   Nova hypervisor, image metadata, and local policy. DIB7 uploads QCOW2 images
   directly, so validate each target against the destination cloud's image policy
   and compute driver.
-- **VMware vSphere** - the guest OS guide lists Debian 13, Ubuntu through 25.10,
-  RHEL 10, Rocky Linux 10, Oracle Linux 10, AlmaLinux 10, Amazon Linux 2, and
-  Windows Server 2025. Fedora support is limited to older Fedora desktop entries.
-  DIB7 can deploy OVA files, but newer targets may need the closest supported
-  `vm_os_type` guest ID until VMware exposes an exact ID.
+- **VMware vSphere** - DIB7 can deploy OVA files and create templates, but this
+  repository does not maintain a vendor-backed per-release guest OS matrix.
+  Newer targets may need the closest supported `vm_os_type` guest ID until the
+  VMware/Broadcom compatibility documentation exposes an exact identifier.
 
 The OpenStack and vSphere notes above have no separate page under `doc/`, so they
 are the only copy.

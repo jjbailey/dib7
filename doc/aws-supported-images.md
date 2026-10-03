@@ -1,8 +1,8 @@
 # AWS Supported Linux Distributions
 
 Mirrors the "Operating systems supported by VM Import/Export" table in the AWS
-docs. Last checked against upstream on 2026-09-25 (matrix unchanged from the
-2026-07-28 check).
+docs. Last checked against upstream on 2026-10-03. Treat releases not listed
+below as unsupported for this pipeline, even if a local import happens to work.
 
 <https://docs.aws.amazon.com/vm-import/latest/userguide/prerequisites.html>
 
@@ -54,21 +54,17 @@ Note that Fedora 44 is not yet listed, which `fedora44` builds.
 
 - Oracle Linux 7.0–7.6 — RHCK 3.10.0, UEK 3.8.13/4.1.12/4.14.35/5.4.17
 - Oracle Linux 8.0–8.9 — RHCK 4.18.0, UEK 5.15.0 (el8uek)
-- Oracle Linux 9.0–9.5 — RHCK 5.14.0/5.15.0, UEK 5.15.0 (el9uek)
-- Oracle Linux 9.6–9.7 — RHCK 5.14.0, UEK 6.12.0 (el9uek)
-- Oracle Linux 10.0–10.1 — RHCK 6.12.0, UEK 6.12.0 (el10uek)
+- Oracle Linux 9.0–9.6 — RHCK 5.14.0/5.15.0, UEK 5.15.0/6.12.0 (el9uek)
 
 ## Red Hat Enterprise Linux (RHEL)
 
 - RHEL 7 — 3.10.0
 - RHEL 8.0–8.9 — 4.18.0
-- RHEL 9.0–9.7 — 5.14.0
-- RHEL 10.0–10.1 — 6.12.0
+- RHEL 9.0–9.6 — 5.14.0
 
 ## Rocky Linux
 
-- Rocky Linux 9.0–9.7 — 5.14.0
-- Rocky Linux 10.0–10.1 — 6.12.0
+- Rocky Linux 9.0–9.6 — 5.14.0
 
 ## Ubuntu
 
@@ -77,22 +73,20 @@ Note that Fedora 44 is not yet listed, which `fedora44` builds.
 - Ubuntu 22.04 — 5.15.0
 - Ubuntu 23.04 — 5.15.0
 - Ubuntu 24.04 — 6.8.0, 6.11.0
-- Ubuntu 25.10 — 6.17.0
-- Ubuntu 26.04 — 7.0.0
 
 ## Coverage of the images built here
 
 <!-- markdownlint-disable MD013 -->
 
-| Build         | AWS            | Notes                                                                                                           |
-| ------------- | -------------- | --------------------------------------------------------------------------------------------------------------- |
-| `centos10s`   | **Not listed** | Upstream lists CentOS Stream 9 only                                                                             |
-| `debian1215`  | **Not listed** | The rolling `bookworm` point release is not one of the listed 12.2 / 12.4 / 12.7                                |
-| `debian1307`  | **Not listed** | Upstream stops at Debian 12.7                                                                                   |
-| `fedora44`    | **Not listed** | Upstream lists Fedora 41–43                                                                                     |
-| `rocky102`    | Yes\*          | Covered for point releases at or below 10.1; verify the cloud image point release before importing              |
-| `ubuntu24045` | Yes            | Upstream lists Ubuntu 24.04                                                                                     |
-| `ubuntu26041` | Yes            | Upstream lists Ubuntu 26.04; the July injection failure is resolved, see below                                  |
+| Build         | AWS            | Notes                                                                                              |
+| ------------- | -------------- | -------------------------------------------------------------------------------------------------- |
+| `centos10s`   | **Not listed** | Upstream lists CentOS Stream 9 only                                                                |
+| `debian1215`  | **Not listed** | The rolling `bookworm` point release is not one of the listed 12.2 / 12.4 / 12.7                   |
+| `debian1307`  | **Not listed** | Upstream stops at Debian 12.7                                                                      |
+| `fedora44`    | **Not listed** | Upstream lists Fedora 41–43                                                                        |
+| `rocky102`    | **Not listed** | AWS currently lists Rocky Linux only through 9.6                                             |
+| `ubuntu24045` | Yes            | Upstream lists Ubuntu 24.04                                                                        |
+| `ubuntu26041` | **Not listed** | AWS currently lists Ubuntu only through 24.04                                                  |
 
 <!-- markdownlint-enable MD013 -->
 
@@ -102,38 +96,7 @@ than repeating it.
 
 ## Known issues
 
-### Ubuntu 26.04 injection failure resolved (2026-09-12)
-
-On 2026-07-28, importing `ubuntu26041-base.ova` failed even though 26.04 with
-kernel 7.0.0 was on the matrix above (the build then produced
-`linux-image-7.0.0-28-generic`):
-
-```text
-"status": "deleted",
-"status_message": "SERVER_ERROR : injection : AWS initiated task cancellation"
-```
-
-Snapshot conversion completed first, so the disk and the streamOptimized VMDK
-were fine. The failure was in the injection stage, where AWS activates the LVM
-volume group, installs ENA/NVMe drivers and rewrites grub.
-
-`SERVER_ERROR` is an AWS-side crash, not a rejection. Anything AWS detects as an
-image problem comes back as a `ClientError` instead. Diffing the 26.04 and 24.04
-build logs turned up no structural difference — same disk layout, same EFI
-bootloader install, same initramfs-tools initrd, same kernel arguments. The only
-deltas were the release itself and grub 2.14 vs 2.12, so the likely cause was
-that the injection tooling did not yet handle 26.04 despite the docs table
-listing it.
-
-That no longer holds. An external vSphere-to-AWS migration test on 2026-09-12
-successfully imported the same guest OS and launched an instance. The migration
-workflow and its cloud identifiers are maintained outside this repository, so
-they are not cited here as an in-tree playbook or reproducible local evidence.
-The direct DIB OVA path (`playbooks/import-ova-aws.yml`) has not been retried
-since the July failure,
-so if it fails again while the vSphere-roundtrip path works, suspect the DIB
-artifact rather than the OS. Until then, treat 26.04 as supported on AWS, as
-listed — the docs table and live behavior now agree.
-
-GCP also lists and imports Ubuntu 26.04 without trouble. See
-[gcp-supported-images.md](gcp-supported-images.md).
+Ubuntu 26.04 is supported by GCP, but it is not currently listed in the AWS
+VM Import/Export matrix. A successful local or third-party AWS import does not
+replace the vendor support entry, so keep `ubuntu26041` off the AWS target set
+until AWS documents the release.
