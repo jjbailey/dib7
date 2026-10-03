@@ -172,8 +172,8 @@
           ansible.builtin.command:
             argv:
               - gcloud
+              - compute
               - migration
-              - vms
               - image-imports
               - describe
               - "{{ image_name }}"
@@ -191,8 +191,8 @@
           ansible.builtin.command:
             argv:
               - gcloud
+              - compute
               - migration
-              - vms
               - image-imports
               - delete
               - "{{ image_name }}"
@@ -206,8 +206,8 @@
           ansible.builtin.command:
             argv:
               - gcloud
+              - compute
               - migration
-              - vms
               - image-imports
               - describe
               - "{{ image_name }}"
@@ -232,8 +232,8 @@
           ansible.builtin.command:
             argv:
               - gcloud
+              - compute
               - migration
-              - vms
               - image-imports
               - create
               - "{{ image_name }}"
@@ -259,8 +259,8 @@
           ansible.builtin.command:
             argv:
               - gcloud
+              - compute
               - migration
-              - vms
               - image-imports
               - describe
               - "{{ image_name }}"
@@ -280,8 +280,8 @@
           ansible.builtin.command:
             argv:
               - gcloud
+              - compute
               - migration
-              - vms
               - image-imports
               - describe
               - "{{ image_name }}"
@@ -424,4 +424,3 @@
       ansible.builtin.include_tasks: tasks/fail-if-stage-failed.yml
       vars:
         stage_name: import-qcow2-gcp
-
