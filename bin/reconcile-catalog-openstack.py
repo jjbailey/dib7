@@ -154,10 +154,12 @@ def main():
         f"OpenStack scope: project={authenticated_name or authenticated_id}"
         + (f", region={region_name}" if region_name else "")
     )
-    return reconcile(
+    reconcile(
         args.catalog, "openstack", stale, retired, scope_match,
         authenticated_name or authenticated_id, args.dry_run, args.force,
     )
+
+    return 0
 
 if __name__ == "__main__":
     try:

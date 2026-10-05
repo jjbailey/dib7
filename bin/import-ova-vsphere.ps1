@@ -55,6 +55,9 @@ param(
     [SecureString]$vCenterPassword
 )
 
+# Fail before writing markers or reporting success on any PowerCLI error.
+$ErrorActionPreference = 'Stop'
+
 # Use command line parameters if provided, otherwise fall back to environment variables
 if (-not $vCenterServer) { $vCenterServer = $env:vcenter_hostname }
 if (-not $vCenterUser) { $vCenterUser = $env:vcenter_username }
@@ -130,8 +133,9 @@ try {
 
     # Skip a byte-identical item already in the library. The local marker is a
     # fallback because vCenter may normalize or omit the Notes description.
+    # Include vCenter as well as library; legacy unscoped markers do not match.
     $markerPath = "$ovaPath.imported"
-    $expectedMarker = "$($sha1Hash.Hash.ToLower())  $library"
+    $expectedMarker = "$($sha1Hash.Hash.ToLower())  $($vCenterServer.ToLowerInvariant())  $library"
     $existingItem = Get-ContentLibraryItem -ContentLibrary $contentLibrary -Name $ovaName -ErrorAction SilentlyContinue
     $recordedNotes = if ($existingItem) { [string]$existingItem.Description } else { '' }
     $notesMatch = $recordedNotes -and ($recordedNotes -match [regex]::Escape($sha1Hash.Hash.ToLower()))

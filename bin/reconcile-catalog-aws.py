@@ -105,7 +105,9 @@ def main():
             return False
         return True
     print(f"AWS scope: project={project or 'legacy/all'}, region={args.region or 'all catalog regions'}")
-    return reconcile(args.catalog, "aws", stale, retired, scope_match, project or args.region or "AWS catalog", args.dry_run, args.force)
+    reconcile(args.catalog, "aws", stale, retired, scope_match, project or args.region or "AWS catalog", args.dry_run, args.force)
+
+    return 0
 
 if __name__ == "__main__":
     try:

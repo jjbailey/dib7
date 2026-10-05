@@ -320,7 +320,7 @@ fi
 
 echo "== focused unit tests =="
 if "$python_bin" -m unittest discover -s tests -p 'test_*.py' ; then
-    echo "  ok   catalog publication/reconcile tests"
+    echo "  ok   catalog and pipeline regression tests"
 else
     fail "focused unit tests failed"
 fi

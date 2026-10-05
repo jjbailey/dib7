@@ -56,9 +56,9 @@ vsphere_template_host: ""
 # Prefer the run passed with -e run_id; fall back to the stamp
 # verify-stamp.yml read off the artifact itself, which names the run that built
 # it. The two are provably equal whenever both exist, because verify-stamp.yml
-# fails the stage when they differ - the fallback only carries a stage run by
-# hand. 'manual' remains only for a caller that publishes without verifying a
-# stamp at all, and no import playbook does that.
+# fails the stage when they differ. A build started without run_id writes
+# 'manual', which downstream stages preserve; pass one run_id throughout a
+# release pipeline to obtain a version that identifies that build.
 catalog_version: "{{ run_id | default(stage_source_run) | default('manual') }}"
 
 # Cloud import behavior.

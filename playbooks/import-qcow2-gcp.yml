@@ -424,3 +424,4 @@
       ansible.builtin.include_tasks: tasks/fail-if-stage-failed.yml
       vars:
         stage_name: import-qcow2-gcp
+

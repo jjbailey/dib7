@@ -44,6 +44,9 @@ param(
     [switch]$UseExistingLibraryItem
 )
 
+# Fail before writing markers or reporting success on any PowerCLI error.
+$ErrorActionPreference = 'Stop'
+
 if (-not $vCenterServer) { $vCenterServer = $env:vcenter_hostname }
 if (-not $vCenterUser) { $vCenterUser = $env:vcenter_username }
 if (-not $vCenterPassword -and $env:vcenter_password) {
@@ -110,9 +113,9 @@ try {
 
     # Local record of what was last imported, used as a fallback in case vCenter
     # does not persist the -Notes value into the item's Description.  Keyed by
-    # library name so the same OVA imported into two libraries is not confused.
+    # vCenter and library so an upload to another target cannot satisfy it.
     $markerPath = "$ovaPath.imported"
-    $expectedMarker = "$sha1  $library"
+    $expectedMarker = "$sha1  $($vCenterServer.ToLowerInvariant())  $library"
 
     $existingItem = Get-ContentLibraryItem -ContentLibrary $contentLibrary -Name $ovaName -ErrorAction SilentlyContinue
 

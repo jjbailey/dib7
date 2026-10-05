@@ -193,7 +193,7 @@
       always:
         - name: Display import result
           ansible.builtin.debug:
-            msg: "AMI import task {{ import_task.import_image.import_task_id }} ended with new_ami_id={{ new_ami_id | default('none') }}"
+            msg: "AMI import task {{ (import_task.import_image | default({})).get('import_task_id', 'unknown') }} ended with new_ami_id={{ new_ami_id | default('none') }}"
           when: import_task is defined
 
 - name: Report import results

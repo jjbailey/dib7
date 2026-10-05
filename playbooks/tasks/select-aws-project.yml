@@ -52,6 +52,8 @@
       aws_access_key_id: "{{ aws_access_key_id | default('') }}"
       aws_secret_access_key: "{{ aws_secret_access_key | default('') }}"
       aws_session_token: "{{ aws_session_token | default('') }}"
+      aws_profile: "{{ aws_profile | default(profile, true) | default('') }}"
+      aws_account_id: "{{ aws_account_id | default(account_id, true) | default('') | string }}"
     aws_target_project_name: "legacy"
     aws_account_id: "{{ aws_account_id | default('') }}"
   when:

@@ -124,7 +124,9 @@ def main():
         if not present:
             stale.append((image, "artifact not found"))
     print(f"vSphere scope: vcenter={vcenter or 'unscoped'}, content_library={library}")
-    return reconcile(args.catalog, "vsphere", stale, retired, scope_match, library, args.dry_run, args.force)
+    reconcile(args.catalog, "vsphere", stale, retired, scope_match, library, args.dry_run, args.force)
+
+    return 0
 
 if __name__ == "__main__":
     try:
