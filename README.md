@@ -308,8 +308,6 @@ dib7/
 - `doc/python3-virtualenv.md` - setting up the diskimage-builder Python
   virtual environment
 - `doc/vaults.md` - vault file layout required by each playbook
-- `doc/workflow.md` - provenance notes for the pipeline; the diagram itself is
-  the one above in [Architecture](#architecture)
 
 ## Playbooks
 
@@ -319,8 +317,9 @@ dib7/
   Dependencies: qemu-img and ovftool (tested with 5.1.0).
 - `import-ova-aws.yml`: Upload OVA to S3, import to AWS AMI.
   Dependencies: `amazon.aws` collection, S3, VM Import.
-  Set `AWS_TARGET_PROJECT` when using multiple accounts; it may be a vault
-  key or account ID.
+  For direct playbook calls, pass `-e aws_target_project=<target>`;
+  the target may be a vault key or account ID. The `local/` shell wrappers instead
+  accept the environment variable `AWS_TARGET_PROJECT`.
 - `import-ova-vsphere.yml`: Import OVA to vSphere content library.
   This produces the `vSphere OVA` branch in the workflow.
   Dependencies: pwsh, PowerCLI.
@@ -334,12 +333,14 @@ dib7/
   to GCS, and by default deletes and replaces any existing Compute image of
   the same name (see `gcp_replace_existing_image`).
   Dependencies: gcloud (including `gcloud storage`).
-  Set `GCP_TARGET_PROJECT` when using multiple projects; it may be a vault
-  key or project ID.
+  For direct playbook calls, pass `-e gcp_target_project=<target>`;
+  the target may be a vault key or project ID. The `local/` shell wrappers instead
+  accept the environment variable `GCP_TARGET_PROJECT`.
 - `import-qcow2-openstack.yml`: Import QCOW2 to OpenStack.
   Dependencies: `openstack.cloud` collection.
-  Set `OPENSTACK_TARGET_PROJECT` when using multiple projects; it may be a
-  vault key, project name, or project ID.
+  For direct playbook calls, pass `-e openstack_target_project=<target>`;
+  the target may be a vault key, project name, or project ID. The `local/` shell wrappers instead
+  accept the environment variable `OPENSTACK_TARGET_PROJECT`.
 - `backfill-vsphere-ova-catalog.yml`: Rebuild missing vSphere OVA catalog rows
   for artifacts already imported into the content library.
 
@@ -550,9 +551,11 @@ This checks every actual playbook with Ansible syntax validation, verifies the
 pinned Ansible collections and the Fedora and CentOS Stream 10 DIB
 compatibility, validates the catalog schema, parses non-secret YAML and
 PowerShell, runs `bash -n` against the shell helpers, compiles the Python
-utilities with `py_compile`, and runs the focused catalog unit tests in
-`tests/test_catalog.py`. Cloud imports still require provider credentials and
-are intentionally not executed by the local suite.
+utilities with `py_compile`, and runs the catalog tests in
+`tests/test_catalog.py` plus the Ansible and PowerShell regressions in
+`tests/test_pipeline.py`. These regressions use temporary files and mocked
+cloud tools. Live cloud imports require provider credentials and are not
+executed by the local suite.
 
 ## Troubleshooting
 

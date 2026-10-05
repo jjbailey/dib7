@@ -80,14 +80,13 @@ version - which is what lets a deployment pin a whole run's artifacts as a set
 rather than image by image. Epoch seconds also sort correctly as strings, so
 "newest version of this image" is a plain lexicographic comparison.
 
-A stage invoked directly, with no `-e run_id=...`, still records a real version.
-Each import verifies the stage stamp written beside the artifact before
-consuming it, and falls back to the run id recorded in that stamp. The two
-agree whenever both are present, because verifying the stamp is precisely what
-fails a stage handed an artifact from a different run. The literal version
-`manual` therefore only appears when an entry is published without verifying
-any stamp - which no import playbook does - so treat it as a defect to correct
-rather than a value to pin.
+Conversion and import stages invoked without `-e run_id=...` preserve the run
+recorded in the preceding artifact's stamp. When an explicit `run_id` is also
+present, stamp verification requires them to agree. A build invoked without a
+run ID writes `manual`, which subsequent stages preserve even though they
+verify the stamp. Legacy conversion stamps may also contain `manual`; rerun
+conversion to inherit the build stamp's ID. Use one explicit run ID from the
+build onward for release versioning; `manual` does not identify a unique build.
 
 Provider-specific identifiers are recorded directly: AWS AMI IDs, GCP image
 self-links, OpenStack Glance image IDs, and vSphere content-library names.
@@ -144,7 +143,8 @@ script fails and names the flag to disambiguate:
   that shares its artifact name.
 
 All four scripts accept `--force` when more than half of the active provider
-rows in the selected scope would be removed. `tests/validate.sh` checks syntax
+rows in the selected scope would be removed. Successful reconciliation exits
+zero, including when rows were removed; errors exit nonzero. `tests/validate.sh` checks syntax
 and catalog shape, but deliberately does not perform live cloud calls.
 
 ### OpenStack credentials

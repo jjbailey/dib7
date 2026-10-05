@@ -1,7 +1,7 @@
 # AWS Supported Linux Distributions
 
 Mirrors the "Operating systems supported by VM Import/Export" table in the AWS
-docs. Last checked against upstream on 2026-10-03. Treat releases not listed
+docs. Last checked against upstream on 2026-10-04. Treat releases not listed
 below as unsupported for this pipeline, even if a local import happens to work.
 
 <https://docs.aws.amazon.com/vm-import/latest/userguide/prerequisites.html>
@@ -54,17 +54,21 @@ Note that Fedora 44 is not yet listed, which `fedora44` builds.
 
 - Oracle Linux 7.0–7.6 — RHCK 3.10.0, UEK 3.8.13/4.1.12/4.14.35/5.4.17
 - Oracle Linux 8.0–8.9 — RHCK 4.18.0, UEK 5.15.0 (el8uek)
-- Oracle Linux 9.0–9.6 — RHCK 5.14.0/5.15.0, UEK 5.15.0/6.12.0 (el9uek)
+- Oracle Linux 9.0–9.5 — RHCK 5.14.0/5.15.0, UEK 5.15.0 (el9uek)
+- Oracle Linux 9.6–9.7 — RHCK 5.14.0, UEK 6.12.0 (el9uek)
+- Oracle Linux 10.0–10.1 — RHCK 6.12.0, UEK 6.12.0 (el10uek)
 
 ## Red Hat Enterprise Linux (RHEL)
 
 - RHEL 7 — 3.10.0
 - RHEL 8.0–8.9 — 4.18.0
-- RHEL 9.0–9.6 — 5.14.0
+- RHEL 9.0–9.7 — 5.14.0
+- RHEL 10.0–10.1 — 6.12.0
 
 ## Rocky Linux
 
-- Rocky Linux 9.0–9.6 — 5.14.0
+- Rocky Linux 9.0–9.7 — 5.14.0
+- Rocky Linux 10.0–10.1 — 6.12.0
 
 ## Ubuntu
 
@@ -73,20 +77,22 @@ Note that Fedora 44 is not yet listed, which `fedora44` builds.
 - Ubuntu 22.04 — 5.15.0
 - Ubuntu 23.04 — 5.15.0
 - Ubuntu 24.04 — 6.8.0, 6.11.0
+- Ubuntu 25.10 — 6.17.0
+- Ubuntu 26.04 — 7.0.0
 
 ## Coverage of the images built here
 
 <!-- markdownlint-disable MD013 -->
 
-| Build         | AWS            | Notes                                                                                              |
-| ------------- | -------------- | -------------------------------------------------------------------------------------------------- |
-| `centos10s`   | **Not listed** | Upstream lists CentOS Stream 9 only                                                                |
-| `debian1215`  | **Not listed** | The rolling `bookworm` point release is not one of the listed 12.2 / 12.4 / 12.7                   |
-| `debian1307`  | **Not listed** | Upstream stops at Debian 12.7                                                                      |
-| `fedora44`    | **Not listed** | Upstream lists Fedora 41–43                                                                        |
-| `rocky102`    | **Not listed** | AWS currently lists Rocky Linux only through 9.6                                             |
-| `ubuntu24045` | Yes            | Upstream lists Ubuntu 24.04                                                                        |
-| `ubuntu26041` | **Not listed** | AWS currently lists Ubuntu only through 24.04                                                  |
+| Build         | AWS            | Notes                                                                             |
+| ------------- | -------------- | --------------------------------------------------------------------------------- |
+| `centos10s`   | **Not listed** | Upstream lists CentOS Stream 9 only                                               |
+| `debian1215`  | **Not listed** | The rolling `bookworm` point release is not one of the listed 12.2 / 12.4 / 12.7  |
+| `debian1307`  | **Not listed** | Upstream stops at Debian 12.7                                                     |
+| `fedora44`    | **Not listed** | Upstream lists Fedora 41–43                                                       |
+| `rocky102`    | **Not listed** | AWS lists Rocky 10.0–10.1; confirm the actual point release of this rolling build |
+| `ubuntu24045` | Yes            | Upstream lists Ubuntu 24.04                                                       |
+| `ubuntu26041` | Yes            | Ubuntu 26.04 is listed with kernel 7.0.0; confirm the built kernel matches        |
 
 <!-- markdownlint-enable MD013 -->
 
@@ -96,7 +102,7 @@ than repeating it.
 
 ## Known issues
 
-Ubuntu 26.04 is supported by GCP, but it is not currently listed in the AWS
-VM Import/Export matrix. A successful local or third-party AWS import does not
-replace the vendor support entry, so keep `ubuntu26041` off the AWS target set
-until AWS documents the release.
+Ubuntu 26.04 is listed by both AWS and GCP. AWS lists kernel 7.0.0, so verify
+the kernel in the built image before importing. The `aws_import` inventory
+group includes Ubuntu and Rocky; group membership alone does not establish
+vendor support for the actual release and kernel produced by a rolling build.

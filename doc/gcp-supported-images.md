@@ -98,7 +98,7 @@ images.
 | `fedora44`    | **Not listed** | Fedora does not appear in the table at all                                                                                                       |
 | `rocky102`    | Yes            | Confirm the point release lands at or below 10.1                                                                                                 |
 | `ubuntu24045` | Yes            | Known good, imports successfully                                                                                                                 |
-| `ubuntu26041` | Yes            | Supported here, unlike AWS — see below                                                                                                           |
+| `ubuntu26041` | Yes            | Supported by GCP and AWS — see below                                                                                                             |
 
 <!-- markdownlint-enable MD013 -->
 
@@ -107,7 +107,7 @@ Fedora 41–43. `fedora44` is therefore off-matrix on both clouds.
 
 ## Ubuntu 26.04 import to GCP
 
-GCP lists Ubuntu 26.04 as supported, and imports work there. AWS does not
-currently list Ubuntu 26.04; see [aws-supported-images.md](aws-supported-images.md).
+GCP and AWS both list Ubuntu 26.04 as supported. AWS additionally specifies
+kernel 7.0.0; see [aws-supported-images.md](aws-supported-images.md).
 
-The reverse holds for Debian 13: supported here, but AWS stops at 12.7.
+Debian 13 is listed by GCP, while AWS stops at 12.7.

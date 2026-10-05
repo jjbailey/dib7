@@ -43,7 +43,12 @@ gcloud init
 
 ## Optional Components
 
+The component manager is disabled for APT installations. Install additional
+components through APT as described in Google's
+[component documentation](https://docs.cloud.google.com/sdk/docs/components#external_package_managers).
+Google's [APT package contents](https://docs.cloud.google.com/sdk/docs/install-sdk#deb)
+include the alpha and beta commands.
+
 ```bash
-gcloud components install kubectl beta
-sudo apt install google-cloud-cli-gke-gcloud-auth-plugin
+sudo apt install kubectl google-cloud-cli-gke-gcloud-auth-plugin
 ```
