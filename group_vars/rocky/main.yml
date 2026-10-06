@@ -12,6 +12,9 @@
 # diskimage-builder. See elements/rocky-cloud-image/README.rst.
 elements_base: "bootloader block-device-efi-lvm rocky-cloud-image dracut-regenerate"
 
+# Published with each image so deployment tools can select the matching login.
+image_ssh_username: rocky
+
 # VMware exposes no Rocky-specific guest ID; use the closest supported one.
 vm_os_type: "centos9_64Guest"
 

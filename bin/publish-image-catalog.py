@@ -35,6 +35,10 @@ def validate(entry):
     for name in REQUIRED:
         if not isinstance(entry[name], str) or not entry[name].strip():
             raise ValueError(name + " must be a non-empty string")
+    if "ssh_username" in entry and (
+            not isinstance(entry["ssh_username"], str) or
+            not entry["ssh_username"].strip()):
+        raise ValueError("ssh_username must be a non-empty string")
 
 def main():
     parser = argparse.ArgumentParser()

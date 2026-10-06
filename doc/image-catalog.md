@@ -39,10 +39,16 @@ Example entry:
   "architecture": "amd64",
   "boot_mode": "uefi",
   "source_build": "ubuntu24045-base",
+  "ssh_username": "ubuntu",
   "status": "published",
   "region": "us-west-2"
 }
 ```
+
+`ssh_username` records the default non-root login configured in the image.
+Deployment tools can use it to report the login name without inferring it from
+the image name. Provider credentials, key pairs, and other launch settings
+remain deployment-side configuration.
 
 Whether older versions survive depends on the provider, and the test is whether
 a new run destroys what the older rows point at:

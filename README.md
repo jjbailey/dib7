@@ -475,6 +475,10 @@ an image anywhere else.
 The account names come from each element's `post-install.d/20-useradd`, which is
 the source of truth if this list and an image ever disagree.
 
+Each distro's `image_ssh_username` setting publishes this account name as
+`ssh_username` in the image catalog. AWS key-pair names are selected by the
+deployment environment and are not properties of the built image.
+
 ## Custom Elements
 
 DIB7 includes custom diskimage-builder elements for supported operating systems:

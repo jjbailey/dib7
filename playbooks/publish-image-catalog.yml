@@ -18,6 +18,7 @@
         'architecture': image_arch,
         'boot_mode': catalog_boot_mode | default(image_boot_mode, true),
         'source_build': image_name,
+        'ssh_username': image_ssh_username | default(None, true),
         'status': 'published',
         'region': catalog_region | default(None, true),
         'project': catalog_project | default(None, true),

@@ -9,6 +9,9 @@
 # group_vars/all/main.yml; see doc/group-vars-distro.md.
 elements_base: "bootloader block-device-efi-lvm debian-minimal"
 
+# Published with each image so deployment tools can select the matching login.
+image_ssh_username: debian
+
 # VMware does not expose a Debian Trixie (13) guest ID even at vmx-21, so use
 # the closest supported identifier. debian12_64Guest requires hardware version
 # vmx-20 or newer (see the vmx-20 pin in templates/ovf-file.j2).

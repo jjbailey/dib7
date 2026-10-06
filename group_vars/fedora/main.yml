@@ -9,6 +9,9 @@
 # group_vars/all/main.yml; see doc/group-vars-distro.md.
 elements_base: "bootloader block-device-efi-lvm fedora dracut-regenerate"
 
+# Published with each image so deployment tools can select the matching login.
+image_ssh_username: fedora
+
 # Fake the guest ID as centos9_64Guest. Fedora's real IDs (fedora64Guest /
 # fedoraGuest) are NOT on VMware's guest-customization matrix, so a template
 # deploy that runs guest customization fails with: guest OS "Red Hat Fedora

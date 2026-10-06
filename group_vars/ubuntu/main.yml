@@ -9,6 +9,9 @@
 # group_vars/all/main.yml; see doc/group-vars-distro.md.
 elements_base: "bootloader block-device-efi-lvm ubuntu-minimal"
 
+# Published with each image so deployment tools can select the matching login.
+image_ssh_username: ubuntu
+
 vm_os_type: "ubuntu64Guest"
 
 vm_os_description: "Ubuntu Linux (64-bit)"

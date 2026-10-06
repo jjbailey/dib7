@@ -9,6 +9,9 @@
 # group_vars/all/main.yml; see doc/group-vars-distro.md.
 elements_base: "bootloader block-device-efi-lvm centos dracut-regenerate"
 
+# Published with each image so deployment tools can select the matching login.
+image_ssh_username: cloud-user
+
 # Intentional, not a typo: same RHEL-family guest ID shared by the fedora and
 # rocky groups (see doc/group-vars-distro.md), used as the closest available
 # match for CentOS Stream 10 - the same kind of compatibility gap documented
