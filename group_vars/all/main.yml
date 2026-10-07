@@ -12,6 +12,29 @@ path: "{{ venv_bin }}:{{ ansible_env.PATH }}"
 build_dir: "/work/dib-builds"
 dib_vg_name: "vg1"
 
+# Distro-independent DIB inputs. Every group builds with the same block device
+# layout, kernel command line, element path, VM sizing and swap, so these live
+# here; group_vars/<group>/main.yml holds only what actually differs per distro
+# (elements_base, vm_os_type, vm_os_description). See doc/group-vars-distro.md.
+dib_block_device: "gpt"
+dib_block_device_config: "{{ lookup('ansible.builtin.file', '../block-device-config/block-device-efi-config.yml') }}"
+dib_openssh_server_hardening: "0"
+dib_cloud_init_datasources: "None"
+dib_bootloader_default_cmdline: "biosdevname=0 iommu=on net.ifnames=0 dm_mod.use_blk_mq=Y scsi_mod.use_blk_mq=Y"
+
+elements_path: "../elements"
+elements_custom: "custom-{{ target_group }}"
+
+vm_memory_mb: "4096"
+vm_cpus: "4"
+
+add_swap: true
+swap_device: "/dev/mapper/{{ dib_vg_name }}-lv_swap"
+swap_size: "4096"
+
+# vmware
+vm_network: "VM Network"
+
 image_arch: "amd64"
 image_name: "{{ inventory_hostname }}-base"
 image_size: "35"
@@ -33,9 +56,9 @@ vsphere_template_host: ""
 # Prefer the run passed with -e run_id; fall back to the stamp
 # verify-stamp.yml read off the artifact itself, which names the run that built
 # it. The two are provably equal whenever both exist, because verify-stamp.yml
-# fails the stage when they differ - the fallback only carries a stage run by
-# hand. 'manual' remains only for a caller that publishes without verifying a
-# stamp at all, and no import playbook does that.
+# fails the stage when they differ. A build started without run_id writes
+# 'manual', which downstream stages preserve; pass one run_id throughout a
+# release pipeline to obtain a version that identifies that build.
 catalog_version: "{{ run_id | default(stage_source_run) | default('manual') }}"
 
 # Cloud import behavior.

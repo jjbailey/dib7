@@ -55,10 +55,13 @@ def main():
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
     catalog = read_snapshot(args.catalog)
-    libraries = {image.get("scope", {}).get("content_library") for image in catalog["images"]
-                 if image.get("provider") == "vsphere" and image.get("scope", {}).get("content_library")}
-    vcenters = {image.get("scope", {}).get("vcenter") for image in catalog["images"]
-                if image.get("provider") == "vsphere" and image.get("scope", {}).get("vcenter")}
+    def vsphere_images():
+        return [image for image in catalog["images"] if image.get("provider") == "vsphere"]
+
+    libraries = {image.get("scope", {}).get("content_library") for image in vsphere_images()
+                 if image.get("scope", {}).get("content_library")}
+    vcenters = {image.get("scope", {}).get("vcenter") for image in vsphere_images()
+                if image.get("scope", {}).get("vcenter")}
     if not libraries:
         print("no vSphere catalog entries found")
         return 0
@@ -67,15 +70,43 @@ def main():
     if not library:
         raise ValueError(
             "catalog contains multiple vSphere content libraries; provide --library")
-    vcenter = args.vcenter or (next(iter(vcenters)) if len(vcenters) == 1 else None)
-    if len(vcenters) > 1 and not vcenter:
+    # A row with no scope.vcenter is not "every vCenter". Auto-selecting the
+    # one recorded vCenter used to treat that missing field as in-scope and
+    # delete the unscoped twin without querying it. A named --vcenter reconciles
+    # only rows that record that vCenter. Omit --vcenter to reconcile the
+    # unscoped rows, and only when they are the only rows in the library.
+    library_rows = [
+        image for image in vsphere_images()
+        if (image.get("scope") or {}).get("content_library") == library
+    ]
+    unscoped = [image for image in library_rows if not (image.get("scope") or {}).get("vcenter")]
+    if args.vcenter:
+        vcenter = args.vcenter
+        if vcenter not in vcenters:
+            raise ValueError(
+                f"catalog contains no vSphere entries for vCenter {vcenter}; "
+                "--vcenter selects the catalog label (a vault key, or legacy), "
+                "not vcenter_hostname. recorded: "
+                + (", ".join(sorted(vcenters)) or "<none>"))
+    elif unscoped and vcenters:
+        raise ValueError(
+            "catalog mixes vSphere entries that name a vCenter with entries "
+            "that do not; pass --vcenter to reconcile the named ones, and omit "
+            "it only after the unscoped rows are the only ones left")
+    elif len(vcenters) > 1:
         raise ValueError("catalog contains multiple vSphere vCenters; provide --vcenter")
+    else:
+        vcenter = next(iter(vcenters)) if len(vcenters) == 1 else None
     library_items, templates = query_live_artifacts(library)
 
     def scope_match(image):
-        image_scope = image.get("scope", {})
-        return (image_scope.get("content_library") == library
-                and (not vcenter or image_scope.get("vcenter") == vcenter))
+        image_scope = image.get("scope") or {}
+        if image_scope.get("content_library") != library:
+            return False
+        recorded = image_scope.get("vcenter")
+        if vcenter:
+            return recorded == vcenter
+        return not recorded
     retired = [image for image in catalog["images"] if image.get("provider") == "vsphere"
                and image.get("status") == "retired" and scope_match(image)]
     stale = []
@@ -92,8 +123,10 @@ def main():
                 "unsupported vSphere artifact type: " + image["artifact_type"])
         if not present:
             stale.append((image, "artifact not found"))
-    print(f"vSphere scope: vcenter={vcenter or 'legacy/all'}, content_library={library}")
-    return reconcile(args.catalog, "vsphere", stale, retired, scope_match, library, args.dry_run, args.force)
+    print(f"vSphere scope: vcenter={vcenter or 'unscoped'}, content_library={library}")
+    reconcile(args.catalog, "vsphere", stale, retired, scope_match, library, args.dry_run, args.force)
+
+    return 0
 
 if __name__ == "__main__":
     try:

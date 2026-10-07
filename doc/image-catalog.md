@@ -39,10 +39,16 @@ Example entry:
   "architecture": "amd64",
   "boot_mode": "uefi",
   "source_build": "ubuntu24045-base",
+  "ssh_username": "ubuntu",
   "status": "published",
   "region": "us-west-2"
 }
 ```
+
+`ssh_username` records the default non-root login configured in the image.
+Deployment tools can use it to report the login name without inferring it from
+the image name. Provider credentials, key pairs, and other launch settings
+remain deployment-side configuration.
 
 Whether older versions survive depends on the provider, and the test is whether
 a new run destroys what the older rows point at:
@@ -80,14 +86,13 @@ version - which is what lets a deployment pin a whole run's artifacts as a set
 rather than image by image. Epoch seconds also sort correctly as strings, so
 "newest version of this image" is a plain lexicographic comparison.
 
-A stage invoked directly, with no `-e run_id=...`, still records a real version.
-Each import verifies the stage stamp written beside the artifact before
-consuming it, and falls back to the run id recorded in that stamp. The two
-agree whenever both are present, because verifying the stamp is precisely what
-fails a stage handed an artifact from a different run. The literal version
-`manual` therefore only appears when an entry is published without verifying
-any stamp - which no import playbook does - so treat it as a defect to correct
-rather than a value to pin.
+Conversion and import stages invoked without `-e run_id=...` preserve the run
+recorded in the preceding artifact's stamp. When an explicit `run_id` is also
+present, stamp verification requires them to agree. A build invoked without a
+run ID writes `manual`, which subsequent stages preserve even though they
+verify the stamp. Legacy conversion stamps may also contain `manual`; rerun
+conversion to inherit the build stamp's ID. Use one explicit run ID from the
+build onward for release versioning; `manual` does not identify a unique build.
 
 Provider-specific identifiers are recorded directly: AWS AMI IDs, GCP image
 self-links, OpenStack Glance image IDs, and vSphere content-library names.
@@ -131,15 +136,21 @@ script fails and names the flag to disambiguate:
   and supports `--cloud`, `--project-id`, and `--region-name`. It requires
   `--project-id` when the catalog holds several OpenStack projects and
   `--region-name` when it holds several regions, and it verifies the
-  authenticated project against the selection before touching anything.
+  authenticated project against the selection before touching anything. A row
+  recorded for a different region is left alone. A row with no region predates
+  the field and is still checked.
 - **vSphere** checks content-library items and templates through
   `pwsh`/PowerCLI, which requires `vcenter_hostname`, `vcenter_username`, and
   `vcenter_password` in the environment. It selects the content library
-  automatically when the catalog holds one (`--library` otherwise) and narrows
-  the scope with `--vcenter` when the catalog holds several vCenters.
+  automatically when the catalog holds one (`--library` otherwise). Pass
+  `--vcenter` when the catalog holds several vCenters, or when some rows name a
+  vCenter and others do not. A row with no `scope.vcenter` is not treated as
+  every vCenter. Removal deletes the exact row that was checked, not every row
+  that shares its artifact name.
 
 All four scripts accept `--force` when more than half of the active provider
-rows in the selected scope would be removed. `tests/validate.sh` checks syntax
+rows in the selected scope would be removed. Successful reconciliation exits
+zero, including when rows were removed; errors exit nonzero. `tests/validate.sh` checks syntax
 and catalog shape, but deliberately does not perform live cloud calls.
 
 ### OpenStack credentials

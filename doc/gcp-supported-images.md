@@ -6,9 +6,9 @@ Last checked against upstream on 2026-09-25 (matrix rows unchanged from the
 the distributions dib7 builds are mirrored here; the upstream tables also
 carry SLES 12 SP5 / 15 SP5–SP7 / 16 and Windows rows.
 
-<https://cloud.google.com/migrate/virtual-machines/docs/5.0/discover/supported-os-versions>
+<https://docs.cloud.google.com/migrate/virtual-machines/docs/5.0/discover/supported-os-versions>
 
-`playbooks/import-qcow2-gcp.yml` imports through `gcloud migration vms
+`playbooks/import-qcow2-gcp.yml` imports through `gcloud compute migration
 image-imports create`, which is Migrate to Virtual Machines (M2VM), so this is
 the table that applies. The older `gcloud compute images import` path has a
 different support matrix and is not what this repo uses.
@@ -98,18 +98,16 @@ images.
 | `fedora44`    | **Not listed** | Fedora does not appear in the table at all                                                                                                       |
 | `rocky102`    | Yes            | Confirm the point release lands at or below 10.1                                                                                                 |
 | `ubuntu24045` | Yes            | Known good, imports successfully                                                                                                                 |
-| `ubuntu26041` | Yes            | Supported here, unlike AWS — see below                                                                                                           |
+| `ubuntu26041` | Yes            | Supported by GCP and AWS — see below                                                                                                             |
 
 <!-- markdownlint-enable MD013 -->
 
 Fedora is absent from the M2VM table entirely, in contrast to AWS, which lists
 Fedora 41–43. `fedora44` is therefore off-matrix on both clouds.
 
-## Ubuntu 26.04 imports to GCP and AWS
+## Ubuntu 26.04 import to GCP
 
-GCP lists Ubuntu 26.04 as supported, and imports work there. AWS also lists
-it, and the July injection-stage `SERVER_ERROR` is resolved — a 26.04.1 guest
-imported cleanly on 2026-09-12. See
-[aws-supported-images.md](aws-supported-images.md).
+GCP and AWS both list Ubuntu 26.04 as supported. AWS additionally specifies
+kernel 7.0.0; see [aws-supported-images.md](aws-supported-images.md).
 
-The reverse holds for Debian 13: supported here, but AWS stops at 12.7.
+Debian 13 is listed by GCP, while AWS stops at 12.7.

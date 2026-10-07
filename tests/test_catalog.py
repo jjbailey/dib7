@@ -4,8 +4,10 @@
 
 """Focused tests for image publication and reconciliation safety."""
 
+from contextlib import ExitStack
 import importlib.util
 import json
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -145,6 +147,27 @@ class ReconcileSafetyTests(unittest.TestCase):
             self.assertEqual(result, 1)
             self.assertEqual([image["artifact_id"] for image in json.loads(path.read_text())["images"]], ["active"])
 
+class ExactRowRemovalTests(unittest.TestCase):
+    def test_shared_artifact_key_removes_only_the_discovered_row(self):
+        stale = {
+            "logical_name": "centos10s-base", "provider": "vsphere",
+            "artifact_id": "centos10s-base.ova", "artifact_type": "content_library_ova",
+            "version": "1790476201", "status": "published",
+            "scope": {"content_library": "Content_Library", "vcenter": "legacy"},
+        }
+        twin = dict(stale)
+        twin["scope"] = {"content_library": "Content_Library"}
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "image-catalog.json"
+            path.write_text(json.dumps({"schema_version": 1, "images": [stale, twin]}))
+            result = reconcile_common.reconcile(
+                path, "vsphere", [(stale, "artifact not found")], [],
+                lambda image: True, "legacy", False, True)
+            remaining = json.loads(path.read_text())["images"]
+            self.assertEqual(result, 1)
+            self.assertEqual(len(remaining), 1)
+            self.assertNotIn("vcenter", remaining[0]["scope"])
+
 class AwsCommandTests(unittest.TestCase):
     def describe_images_argv(self, profile):
         result = Mock(stdout='{"Images": []}')
@@ -159,6 +182,63 @@ class AwsCommandTests(unittest.TestCase):
 
     def test_no_profile_argument_without_profile(self):
         self.assertNotIn("--profile", self.describe_images_argv(None))
+
+class ReconcileExitStatusTests(unittest.TestCase):
+    def test_all_providers_return_success_after_removing_rows(self):
+        for provider in ["aws", "gcp", "openstack", "vsphere"]:
+            with self.subTest(provider=provider), tempfile.TemporaryDirectory() as directory:
+                module = load_script(f"reconcile-catalog-{provider}.py", f"reconcile_{provider}_exit_test")
+                catalog = Path(directory) / "catalog.json"
+                catalog.write_text(json.dumps({"schema_version": 1, "images": [{
+                    "provider": provider, "logical_name": "retired-image",
+                    "artifact_id": "retired-id", "artifact_type": "content_library_ova",
+                    "version": "v1", "status": "retired", "project": "test-project",
+                    "region": "test-region",
+                    "scope": {"content_library": "test-library", "vcenter": "test-vcenter"},
+                }]}))
+                argv = ["reconcile", "--catalog", str(catalog)]
+                with ExitStack() as stack:
+                    if provider == "aws":
+                        stack.enter_context(patch.object(module, "live_ami_ids", side_effect=AssertionError("unexpected cloud call")))
+                    elif provider == "gcp":
+                        stack.enter_context(patch.object(module.google.auth, "default", return_value=(Mock(), "test-project")))
+                        stack.enter_context(patch.object(module, "AuthorizedSession"))
+                    elif provider == "openstack":
+                        argv += ["--cloud", "test-cloud"]
+                        connection = Mock(current_project_id="test-project")
+                        connection.current_project.name = "test-project"
+                        stack.enter_context(patch.object(module.openstack, "connect", return_value=connection))
+                    else:
+                        stack.enter_context(patch.object(module, "query_live_artifacts", return_value=(set(), set())))
+                    stack.enter_context(patch.object(sys, "argv", argv))
+                    self.assertEqual(module.main(), 0)
+                self.assertEqual(json.loads(catalog.read_text())["images"], [])
+
+    def test_aws_cli_success_and_error_exit_codes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            catalog = Path(directory) / "catalog.json"
+            catalog.write_text(json.dumps({"schema_version": 1, "images": [{
+                "provider": "aws", "logical_name": "retired-image", "artifact_id": "ami-test",
+                "version": "v1", "status": "retired", "region": "test-region",
+            }]}))
+            command = [sys.executable, str(BIN / "reconcile-catalog-aws.py"), "--catalog", str(catalog)]
+            result = subprocess.run(command, text=True, capture_output=True, timeout=30)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(json.loads(catalog.read_text())["images"], [])
+            catalog.write_text("invalid JSON")
+            result = subprocess.run(command, text=True, capture_output=True, timeout=30)
+            self.assertNotEqual(result.returncode, 0)
+
+class CatalogSchemaTests(unittest.TestCase):
+    """The catalog's shape is declared twice; keep the two declarations equal."""
+
+    def test_publish_constants_track_the_catalog_schema(self):
+        schema = json.loads((ROOT / "catalogs/image-catalog.schema.json").read_text())
+        item = schema["properties"]["images"]["items"]
+        self.assertFalse(item["additionalProperties"])
+        self.assertEqual(publish.REQUIRED, set(item["required"]))
+        self.assertEqual(publish.PROVIDERS, set(item["properties"]["provider"]["enum"]))
+        self.assertEqual(publish.STATUSES, set(item["properties"]["status"]["enum"]))
 
 if __name__ == "__main__":
     unittest.main()

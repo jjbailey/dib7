@@ -1,0 +1,67 @@
+---
+# playbooks/tasks/fail-if-stage-failed.yml
+# vim: set tabstop=2 shiftwidth=2 expandtab:
+
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ansible/ansible-lint/main/src/ansiblelint/schemas/tasks.json
+
+# Shared failure summary for the "Report <stage> results" play that closes every
+# other playbook in this pipeline. This is a tasks file, not a playbook -
+# included via include_tasks from that second play.
+#
+# Callers set:
+#   stage_name         - basename of the playbook whose results are reported
+#   stage_failure_mode - 'fail_closed' (default, every stage but backfill) or
+#                        'explicit' (backfill only)
+#
+# fail_closed: anything that did not reach stage_succeeded counts as a failure.
+#   Keying off stage_failed instead would let a host that never ran the rescue -
+#   an unreachable host, for one - pass as though it had succeeded.
+# explicit: hosts ended early by meta: end_host never set stage_succeeded, and
+#   having no artifact to backfill is the expected outcome there, not an error.
+#   Those hosts signal failure by setting stage_failed instead.
+#
+# Both tasks are pinned to one host rather than run_once: a run_once fail marks
+# every host in the play, which would put an identical fatal: line in the log
+# per distro and bury the real one the summary tells you to grep for.
+
+- name: Fail if any host reported a failure of {{ stage_name }}
+  ansible.builtin.fail:
+    msg: |-
+      {{ stage_name }} failed for {{ stage_failures | length }} of
+      {{ ansible_play_hosts_all | length }} hosts:
+      {% for host in stage_failures %}
+        {{ host }}: {{ hostvars[host].stage_error | default('see log') | trim }}
+      {% endfor %}
+  when:
+    - inventory_hostname == ansible_play_hosts_all[0]
+    - (stage_failure_mode | default('fail_closed')) == 'explicit'
+    - stage_failures | length > 0
+  vars:
+    stage_failures: >-
+      {{ ansible_play_hosts_all
+         | map('extract', hostvars)
+         | selectattr('stage_failed', 'defined')
+         | selectattr('stage_failed')
+         | map(attribute='inventory_hostname')
+         | list }}
+
+- name: Fail if any host did not complete {{ stage_name }}
+  ansible.builtin.fail:
+    msg: |-
+      {{ stage_name }} failed for {{ stage_failures | length }} of
+      {{ ansible_play_hosts_all | length }} hosts:
+      {% for host in stage_failures %}
+        {{ host }}: {{ hostvars[host].stage_error | default('see log') | trim }}
+      {% endfor %}
+  when:
+    - inventory_hostname == ansible_play_hosts_all[0]
+    - (stage_failure_mode | default('fail_closed')) == 'fail_closed'
+    - stage_failures | length > 0
+  vars:
+    stage_failures: >-
+      {{ ansible_play_hosts_all
+         | map('extract', hostvars)
+         | rejectattr('stage_succeeded', 'defined')
+         | map(attribute='inventory_hostname')
+         | list }}
+

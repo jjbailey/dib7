@@ -116,16 +116,23 @@ def main():
                 f"catalog contains no entry for authenticated project {authenticated_id}"
             )
 
+    # Every path that reaches here has already failed when the requested project
+    # did not match the authenticated one, so the scope is never empty: at
+    # minimum it holds the explicitly requested project id.
     scope = projects & authenticated_identities
     if args.project_id:
         scope.add(str(args.project_id))
-    if not scope:
-        raise ValueError(
-            f"catalog contains no entry for authenticated project {authenticated_id}"
-        )
 
     def scope_match(image):
-        return str(image.get("project", "")) in scope
+        if str(image.get("project", "")) not in scope:
+            return False
+        # The connection is region-scoped. A row recorded for another region
+        # was not looked up, so it must not be removed. A row with no region
+        # predates the field and was already reachable through this connection.
+        recorded = image.get("region")
+        if region_name and isinstance(recorded, str) and recorded.strip():
+            return recorded == region_name
+        return True
 
     retired = [
         image for image in catalog["images"]
@@ -147,10 +154,12 @@ def main():
         f"OpenStack scope: project={authenticated_name or authenticated_id}"
         + (f", region={region_name}" if region_name else "")
     )
-    return reconcile(
+    reconcile(
         args.catalog, "openstack", stale, retired, scope_match,
         authenticated_name or authenticated_id, args.dry_run, args.force,
     )
+
+    return 0
 
 if __name__ == "__main__":
     try:

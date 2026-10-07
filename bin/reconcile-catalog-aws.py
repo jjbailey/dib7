@@ -71,16 +71,20 @@ def main():
     for image in catalog["images"]:
         if image.get("provider") != "aws" or (args.region and image.get("region") != args.region):
             continue
+        # A missing project is not this account. Skipping it here used to
+        # disagree with scope_match, which treated the absence as in-scope and
+        # deleted the unscoped row anyway.
         if project and image.get("project") != project:
+            continue
+        if not image.get("region"):
+            print(
+                f"skipping {image.get('logical_name')} {image.get('version')}: no region",
+                file=sys.stderr)
             continue
         if image.get("status") == "retired":
             retired.append(image)
         elif image.get("status") == "published":
-            if image.get("region"):
-                grouped[image["region"]].append(image)
-            else:
-                print(
-                    f"skipping {image.get('logical_name')} {image.get('version')}: no region", file=sys.stderr)
+            grouped[image["region"]].append(image)
     stale = []
     for region, images in grouped.items():
         live = live_ami_ids(region, [image["artifact_id"]
@@ -88,11 +92,22 @@ def main():
         stale.extend((image, "AMI not found")
                      for image in images if image["artifact_id"] not in live)
 
+    # Without --region this scopes to the whole account, and that same scope is
+    # the denominator of the majority guard in reconcile(): a region-wide AMI
+    # purge can therefore stay under the "more than half" threshold and be
+    # applied without --force. Pass --region to narrow both.
     def scope_match(image):
-        return ((not args.region or image.get("region") == args.region)
-                and (not project or image.get("project") == project))
+        if args.region and image.get("region") != args.region:
+            return False
+        if not image.get("region"):
+            return False
+        if project and image.get("project") != project:
+            return False
+        return True
     print(f"AWS scope: project={project or 'legacy/all'}, region={args.region or 'all catalog regions'}")
-    return reconcile(args.catalog, "aws", stale, retired, scope_match, project or args.region or "AWS catalog", args.dry_run, args.force)
+    reconcile(args.catalog, "aws", stale, retired, scope_match, project or args.region or "AWS catalog", args.dry_run, args.force)
+
+    return 0
 
 if __name__ == "__main__":
     try:

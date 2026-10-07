@@ -73,22 +73,36 @@
           ansible.builtin.set_fact:
             build_date: "{{ now(fmt='%y%m%d') }}"
 
-        # Conversion process
-        - name: Check VMDK file status
-          ansible.builtin.stat:
-            path: "{{ build_dir }}/{{ vmdk_file }}"
-          register: vmdk_check_stat
+        # A failed conversion can leave a newer, readable but incomplete VMDK.
+        # Always regenerate it, including files left by older timestamp-based
+        # runs. Use the final basename inside a staging directory so the VMDK
+        # embedded descriptor also names the file correctly after promotion.
+        - name: Create VMDK staging directory
+          ansible.builtin.file:
+            path: "{{ build_dir }}/.{{ vmdk_file }}.partial"
+            state: directory
+            mode: "0755"
 
         - name: Convert QCOW2 to VMDK format
           ansible.builtin.command:
-            cmd: qemu-img convert -f qcow2 -O vmdk -o subformat=streamOptimized "{{ qcow2_file }}" "{{ vmdk_file }}"
+            cmd: qemu-img convert -f qcow2 -O vmdk -o subformat=streamOptimized "{{ qcow2_file }}" ".{{ vmdk_file }}.partial/{{ vmdk_file }}"
             chdir: "{{ build_dir }}"
           register: conversion_result
           retries: 3
           delay: 5
           until: conversion_result.rc == 0
           changed_when: conversion_result.rc == 0
-          when: not vmdk_check_stat.stat.exists or (qcow2_stat.stat.mtime > vmdk_check_stat.stat.mtime)
+
+        - name: Publish the completed VMDK
+          ansible.builtin.command:
+            argv:
+              - mv
+              - -f
+              - --
+              - ".{{ vmdk_file }}.partial/{{ vmdk_file }}"
+              - "{{ vmdk_file }}"
+            chdir: "{{ build_dir }}"
+          changed_when: true
 
         - name: Retrieve VMDK file size
           ansible.builtin.stat:
@@ -156,7 +170,7 @@
         - name: Stamp the OVA as converted by this run
           ansible.builtin.copy:
             dest: "{{ build_dir }}/{{ convert_stamp_file }}"
-            content: "{{ run_id | default('manual') }}\n"
+            content: "{{ run_id | default(stage_source_run) | default('manual') }}\n"
             mode: "0644"
 
         - name: Mark the conversion successful
@@ -166,17 +180,26 @@
       rescue:
         - name: Record that the conversion failed
           ansible.builtin.set_fact:
-            stage_failed: true
             stage_error: >-
-              {{ ansible_failed_task.name }}:
-              {{ ansible_failed_result.msg | default('no message') | trim }}
+              {{ ansible_failed_task.name | default('unknown task') }}:
+              {{ (ansible_failed_result.stderr | default('', true))
+                 or (ansible_failed_result.stdout | default('', true))
+                 or (ansible_failed_result.msg | default('', true))
+                 or 'unknown error' }}
+              {{ ('rc=' ~ ansible_failed_result.rc) if ansible_failed_result.rc is defined else '' }}
 
         - name: Report the conversion failure
           ansible.builtin.debug:
             msg: >-
               CONVERT FAILED for {{ inventory_hostname }} at task
               '{{ ansible_failed_task.name }}'.
-              {{ ansible_failed_result.msg | default('') | trim }}
+              {{ stage_error }}
+
+      always:
+        - name: Remove incomplete VMDK output
+          ansible.builtin.file:
+            path: "{{ build_dir }}/.{{ vmdk_file }}.partial"
+            state: absent
 
 - name: Report conversion results
   hosts: "{{ target_hosts | default('all') }}"
@@ -185,22 +208,7 @@
 
   tasks:
     - name: Fail if any image failed to convert
-      ansible.builtin.fail:
-        msg: |-
-          convert-qcow2-to-ova failed for {{ convert_failures | length }} of
-          {{ ansible_play_hosts_all | length }} hosts:
-          {% for host in convert_failures %}
-            {{ host }}: {{ hostvars[host].stage_error | default('see log') | trim }}
-          {% endfor %}
-      # Pinned to one host rather than run_once - see build-qcow2.yml.
-      when:
-        - inventory_hostname == ansible_play_hosts_all[0]
-        - convert_failures | length > 0
+      ansible.builtin.include_tasks: tasks/fail-if-stage-failed.yml
       vars:
-        convert_failures: >-
-          {{ ansible_play_hosts_all
-             | map('extract', hostvars)
-             | rejectattr('stage_succeeded', 'defined')
-             | map(attribute='inventory_hostname')
-             | list }}
+        stage_name: convert-qcow2-to-ova
 

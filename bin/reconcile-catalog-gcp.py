@@ -59,7 +59,9 @@ def main():
         else:
             response.raise_for_status()
     print(f"GCP scope: project={project}")
-    return reconcile(args.catalog, "gcp", stale, retired, scope_match, project, args.dry_run, args.force)
+    reconcile(args.catalog, "gcp", stale, retired, scope_match, project, args.dry_run, args.force)
+
+    return 0
 
 if __name__ == "__main__":
     try:

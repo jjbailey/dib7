@@ -90,14 +90,15 @@ newdistro:
 
 1. Create `group_vars/newdistro/main.yml`.
 
-Start from the closest existing file in `group_vars/` and set at least:
+Create the file with the three settings that differ per distro:
 
 - `elements_base`
 - `vm_os_type`
 - `vm_os_description`
 
-See `doc/group-vars-distro.md` for the shared structure and the variables that
-can differ by distro.
+Everything else is inherited from `group_vars/all/main.yml`. See
+`doc/group-vars-distro.md` for the per-distro values and
+`doc/group-vars-all.md` for the shared settings.
 
 1. Create `elements/custom-newdistro/`.
 
@@ -133,7 +134,8 @@ Use this quick checklist before considering the work done:
   all spelled identically, and no group shares a name with a host. Ansible
   auto-loads `group_vars/` by _group_ name, so a mismatch silently loads no
   variables at all rather than raising an error
-- `group_vars/<distro>/main.yml` exists and has the right DIB/VMware settings
+- `group_vars/<distro>/main.yml` exists and sets `elements_base`, `vm_os_type`
+  and `vm_os_description`
 - `elements/custom-<distro>/` exists and still works for the new release
 - supported-release docs are updated
 - `~/.dib7/bin/ansible-playbook playbooks/build-qcow2.yml -l <host>` succeeds

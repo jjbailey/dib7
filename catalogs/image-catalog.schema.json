@@ -22,6 +22,7 @@
           "architecture": {"type": "string", "minLength": 1},
           "boot_mode": {"type": "string", "minLength": 1},
           "source_build": {"type": "string", "minLength": 1},
+          "ssh_username": {"type": "string", "minLength": 1},
           "status": {"enum": ["published", "retired"]}
         },
         "additionalProperties": false

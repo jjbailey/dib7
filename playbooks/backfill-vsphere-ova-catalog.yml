@@ -53,11 +53,25 @@
             src: "{{ build_dir }}/{{ ova_file }}.imported"
           register: imported_stamp
 
-        # Marker format is "<sha1>  <library name>".
+        # Marker format is "<sha1>  <library name>". Split once on the first run
+        # of whitespace rather than taking the last field: a content library
+        # name containing a space would otherwise come back as its final word,
+        # and the comparison below would then fail for the wrong reason.
+        - name: Read the fields of the content library import marker
+          ansible.builtin.set_fact:
+            marker_fields: >-
+              {{ (imported_stamp.content | b64decode | trim).split(None, 1) }}
+
+        - name: Fail if the import marker is malformed
+          ansible.builtin.fail:
+            msg: >-
+              {{ build_dir }}/{{ ova_file }}.imported is not
+              "<sha1>  <library name>": {{ marker_fields | join(' / ') }}
+          when: marker_fields | length != 2
+
         - name: Extract the library the OVA actually landed in
           ansible.builtin.set_fact:
-            imported_library: >-
-              {{ (imported_stamp.content | b64decode | trim).split()[-1] }}
+            imported_library: "{{ marker_fields[1] }}"
 
         # Guards against backfilling an entry that claims the library configured
         # today when the artifact was imported into a different one.
@@ -115,19 +129,26 @@
             stage_succeeded: true
 
       rescue:
+        # stage_failed is the one fact the shared reporting task still reads:
+        # this stage reports explicit failures, because hosts ended early by
+        # end_host never set stage_succeeded and are not errors here.
         - name: Record that the backfill failed
           ansible.builtin.set_fact:
             stage_failed: true
             stage_error: >-
-              {{ ansible_failed_task.name }}:
-              {{ ansible_failed_result.msg | default('no message') | trim }}
+              {{ ansible_failed_task.name | default('unknown task') }}:
+              {{ (ansible_failed_result.stderr | default('', true))
+                 or (ansible_failed_result.stdout | default('', true))
+                 or (ansible_failed_result.msg | default('', true))
+                 or 'unknown error' }}
+              {{ ('rc=' ~ ansible_failed_result.rc) if ansible_failed_result.rc is defined else '' }}
 
         - name: Report the backfill failure
           ansible.builtin.debug:
             msg: >-
               BACKFILL FAILED for {{ inventory_hostname }} at task
               '{{ ansible_failed_task.name }}'.
-              {{ ansible_failed_result.msg | default('') | trim }}
+              {{ stage_error }}
 
 - name: Report backfill results
   hosts: "{{ target_hosts | default('all') }}"
@@ -136,26 +157,12 @@
 
   tasks:
     - name: Fail if any image failed to backfill
-      ansible.builtin.fail:
-        msg: |-
-          backfill-vsphere-ova-catalog failed for {{ backfill_failures | length }} of
-          {{ ansible_play_hosts_all | length }} hosts:
-          {% for host in backfill_failures %}
-            {{ host }}: {{ hostvars[host].stage_error | default('see log') | trim }}
-          {% endfor %}
-      # Pinned to one host rather than run_once - see build-qcow2.yml.
-      when:
-        - inventory_hostname == ansible_play_hosts_all[0]
-        - backfill_failures | length > 0
+      ansible.builtin.include_tasks: tasks/fail-if-stage-failed.yml
       vars:
-        # Hosts ended early by end_host never set stage_succeeded, so they are
-        # excluded here rather than reported as failures: having no artifact to
-        # backfill is the expected outcome, not an error.
-        backfill_failures: >-
-          {{ ansible_play_hosts_all
-             | map('extract', hostvars)
-             | selectattr('stage_failed', 'defined')
-             | selectattr('stage_failed')
-             | map(attribute='inventory_hostname')
-             | list }}
+        stage_name: backfill-vsphere-ova-catalog
+        # The one stage that reports explicit failures rather than the absence
+        # of a success marker: hosts ended early by end_host never set
+        # stage_succeeded, and having no artifact to backfill is the expected
+        # outcome, not an error. See the shared task file.
+        stage_failure_mode: explicit
 

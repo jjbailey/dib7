@@ -47,73 +47,28 @@ flowchart TB
 
 ### Operating Systems by Provider
 
-Validated against provider documentation on 2026-09-25. See the provider-specific
-pages in `doc/` for release and known-issue details. Provider support is
-separate from DIB7 inventory support; re-check the provider matrix before
-enabling a new target release.
+Provider support is separate from DIB7 inventory support: a distro can be built
+here and still not be importable by every provider. Re-check the provider matrix
+before enabling a new target release. The per-release matrices, the DIB7 target
+coverage tables, and known issues live in `doc/` - the links below are the
+canonical copies, so add detail there rather than here:
 
-Source documents checked:
-[AWS VM Import/Export requirements](https://docs.aws.amazon.com/vm-import/latest/userguide/prerequisites.html),
-[GCP Migrate to Virtual Machines supported operating systems](https://cloud.google.com/migrate/virtual-machines/docs/5.0/discover/supported-os-versions),
-[OpenStack Glance project reference](https://governance.openstack.org/tc/reference/projects/glance.html),
-and the
-[VMware Guest OS Installation Guide](https://partnerweb.vmware.com/GOSIG/home.html).
+- **AWS VM Import/Export** -
+  [doc/aws-supported-images.md](doc/aws-supported-images.md)
+- **GCP Compute Engine** (Migrate to Virtual Machines) -
+  [doc/gcp-supported-images.md](doc/gcp-supported-images.md)
+- **OpenStack Glance** - no provider-wide OS version list. Glance stores and
+  serves bootable disk images; guest support depends on the cloud operator, the
+  Nova hypervisor, image metadata, and local policy. DIB7 uploads QCOW2 images
+  directly, so validate each target against the destination cloud's image policy
+  and compute driver.
+- **VMware vSphere** - DIB7 can deploy OVA files and create templates, but this
+  repository does not maintain a vendor-backed per-release guest OS matrix.
+  Newer targets may need the closest supported `vm_os_type` guest ID until the
+  VMware/Broadcom compatibility documentation exposes an exact identifier.
 
-#### AWS VM Import/Export
-
-Current provider-supported operating systems:
-
-- Amazon Linux 2 and 2023
-- Ubuntu through 26.04
-- Debian 11 and selected Debian 12 releases through 12.7
-- Fedora 41-43
-- CentOS Stream 9
-- RHEL, Rocky Linux, and Oracle Linux through 10.1
-- Windows Server through 2025
-
-DIB7 target notes: `ubuntu24045` and `ubuntu26041` both match AWS import
-support — the July 26.04 injection failure is resolved, see
-[doc/aws-supported-images.md](doc/aws-supported-images.md).
-`rocky102` is covered only when its resulting point release is no newer than
-10.1; verify the cloud image point release before importing. `debian1215`,
-`debian1307`, `fedora44`, and `centos10s` are not listed for AWS VM Import/Export.
-
-#### GCP Compute Engine Image Import
-
-Current provider-supported operating systems:
-
-- Ubuntu 22.04, 24.04, and 26.04
-- Debian 11.0-11.7, 12.0-12.10, and 13.0-13.2
-- CentOS Stream 9 and 10
-- RHEL 7.9, 8.0-8.10, 9.0-9.7, and 10.0-10.2
-- Rocky Linux 8.4-8.10, 9.0-9.7, and 10.0-10.1
-- AlmaLinux 8.3-8.10, 9.0-9.8, and 10.0-10.2
-- Windows Server through 2025
-
-DIB7 target notes: `ubuntu24045`, `ubuntu26041`, `debian1307`, and `centos10s`
-match the current GCP import matrix — with the caveat that GCP lists Debian 13
-as 13.0–13.2 while `debian1307` tracks the rolling `trixie` point release
-(same kernel; confirm the release before importing). Fedora Server is not
-listed as a supported import target.
-
-#### OpenStack Glance
-
-No provider-wide OS version list. Glance stores and serves bootable disk
-images; guest support depends on the cloud operator, Nova hypervisor, image
-metadata, and local policy.
-
-DIB7 uploads QCOW2 images directly. Validate each target against the
-destination cloud's image policy and compute driver.
-
-#### VMware vSphere
-
-The guest OS guide lists Debian 13, Ubuntu through 25.10, RHEL 10, Rocky
-Linux 10, Oracle Linux 10, AlmaLinux 10, Amazon Linux 2, and Windows
-Server 2025. Fedora support is limited to older Fedora desktop entries in the
-VMware guide.
-
-DIB7 can deploy OVA files, but newer targets may need the closest supported
-`vm_os_type` guest ID until VMware exposes an exact ID.
+The OpenStack and vSphere notes above have no separate page under `doc/`, so they
+are the only copy.
 
 ### Configured DIB7 Operating System Targets
 
@@ -353,8 +308,6 @@ dib7/
 - `doc/python3-virtualenv.md` - setting up the diskimage-builder Python
   virtual environment
 - `doc/vaults.md` - vault file layout required by each playbook
-- `doc/workflow.md` - the build/deploy pipeline diagram shown above in
-  [Architecture](#architecture)
 
 ## Playbooks
 
@@ -364,8 +317,9 @@ dib7/
   Dependencies: qemu-img and ovftool (tested with 5.1.0).
 - `import-ova-aws.yml`: Upload OVA to S3, import to AWS AMI.
   Dependencies: `amazon.aws` collection, S3, VM Import.
-  Set `AWS_TARGET_PROJECT` when using multiple accounts; it may be a vault
-  key or account ID.
+  For direct playbook calls, pass `-e aws_target_project=<target>`;
+  the target may be a vault key or account ID. The `local/` shell wrappers instead
+  accept the environment variable `AWS_TARGET_PROJECT`.
 - `import-ova-vsphere.yml`: Import OVA to vSphere content library.
   This produces the `vSphere OVA` branch in the workflow.
   Dependencies: pwsh, PowerCLI.
@@ -379,12 +333,14 @@ dib7/
   to GCS, and by default deletes and replaces any existing Compute image of
   the same name (see `gcp_replace_existing_image`).
   Dependencies: gcloud (including `gcloud storage`).
-  Set `GCP_TARGET_PROJECT` when using multiple projects; it may be a vault
-  key or project ID.
+  For direct playbook calls, pass `-e gcp_target_project=<target>`;
+  the target may be a vault key or project ID. The `local/` shell wrappers instead
+  accept the environment variable `GCP_TARGET_PROJECT`.
 - `import-qcow2-openstack.yml`: Import QCOW2 to OpenStack.
   Dependencies: `openstack.cloud` collection.
-  Set `OPENSTACK_TARGET_PROJECT` when using multiple projects; it may be a
-  vault key, project name, or project ID.
+  For direct playbook calls, pass `-e openstack_target_project=<target>`;
+  the target may be a vault key, project name, or project ID. The `local/` shell wrappers instead
+  accept the environment variable `OPENSTACK_TARGET_PROJECT`.
 - `backfill-vsphere-ova-catalog.yml`: Rebuild missing vSphere OVA catalog rows
   for artifacts already imported into the content library.
 
@@ -506,21 +462,22 @@ vsphere_template_name: "inventory-item-base.tmpl"
 
 ## Default Image Users
 
-The custom elements create a bootstrap user for console or password-based SSH
-access. Each account has passwordless sudo. Passwords are currently temporary
-and predictable; replace them with SSH keys and disable password authentication
-before using an image outside a test environment.
+Each custom element creates one bootstrap account for console or password-based
+SSH access: the distro's own name (`ubuntu`, `debian`, `fedora`, `rocky`), except
+CentOS Stream, which uses `cloud-user`. The temporary password is the account
+name in every case, `root`/`root` also works, and each account has passwordless
+sudo.
 
-| Distribution  | Username     | Temporary password |
-| ------------- | ------------ | ------------------ |
-| Ubuntu        | `ubuntu`     | `ubuntu`           |
-| Debian        | `debian`     | `debian`           |
-| CentOS Stream | `cloud-user` | `cloud-user`       |
-| Fedora        | `fedora`     | `fedora`           |
-| Rocky Linux   | `rocky`      | `rocky`            |
+These passwords are predictable on purpose and are meant for test environments
+only: replace them with SSH keys and disable password authentication before using
+an image anywhere else.
 
-The `root` account is also assigned the temporary password `root` during the
-image build.
+The account names come from each element's `post-install.d/20-useradd`, which is
+the source of truth if this list and an image ever disagree.
+
+Each distro's `image_ssh_username` setting publishes this account name as
+`ssh_username` in the image catalog. AWS key-pair names are selected by the
+deployment environment and are not properties of the built image.
 
 ## Custom Elements
 
@@ -552,31 +509,15 @@ and whether each phase runs inside or outside the chroot.
 
 ## Variables
 
-### Global Variables (`group_vars/all/main.yml`)
+The defaults live in [`group_vars/all/main.yml`](group_vars/all/main.yml). The two
+pages below document them and are the canonical reference - add or change
+documentation there rather than here:
 
-- `image_arch`: CPU architecture (default: `amd64`)
-- `image_name`: Image base name (default: `{{ inventory_hostname }}-base`)
-- `image_size`: Image size in GB (default: `35`)
-- `image_type`: Image format (default: `qcow2`; passed to DIB with `-t`)
-- `qcow2_file`, `vmdk_file`, `ovf_file`, `ova_file`: Derived output filenames
-- `gcp_replace_existing_image`: Replace an existing Compute image on rerun
-  (default: `true`); set to `false` to make `import-qcow2-gcp.yml` fail
-  instead of deleting the existing image
-- `gcp_delete_qcow2_after_import`: Delete the QCOW2 from GCS after a
-  successful Compute image import (default: `false`)
-- `build_stamp_file`, `convert_stamp_file`: provenance gates that stop a
-  downstream stage from consuming an artifact left by an earlier run
-- `image_catalog_path`, `catalog_version`, `image_boot_mode`: the generated
-  provider-artifact catalog's location, version, and image boot mode
-- `dpkg_opts`, `debian_frontend`, `needrestart_mode`: Debian/Ubuntu packaging options
-
-### OS-Specific Variables
-
-- `group_vars/centos/main.yml`
-- `group_vars/debian/main.yml`
-- `group_vars/fedora/main.yml`
-- `group_vars/rocky/main.yml`
-- `group_vars/ubuntu/main.yml`
+- [doc/group-vars-all.md](doc/group-vars-all.md) - every global default, including
+  the distro-independent DIB inputs, VM sizing, swap, and the catalog and stamp
+  contract
+- [doc/group-vars-distro.md](doc/group-vars-distro.md) - what each
+  `group_vars/<distro>/main.yml` sets, and how the five distros differ
 
 ## Development
 
@@ -614,9 +555,11 @@ This checks every actual playbook with Ansible syntax validation, verifies the
 pinned Ansible collections and the Fedora and CentOS Stream 10 DIB
 compatibility, validates the catalog schema, parses non-secret YAML and
 PowerShell, runs `bash -n` against the shell helpers, compiles the Python
-utilities with `py_compile`, and runs the focused catalog unit tests in
-`tests/test_catalog.py`. Cloud imports still require provider credentials and
-are intentionally not executed by the local suite.
+utilities with `py_compile`, and runs the catalog tests in
+`tests/test_catalog.py` plus the Ansible and PowerShell regressions in
+`tests/test_pipeline.py`. These regressions use temporary files and mocked
+cloud tools. Live cloud imports require provider credentials and are not
+executed by the local suite.
 
 ## Troubleshooting
 

@@ -69,7 +69,8 @@ else
 fi
 
 echo "== Fedora DIB compatibility =="
-fedora_element="$($python_bin -c 'import site; print(site.getsitepackages()[0])')/diskimage_builder/elements/fedora/root.d/10-fedora-cloud-image"
+site_packages="$($python_bin -c 'import site; print(site.getsitepackages()[0])')"
+fedora_element="$site_packages/diskimage_builder/elements/fedora/root.d/10-fedora-cloud-image"
 if [ -f "$fedora_element" ] && grep -q 'Fedora-Cloud-Base-Generic' "$fedora_element"; then
     echo "  ok   Fedora Generic-image naming is supported"
 else
@@ -78,7 +79,7 @@ else
 fi
 
 echo "== CentOS Stream 10 DIB compatibility =="
-centos_element="$($python_bin -c 'import site; print(site.getsitepackages()[0])')/diskimage_builder/elements/centos/root.d/10-centos-cloud-image"
+centos_element="$site_packages/diskimage_builder/elements/centos/root.d/10-centos-cloud-image"
 if [ -f "$centos_element" ] && grep -qF 'CentOS-Stream-${DIB_FLAVOR}-10-' "$centos_element"; then
     echo "  ok   CentOS Stream 10 GenericCloud-image naming is supported"
 else
@@ -319,7 +320,7 @@ fi
 
 echo "== focused unit tests =="
 if "$python_bin" -m unittest discover -s tests -p 'test_*.py' ; then
-    echo "  ok   catalog publication/reconcile tests"
+    echo "  ok   catalog and pipeline regression tests"
 else
     fail "focused unit tests failed"
 fi
