@@ -1,0 +1,16 @@
+---
+# .ansible-lint
+# vim: set tabstop=2 shiftwidth=2 expandtab:
+
+# These files are included with include_tasks; they are tasks files, not
+# playbooks, and linting them as playbooks reports bogus syntax errors.
+kinds:
+  - tasks: "**/playbooks/common-setup.yml"
+  - tasks: "**/playbooks/publish-image-catalog.yml"
+  - tasks: "**/playbooks/verify-stamp.yml"
+  - tasks: "**/playbooks/tasks/*.yml"
+
+# Encrypted with ansible-vault, so they cannot carry a "---" document start.
+exclude_paths:
+  - vaults/
+

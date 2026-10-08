@@ -1,5 +1,43 @@
+# .gitignore
+# vim: set tabstop=4 shiftwidth=4 expandtab:
+
+# NOTE: do not copy the public dib7 .gitignore over this one. That tree ignores
+# vaults/* and local/*, but in this repo both are tracked on purpose: the vault
+# files are ansible-vault encrypted, and local/ holds the site scripts. Ignoring
+# them here would silently drop any newly added vault or local script.
+#
+# Keeping vaults out of the public tree is handled by the --exclude flags in
+# local/rsync-to-dib7.sh, not by this file. rsync copies from the filesystem and
+# never consults .gitignore.
+
+# Editor and OS cruft
 *~
-local/*
-.*.swp
-vaults/*
-.vscode
+.*.sw[op]
+.vscode/
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+
+# Ansible
+*.retry
+
+# Image build artifacts, in case build_dir is ever pointed inside the repo.
+# These run to tens of GB; committing one by accident is painful to undo.
+*.mf
+*.ova
+*.ovf
+*.qcow2
+*.raw
+*.vmdk
+
+# Left behind by older versions of local/rsync-to-dib7.sh
+elements-save/
+
+# Lock file bin/publish-image-catalog.py creates beside the catalog. Empty and
+# per-machine, so only the lock is ignored: catalogs/image-catalog.json is
+# tracked here on purpose, which is what gives it history and a backup. It names
+# this site's AMIs, GCP projects and vSphere content libraries, so it stays out
+# of the public tree - local/rsync-to-dib7.sh excludes it there.
+catalogs/image-catalog.json.lock

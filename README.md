@@ -272,7 +272,7 @@ dib7/
 │   ├── reconcile-catalog-openstack.py # Removes catalog images gone from OpenStack
 │   ├── inspect-qcow2.sh         # Script for examining and modifying virtual machines
 │   └── *-vault.sh               # Vault management scripts
-├── block-device-config/         # DIB EFI/GPT block-device layouts
+├── block-device-config/         # example DIB block-device layouts
 ├── catalogs/                    # Versioned provider artifact catalog and schema
 ├── doc/                         # Documentation
 ├── elements/                    # DIB elements for custom OS configurations
@@ -468,9 +468,14 @@ CentOS Stream, which uses `cloud-user`. The temporary password is the account
 name in every case, `root`/`root` also works, and each account has passwordless
 sudo.
 
-These passwords are predictable on purpose and are meant for test environments
-only: replace them with SSH keys and disable password authentication before using
-an image anywhere else.
+These passwords are predictable on purpose as a bootstrap path for test images.
+They must be changed immediately after deployment, and password authentication
+must be disabled before an image is used outside a controlled test environment.
+The image build does not know whether its eventual target is test or production,
+so the deployment or configuration step owns that rotation.
+
+The password hashes use SHA-512; this improves storage resistance but does not
+make the bootstrap passwords secret or suitable for long-term use.
 
 The account names come from each element's `post-install.d/20-useradd`, which is
 the source of truth if this list and an image ever disagree.

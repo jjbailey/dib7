@@ -1,0 +1,3 @@
+# playbooks/tasks/select-vcenter.yml mirrors migrate-vmware's copy, whose govc
+# tasks need the upper-case GOVC_* facts; it must stay byte-identical.
+playbooks/tasks/select-vcenter.yml var-naming[pattern]

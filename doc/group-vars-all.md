@@ -20,7 +20,7 @@ once here rather than per group. See
 | `venv_bin`    | `{{ ansible_env.HOME }}/.dib7/bin`      | Directory holding `disk-image-create` and the other virtualenv tools.                                                                                                                                                                                                 |
 | `path`        | `{{ venv_bin }}:{{ ansible_env.PATH }}` | Prepends the virtualenv bin dir to `PATH` so its binaries are found first.                                                                                                                                                                                            |
 | `build_dir`   | `/work/dib-builds`                      | Staging directory for all image files. Used by every playbook in the pipeline.                                                                                                                                                                                        |
-| `dib_vg_name` | `vg1`                                   | Name of the LVM volume group the build creates. Used for build cleanup and to build `swap_device`. It must stay `vg1`: `block-device-config/block-device-efi-config.yml` hard-codes that name and is not templated, so changing this variable alone breaks the build. |
+| `dib_vg_name` | `vg1`                                   | Name of the LVM volume group the build creates. Used by `bin/cleanup-dib-build.sh` and to build `swap_device`. It must stay `vg1`: `block-device-config/block-device-efi-config.yml` hard-codes that name and is not templated, so changing this variable alone breaks the build. |
 
 <!-- markdownlint-enable MD013 -->
 
@@ -54,7 +54,7 @@ than repeated in each `group_vars/<group>/main.yml`. Only `elements_base`,
 | Variable                         | Default                                                                          | Description                                                          |
 | -------------------------------- | -------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
 | `dib_block_device`               | `gpt`                                                                            | Partition table type, exported as `DIB_BLOCK_DEVICE`.                |
-| `dib_block_device_config`        | `block-device-efi-config.yml`                                                    | LVM/EFI block device layout, looked up from `block-device-config/`.  |
+| `dib_block_device_config`        | `block-device-efi-config.yml`                                                    | LVM/EFI block device layout, looked up from the example files in `block-device-config/`; copy or replace one for your deployment. |
 | `dib_openssh_server_hardening`   | `0`                                                                              | Disables the DIB SSH hardening element.                              |
 | `dib_cloud_init_datasources`     | `None`                                                                           | Disables cloud-init datasource detection.                            |
 | `dib_bootloader_default_cmdline` | `biosdevname=0 iommu=on net.ifnames=0 dm_mod.use_blk_mq=Y scsi_mod.use_blk_mq=Y` | Default kernel command line.                                         |
@@ -71,7 +71,8 @@ than repeated in each `group_vars/<group>/main.yml`. Only `elements_base`,
 
 `dib_block_device_config` is read with the `file` lookup, whose relative paths
 resolve against the playbook directory (`playbooks/`) - which is why the value
-starts with `../`.
+starts with `../`. The files in `../block-device-config/` are examples and
+starting points; copy or replace one to make the end-user choice.
 
 ---
 
