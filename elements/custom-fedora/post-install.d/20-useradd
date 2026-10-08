@@ -7,8 +7,8 @@ set -eu
 set -o pipefail
 
 useradd -g fedora -u 1000 -m -d /home/fedora -s /bin/bash fedora
-echo 'fedora:fedora' | chpasswd -c MD5
-echo 'root:root' | chpasswd -c MD5
+echo 'fedora:fedora' | chpasswd -c SHA512
+echo 'root:root' | chpasswd -c SHA512
 
 echo -e "fedora\tALL=(ALL)\tNOPASSWD: ALL" > /etc/sudoers.d/fedora
 chmod 440 /etc/sudoers.d/fedora

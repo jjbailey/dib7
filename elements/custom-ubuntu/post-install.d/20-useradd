@@ -7,8 +7,8 @@ set -eu
 set -o pipefail
 
 useradd -g ubuntu -u 1000 -m -d /home/ubuntu -s /bin/bash ubuntu
-echo 'ubuntu:ubuntu' | chpasswd -c MD5
-echo 'root:root' | chpasswd -c MD5
+echo 'ubuntu:ubuntu' | chpasswd -c SHA512
+echo 'root:root' | chpasswd -c SHA512
 
 echo -e "ubuntu\tALL=(ALL)\tNOPASSWD: ALL" > /etc/sudoers.d/ubuntu
 chmod 440 /etc/sudoers.d/ubuntu

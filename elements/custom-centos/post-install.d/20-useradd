@@ -7,8 +7,8 @@ set -eu
 set -o pipefail
 
 useradd -g cloud-user -u 1000 -m -d /home/cloud-user -s /bin/bash cloud-user
-echo 'cloud-user:cloud-user' | chpasswd -c MD5
-echo 'root:root' | chpasswd -c MD5
+echo 'cloud-user:cloud-user' | chpasswd -c SHA512
+echo 'root:root' | chpasswd -c SHA512
 
 echo -e "cloud-user\tALL=(ALL)\tNOPASSWD: ALL" > /etc/sudoers.d/cloud-user
 chmod 440 /etc/sudoers.d/cloud-user
