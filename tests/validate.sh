@@ -104,7 +104,7 @@ done
 # --syntax-check does not follow include_tasks, so a tasks file is never parsed
 # as tasks through its callers. Wrap each one in a static import_tasks play.
 wrapper_dir="$(mktemp -d)"
-trap 'rm -rf "$wrapper_dir"' EXIT
+trap 'rm -rf "$wrapper_dir" bin/__pycache__ tests/__pycache__' EXIT
 for task_file in $task_files ; do
     cat > "$wrapper_dir/wrapper.yml" << EOF
 - hosts: localhost

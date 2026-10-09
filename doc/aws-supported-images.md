@@ -84,15 +84,15 @@ Note that Fedora 44 is not yet listed, which `fedora44` builds.
 
 <!-- markdownlint-disable MD013 -->
 
-| Build         | AWS            | Notes                                                                             |
-| ------------- | -------------- | --------------------------------------------------------------------------------- |
-| `centos10s`   | **Not listed** | Upstream lists CentOS Stream 9 only                                               |
-| `debian1215`  | **Not listed** | The rolling `bookworm` point release is not one of the listed 12.2 / 12.4 / 12.7  |
-| `debian1307`  | **Not listed** | Upstream stops at Debian 12.7                                                     |
-| `fedora44`    | **Not listed** | Upstream lists Fedora 41–43                                                       |
-| `rocky102`    | **Not listed** | AWS lists Rocky 10.0–10.1; confirm the actual point release of this rolling build |
-| `ubuntu24045` | Yes            | Upstream lists Ubuntu 24.04                                                       |
-| `ubuntu26041` | Yes            | Ubuntu 26.04 is listed with kernel 7.0.0; confirm the built kernel matches        |
+| Build         | AWS                     | Notes                                                                                  |
+| ------------- | ----------------------- | -------------------------------------------------------------------------------------- |
+| `centos10s`   | **Not listed**          | Upstream lists CentOS Stream 9 only                                                    |
+| `debian1215`  | **Not listed**          | The rolling `bookworm` point release is not one of the listed 12.2 / 12.4 / 12.7       |
+| `debian1307`  | **Not listed**          | Upstream stops at Debian 12.7                                                          |
+| `fedora44`    | **Not listed**          | Upstream lists Fedora 41–43                                                            |
+| `rocky102`    | **Check point release** | AWS lists Rocky 10.0–10.1; this rolling target's exact point release must be confirmed |
+| `ubuntu24045` | Yes                     | Upstream lists Ubuntu 24.04                                                            |
+| `ubuntu26041` | Yes                     | Ubuntu 26.04 is listed with kernel 7.0.0; confirm the built kernel matches             |
 
 <!-- markdownlint-enable MD013 -->
 

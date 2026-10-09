@@ -22,106 +22,11 @@
     - name: Build the image
       block:
         - name: Clean up old loop devices and mounts
-          ansible.builtin.shell: |
-            set -euo pipefail
-
-            # Refuse to touch anything if another image build is already in
-            # flight. The teardown below removes any loop-backed VG, which for a
-            # concurrent build is its live vg1 - and build_dir, the image
-            # logfile and the VG name are all shared besides, so two builds
-            # corrupt each other even without the VG teardown. Failing here
-            # turns that into one clear error instead of two broken images.
-            #
-            # The pattern is anchored on the directory the command is invoked
-            # from - the venv entry point under bin/ and the bash script it
-            # execs from lib/ - because a bare name also matches any process
-            # merely mentioning it, a tail or a grep included, which would
-            # refuse the build for no reason.
-            #
-            # The bracket stops pgrep matching this script, whose own text is
-            # part of its command line. For the same reason neither unbracketed
-            # form may appear anywhere in this task.
-            other_build="$(pgrep -f '(bin|lib)/disk-image[-]create' | tr '\n' ' ' || true)"
-            if [ -n "$other_build" ] ; then
-              echo "another image build is already running (pids: $other_build)" >&2
-              echo "refusing to tear down shared state underneath it" >&2
-              echo "wait for it to finish, or kill it if it is stuck" >&2
-              exit 1
-            fi
-
-            dib_tmp="${TMP_DIR:-/tmp}/dib_"
-            mount_points="$(mount | awk -v root="{{ build_dir }}" -v tmp="$dib_tmp" '
-              { mp = $3 }
-              index(mp, root) == 1 && (length(mp) == length(root) || substr(mp, length(root) + 1, 1) == "/") { print length(mp), mp; next }
-              index(mp, tmp) == 1 { print length(mp), mp }
-            ' | sort -rn | cut -d" " -f2-)"
-            while IFS= read -r mount_point; do
-              [ -z "$mount_point" ] || umount -l "$mount_point"
-            done <<< "$mount_points"
-
-            # Remove the now-unmounted scratch dirs so /tmp does not fill up.
-            find "${TMP_DIR:-/tmp}" -maxdepth 1 -type d \
-              \( -name 'dib_build.*' -o -name 'dib_image.*' \) -exec rm -rf {} + || true
-
-            # Tear down LVM left behind by a build that died before its own
-            # cleanup ran. Every distro builds into a VG named vg1 (see
-            # block-device-config/), so a single abandoned VG fails every later
-            # build with "vgcreate ... /dev/vg1: already exists in filesystem" -
-            # and it outlives the scratch dirs removed above, because the VG is
-            # registered in the host LVM metadata rather than living in /tmp.
-            # Only VGs whose PVs are all loop-backed are touched, so this stays
-            # inert on a build host that genuinely uses LVM for its own storage.
-            # Keep apostrophes out of these comments: the shell body goes
-            # through the Ansible argument splitter, which counts quotes, and an
-            # odd number fails the play at parse time.
-            lvm_loop_devices=""
-            for vg in $(vgs --noheadings -o vg_name 2>/dev/null | tr -d ' ' || true) ; do
-              [ "$vg" = "{{ dib_vg_name | default('vg1') }}" ] || continue
-              pv_list="$(pvs --noheadings -o pv_name --select "vg_name=$vg" 2>/dev/null | tr -d ' ' || true)"
-              [ -n "$pv_list" ] || continue
-              if echo "$pv_list" | grep -qv '^/dev/\(mapper/\)\?loop' ; then
-                continue
-              fi
-              vgchange -an "$vg" || true
-              vgremove -f "$vg" || true
-              for pv in $pv_list ; do
-                pvremove -ff -y "$pv" || true
-                pv_name="${pv##*/}"
-                pv_name="${pv_name%%p[0-9]*}"
-                lvm_loop_devices="$lvm_loop_devices /dev/$pv_name"
-              done
-            done
-
-            # Detach loop devices backed by a file under build_dir or a dib
-            # scratch dir, plus dib images whose backing file is already gone.
-            # That last case is not hypothetical: when the scratch dir of a
-            # failed build is removed out from under a live loop device the path
-            # collapses to a bare /image0.raw, which matches neither prefix, so
-            # the device survived every subsequent cleanup on 2026-07-30 and
-            # kept its VG pinned. Matching image*.raw keeps this away from the
-            # other loop devices on the host, snap mounts included.
-            loop_devices="$(losetup -l --noheadings -O NAME,BACK-FILE 2>/dev/null | while read -r dev back ; do
-              back="${back% (deleted)}"
-              case "$back" in
-                "{{ build_dir }}"/*|"$dib_tmp"*) echo "$dev" ;;
-                *) case " $lvm_loop_devices " in *" $dev "*) echo "$dev" ;; esac ;;
-              esac
-            done || true)"
-            # Drop only kpartx mappings belonging to those loop devices before
-            # detaching them; the mappings otherwise keep the loop devices busy.
-            while IFS= read -r loop_dev; do
-              [ -z "$loop_dev" ] && continue
-              loop_name="${loop_dev##*/}"
-              for dm_name in $(dmsetup ls 2>/dev/null | awk -v prefix="${loop_name}p" '$1 ~ "^" prefix "[0-9]+$" { print $1 }' || true) ; do
-                dmsetup remove "$dm_name" || true
-              done
-            done <<< "$loop_devices"
-
-            while IFS= read -r loop_dev; do
-              [ -z "$loop_dev" ] || losetup -d "$loop_dev" || true
-            done <<< "$loop_devices"
-          args:
-            executable: /bin/bash
+          ansible.builtin.script: "{{ playbook_dir }}/../bin/cleanup-dib-build.sh"
+          environment:
+            DIB_BUILD_DIR: "{{ build_dir }}"
+            DIB_TMP_DIR: "{{ (ansible_env.TMPDIR | default('/tmp')) ~ '/dib_' }}"
+            DIB_VG_NAME: "{{ dib_vg_name | default('vg1') }}"
           become: true
           changed_when: false
 
@@ -210,7 +115,7 @@
               ansible.builtin.file:
                 path: "{{ swap_script.path }}"
                 state: absent
-              when: swap_script is defined
+              when: swap_script.path is defined
 
         - name: Retrieve image metadata
           ansible.builtin.command:

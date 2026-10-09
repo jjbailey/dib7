@@ -7,15 +7,10 @@
 # Common setup tasks shared across multiple playbooks.
 # This is a tasks file, not a playbook - included via include_tasks.
 
-- name: Determine target group
-  ansible.builtin.set_fact:
-    target_group: "{{ group_names | difference([inventory_hostname]) | sort | first }}"
-  when: target_group is not defined
-
 - name: Validate target group is defined
   ansible.builtin.assert:
     that: target_group is defined
-    fail_msg: "target_group is not defined. Ensure the host belongs to at least one group."
+    fail_msg: "target_group is not defined. Each image host must belong to a distro group that sets it."
 
 - name: Confirm inventory group variables were loaded
   ansible.builtin.assert:

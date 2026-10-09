@@ -33,7 +33,7 @@
         {{ host }}: {{ hostvars[host].stage_error | default('see log') | trim }}
       {% endfor %}
   when:
-    - inventory_hostname == ansible_play_hosts_all[0]
+    - inventory_hostname == (ansible_play_hosts | first | default(''))
     - (stage_failure_mode | default('fail_closed')) == 'explicit'
     - stage_failures | length > 0
   vars:
@@ -54,7 +54,7 @@
         {{ host }}: {{ hostvars[host].stage_error | default('see log') | trim }}
       {% endfor %}
   when:
-    - inventory_hostname == ansible_play_hosts_all[0]
+    - inventory_hostname == (ansible_play_hosts | first | default(''))
     - (stage_failure_mode | default('fail_closed')) == 'fail_closed'
     - stage_failures | length > 0
   vars:

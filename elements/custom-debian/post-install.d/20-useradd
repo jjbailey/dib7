@@ -7,8 +7,8 @@ set -eu
 set -o pipefail
 
 useradd -g debian -u 1000 -m -d /home/debian -s /bin/bash debian
-echo 'debian:debian' | chpasswd -c MD5
-echo 'root:root' | chpasswd -c MD5
+echo 'debian:debian' | chpasswd -c SHA512
+echo 'root:root' | chpasswd -c SHA512
 
 echo -e "debian\tALL=(ALL)\tNOPASSWD: ALL" > /etc/sudoers.d/debian
 chmod 440 /etc/sudoers.d/debian

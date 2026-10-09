@@ -20,6 +20,10 @@ project_dir="$(CDPATH= builtin cd -- "$script_dir/.." >/dev/null && builtin pwd 
 
 invoked_as="$(basename -- "$0")"
 target="${invoked_as%-vault.sh}"
+if [ "$target" = "edit" ] && [ -z "${VAULT:-}" ] ; then
+    echo "$invoked_as: run this through <target>-vault.sh, or set VAULT" >&2
+    exit 2
+fi
 if [ "$target" = "$invoked_as" ] || [ -z "$target" ] ; then
     if [ -z "${VAULT:-}" ] ; then
         echo "$invoked_as: run this through <target>-vault.sh, or set VAULT" >&2

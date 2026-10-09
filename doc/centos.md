@@ -31,7 +31,7 @@ Confirm that the live virtualenv contains the patched element:
 
 ```bash
 DIB7_SITE=$(~/.dib7/bin/python3 -c "import site; print(site.getsitepackages()[0])")
-grep -c 'CentOS-Stream-GenericCloud-10-' \
+grep -cF 'CentOS-Stream-${DIB_FLAVOR}-10-' \
   "$DIB7_SITE/diskimage_builder/elements/centos/root.d/10-centos-cloud-image"
 # expect: 1
 ```

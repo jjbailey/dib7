@@ -7,8 +7,8 @@ set -eu
 set -o pipefail
 
 useradd -g rocky -u 1000 -m -d /home/rocky -s /bin/bash rocky
-echo 'rocky:rocky' | chpasswd -c MD5
-echo 'root:root' | chpasswd -c MD5
+echo 'rocky:rocky' | chpasswd -c SHA512
+echo 'root:root' | chpasswd -c SHA512
 
 echo -e "rocky\tALL=(ALL)\tNOPASSWD: ALL" > /etc/sudoers.d/rocky
 chmod 440 /etc/sudoers.d/rocky

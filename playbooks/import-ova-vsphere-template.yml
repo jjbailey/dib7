@@ -76,7 +76,7 @@
               - "-ova"
               - "{{ build_dir }}/{{ ova_file }}"
               - "-templateName"
-              - "{{ vsphere_template_name | default(inventory_hostname ~ '.tmpl') }}"
+              - "{{ vsphere_template_name }}"
               - "-folder"
               - "{{ vsphere_template_folder | default('Templates') }}"
               - "-vmHost"
@@ -96,7 +96,7 @@
             catalog_provider: vsphere
             # The template is a new artifact even when its source OVA upload
             # was skipped because the content-library item was unchanged.
-            catalog_artifact_id: "{{ vsphere_template_name | default(inventory_hostname ~ '.tmpl') }}"
+            catalog_artifact_id: "{{ vsphere_template_name }}"
             catalog_artifact_type: content_library_template
             catalog_supersede: true
             catalog_boot_mode: "{{ image_boot_mode }}"

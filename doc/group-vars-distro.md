@@ -10,7 +10,8 @@ defaults from `group_vars/all/main.yml`. The following groups are defined:
 - `group_vars/ubuntu/main.yml`
 
 Each file now holds only what actually differs between distros -
-`elements_base`, `vm_os_type` and `vm_os_description`. Everything the five
+`elements_base`, `image_ssh_username`, `vm_os_type` and `vm_os_description`.
+Everything the five
 groups share (block device, bootloader command line, element path, VM sizing,
 swap and network) is defined once in `group_vars/all/main.yml`; see
 [group-vars-all.md](group-vars-all.md). The
@@ -70,7 +71,8 @@ DIB elements are the modular build components assembled by `disk-image-create`.
 <!-- markdownlint-enable MD013 MD060 -->
 
 `elements_path` and `elements_custom` are shared and live in
-`group_vars/all/main.yml`; only `elements_base` is per-distro.
+`group_vars/all/main.yml`; only `elements_base` and `image_ssh_username` are
+per-distro.
 
 The `elements_base` for each group:
 
@@ -144,19 +146,19 @@ image is built, conditionally on `add_swap`. All three are shared and live in
 
 ## Per-Distro Differences
 
-Variables that differ across the five groups. These three are the only
+Variables that differ across the five groups. These four are the only
 variables defined in the per-distro files; everything else is defined once in
 `group_vars/all/main.yml` and is identical for all five groups.
 
 <!-- markdownlint-disable MD013 MD060 -->
 
-| Group    | `elements_base`                                                       | `vm_os_type`       | `vm_os_description`            |
-| -------- | --------------------------------------------------------------------- | ------------------ | ------------------------------ |
-| `centos` | `bootloader block-device-efi-lvm centos dracut-regenerate`            | `centos9_64Guest`  | `CentOS 10 (64-bit)`           |
-| `debian` | `bootloader block-device-efi-lvm debian-minimal`                      | `debian12_64Guest` | `Debian GNU/Linux 12 (64-bit)` |
-| `fedora` | `bootloader block-device-efi-lvm fedora dracut-regenerate`            | `centos9_64Guest`  | `Red Hat Fedora (64-bit)`      |
-| `rocky`  | `bootloader block-device-efi-lvm rocky-cloud-image dracut-regenerate` | `centos9_64Guest`  | `Rocky Linux 10 (64-bit)`      |
-| `ubuntu` | `bootloader block-device-efi-lvm ubuntu-minimal`                      | `ubuntu64Guest`    | `Ubuntu Linux (64-bit)`        |
+| Group    | `elements_base`                                                       | `image_ssh_username` | `vm_os_type`       | `vm_os_description`            |
+| -------- | --------------------------------------------------------------------- | -------------------- | ------------------ | ------------------------------ |
+| `centos` | `bootloader block-device-efi-lvm centos dracut-regenerate`            | `cloud-user`         | `centos9_64Guest`  | `CentOS 10 (64-bit)`           |
+| `debian` | `bootloader block-device-efi-lvm debian-minimal`                      | `debian`             | `debian12_64Guest` | `Debian GNU/Linux 12 (64-bit)` |
+| `fedora` | `bootloader block-device-efi-lvm fedora dracut-regenerate`            | `fedora`             | `centos9_64Guest`  | `Red Hat Fedora (64-bit)`      |
+| `rocky`  | `bootloader block-device-efi-lvm rocky-cloud-image dracut-regenerate` | `rocky`              | `centos9_64Guest`  | `Rocky Linux 10 (64-bit)`      |
+| `ubuntu` | `bootloader block-device-efi-lvm ubuntu-minimal`                      | `ubuntu`             | `ubuntu64Guest`    | `Ubuntu Linux (64-bit)`        |
 
 <!-- markdownlint-enable MD013 MD060 -->
 

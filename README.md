@@ -88,6 +88,9 @@ are the only copy.
 - Red Hat Enterprise Linux (RHEL)
 - CentOS
 - Gentoo
+- `opensuse`
+- `almalinux-container`
+- `openeuler-minimal`
 
 The import playbooks publish provider-specific artifact IDs to a versioned image
 catalog. See [doc/image-catalog.md](doc/image-catalog.md) for the Terraform
@@ -270,9 +273,12 @@ dib7/
 │   ├── reconcile-catalog-aws.py # Removes catalog AMIs gone from AWS
 │   ├── reconcile-catalog-gcp.py # Removes catalog images gone from GCP
 │   ├── reconcile-catalog-openstack.py # Removes catalog images gone from OpenStack
+│   ├── reconcile-catalog-vsphere.py # Removes catalog objects gone from vSphere
+│   ├── reconcile_catalog_common.py # Shared catalog reconciliation logic
+│   ├── cleanup-dib-build.sh       # Removes leftovers from failed DIB builds
 │   ├── inspect-qcow2.sh         # Script for examining and modifying virtual machines
 │   └── *-vault.sh               # Vault management scripts
-├── block-device-config/         # DIB EFI/GPT block-device layouts
+├── block-device-config/         # example DIB block-device layouts
 ├── catalogs/                    # Versioned provider artifact catalog and schema
 ├── doc/                         # Documentation
 ├── elements/                    # DIB elements for custom OS configurations
@@ -446,11 +452,12 @@ vsphere_projects:
 # vcenter_password block remains supported.
 ```
 
-The selector is byte-identical to migrate-vmware's (the source of truth for
-this logic) apart from its file path, and also derives the `GOVC_URL` /
-`GOVC_USERNAME` / `GOVC_PASSWORD` / `GOVC_INSECURE` and lowercase `govc_*`
-variables that repo's govc/ovftool tasks consume. Nothing in this repo reads
-them today; they are kept for parity so the two selectors stay in lockstep.
+The selector is maintained in this repository. The previously documented
+`migrate-vmware` mirror path is absent from the checkout available here, so
+there is no verifiable external copy to edit first. It also derives the
+`GOVC_URL` / `GOVC_USERNAME` / `GOVC_PASSWORD` / `GOVC_INSECURE` and lowercase
+`govc_*` compatibility variables; keep them until a current source of truth is
+identified.
 
 The template playbook also uses these non-secret variables (site defaults in
 `group_vars/all/main.yml`):
@@ -468,9 +475,14 @@ CentOS Stream, which uses `cloud-user`. The temporary password is the account
 name in every case, `root`/`root` also works, and each account has passwordless
 sudo.
 
-These passwords are predictable on purpose and are meant for test environments
-only: replace them with SSH keys and disable password authentication before using
-an image anywhere else.
+These passwords are predictable on purpose as a bootstrap path for test images.
+They must be changed immediately after deployment, and password authentication
+must be disabled before an image is used outside a controlled test environment.
+The image build does not know whether its eventual target is test or production,
+so the deployment or configuration step owns that rotation.
+
+The password hashes use SHA-512; this improves storage resistance but does not
+make the bootstrap passwords secret or suitable for long-term use.
 
 The account names come from each element's `post-install.d/20-useradd`, which is
 the source of truth if this list and an image ever disagree.
@@ -551,10 +563,12 @@ Run the local validation suite before committing changes:
 ./tests/validate.sh
 ```
 
-This checks every actual playbook with Ansible syntax validation, verifies the
-pinned Ansible collections and the Fedora and CentOS Stream 10 DIB
-compatibility, validates the catalog schema, parses non-secret YAML and
-PowerShell, runs `bash -n` against the shell helpers, compiles the Python
+This checks every actual playbook with Ansible syntax validation, wraps task
+files to parse them as tasks, and checks that `include_tasks` targets exist. It
+verifies the pinned Ansible collections and the Fedora and CentOS Stream 10 DIB
+compatibility, validates the vault schemas when the password file is available,
+validates the catalog schema, parses non-secret YAML and PowerShell, runs
+`bash -n` against the shell helpers, compiles the Python
 utilities with `py_compile`, and runs the catalog tests in
 `tests/test_catalog.py` plus the Ansible and PowerShell regressions in
 `tests/test_pipeline.py`. These regressions use temporary files and mocked

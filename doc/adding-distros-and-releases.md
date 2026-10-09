@@ -90,9 +90,10 @@ newdistro:
 
 1. Create `group_vars/newdistro/main.yml`.
 
-Create the file with the three settings that differ per distro:
+Create the file with the four settings that differ per distro:
 
 - `elements_base`
+- `image_ssh_username`
 - `vm_os_type`
 - `vm_os_description`
 
@@ -111,6 +112,10 @@ In particular, verify that `elements_base` references valid upstream DIB
 elements for the target distro.
 
 1. Check provider-specific constraints.
+
+If AWS import is wanted, add the new host to the `aws_import` inventory group.
+That group controls which images the AWS runner imports; membership does not
+mean AWS supports the distro release.
 
 Examples:
 
@@ -134,8 +139,9 @@ Use this quick checklist before considering the work done:
   all spelled identically, and no group shares a name with a host. Ansible
   auto-loads `group_vars/` by _group_ name, so a mismatch silently loads no
   variables at all rather than raising an error
-- `group_vars/<distro>/main.yml` exists and sets `elements_base`, `vm_os_type`
-  and `vm_os_description`
+- `group_vars/<distro>/main.yml` exists and sets `elements_base`,
+  `image_ssh_username`, `vm_os_type` and `vm_os_description`
+- the new host is in `aws_import` if AWS import is wanted
 - `elements/custom-<distro>/` exists and still works for the new release
 - supported-release docs are updated
 - `~/.dib7/bin/ansible-playbook playbooks/build-qcow2.yml -l <host>` succeeds

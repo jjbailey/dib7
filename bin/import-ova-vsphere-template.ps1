@@ -88,7 +88,6 @@ try {
     if ($UseExistingLibraryItem) {
         $ovaName = [System.IO.Path]::GetFileNameWithoutExtension($ova)
         $ovaFile = "$ovaName.ova"
-        $sha1 = "library-item"
         $contentLibrary = Get-ContentLibrary -Name $library -ErrorAction Stop
         $importedItem = Get-ContentLibraryItem -ContentLibrary $contentLibrary -Name $ovaName -ErrorAction Stop
         $itemType = [string]$importedItem.ItemType
@@ -225,7 +224,13 @@ try {
 
     # Include a timestamp in local time so the template's Notes preserve when it was created.
     $createdAt = Get-Date -Format "yyyy-MM-dd HH:mm:ss zzz"
-    Set-VM -VM $vm -Notes "Template created from $ovaFile (SHA1 $sha1) at $createdAt" -Confirm:$false | Out-Null
+    $sourceNote = if ($UseExistingLibraryItem) {
+        "reused existing content library item"
+    }
+    else {
+        "SHA1 $sha1"
+    }
+    Set-VM -VM $vm -Notes "Template created from $ovaFile ($sourceNote) at $createdAt" -Confirm:$false | Out-Null
     $template = Set-VM -VM $vm -ToTemplate -Name $templateName -Confirm:$false
     Move-Inventory -Item $template -Destination $folderObj -Confirm:$false | Out-Null
 
