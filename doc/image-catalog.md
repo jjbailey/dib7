@@ -116,10 +116,15 @@ snapshot without holding the lock during cloud calls, then re-reads the catalog
 under an exclusive lock before an atomic replacement.
 
 ```bash
-bin/reconcile-catalog-aws.py --dry-run
-bin/reconcile-catalog-gcp.py --dry-run
-bin/reconcile-catalog-openstack.py --dry-run
+~/.dib7/bin/python3 bin/reconcile-catalog-aws.py --region us-west-2 --dry-run
+~/.dib7/bin/python3 bin/reconcile-catalog-gcp.py --dry-run
+~/.dib7/bin/python3 bin/reconcile-catalog-openstack.py --dry-run
+~/.dib7/bin/python3 bin/reconcile-catalog-vsphere.py --dry-run
 ```
+
+Use the project virtualenv interpreter for these commands. The GCP and
+OpenStack reconcilers depend on SDK packages installed there, and the vSphere
+reconciler also requires `pwsh` with PowerCLI.
 
 Each reconciler works on one target scope and auto-selects it when the catalog
 holds exactly one; when the catalog holds several targets for a provider, the

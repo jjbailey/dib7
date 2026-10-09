@@ -90,8 +90,9 @@ Included with `include_tasks`, never run standalone. `ansible-playbook
 
 - **`backfill-vsphere-ova-catalog.yml`**: Rebuilds `content_library_ova`
   catalog entries for OVAs an earlier run already imported, without contacting
-  vCenter. Recovers entries lost to the publish bug fixed in this branch; not
-  part of the normal pipeline.
+  vCenter. Recovers entries lost to a publish bug fixed earlier. It reads the
+  selected vCenter from the vault and rejects markers without a recorded
+  vCenter; not part of the normal pipeline.
 
 ## Usage Strategy
 

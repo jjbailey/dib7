@@ -15,11 +15,11 @@ once here rather than per group. See
 
 <!-- markdownlint-disable MD013 -->
 
-| Variable      | Default                                 | Description                                                                                                                                                                                                                                                           |
-| ------------- | --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `venv_bin`    | `{{ ansible_env.HOME }}/.dib7/bin`      | Directory holding `disk-image-create` and the other virtualenv tools.                                                                                                                                                                                                 |
-| `path`        | `{{ venv_bin }}:{{ ansible_env.PATH }}` | Prepends the virtualenv bin dir to `PATH` so its binaries are found first.                                                                                                                                                                                            |
-| `build_dir`   | `/work/dib-builds`                      | Staging directory for all image files. Used by every playbook in the pipeline.                                                                                                                                                                                        |
+| Variable      | Default                                 | Description                                                                                                                                                                                                                                                                       |
+| ------------- | --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `venv_bin`    | `{{ ansible_env.HOME }}/.dib7/bin`      | Directory holding `disk-image-create` and the other virtualenv tools.                                                                                                                                                                                                             |
+| `path`        | `{{ venv_bin }}:{{ ansible_env.PATH }}` | Prepends the virtualenv bin dir to `PATH` so its binaries are found first.                                                                                                                                                                                                        |
+| `build_dir`   | `/work/dib-builds`                      | Staging directory for all image files. Used by every playbook in the pipeline.                                                                                                                                                                                                    |
 | `dib_vg_name` | `vg1`                                   | Name of the LVM volume group the build creates. Used by `bin/cleanup-dib-build.sh` and to build `swap_device`. It must stay `vg1`: `block-device-config/block-device-efi-config.yml` hard-codes that name and is not templated, so changing this variable alone breaks the build. |
 
 <!-- markdownlint-enable MD013 -->
@@ -46,26 +46,26 @@ once here rather than per group. See
 Every group builds with the same block device layout, kernel command line,
 element path, VM sizing, swap and network, so these are defined here rather
 than repeated in each `group_vars/<group>/main.yml`. Only `elements_base`,
-`vm_os_type` and `vm_os_description` differ per distro - see
+`image_ssh_username`, `vm_os_type` and `vm_os_description` differ per distro - see
 [group-vars-distro.md](group-vars-distro.md).
 
 <!-- markdownlint-disable MD013 -->
 
-| Variable                         | Default                                                                          | Description                                                          |
-| -------------------------------- | -------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| `dib_block_device`               | `gpt`                                                                            | Partition table type, exported as `DIB_BLOCK_DEVICE`.                |
+| Variable                         | Default                                                                          | Description                                                                                                                       |
+| -------------------------------- | -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `dib_block_device`               | `gpt`                                                                            | Partition table type, exported as `DIB_BLOCK_DEVICE`.                                                                             |
 | `dib_block_device_config`        | `block-device-efi-config.yml`                                                    | LVM/EFI block device layout, looked up from the example files in `block-device-config/`; copy or replace one for your deployment. |
-| `dib_openssh_server_hardening`   | `0`                                                                              | Disables the DIB SSH hardening element.                              |
-| `dib_cloud_init_datasources`     | `None`                                                                           | Disables cloud-init datasource detection.                            |
-| `dib_bootloader_default_cmdline` | `biosdevname=0 iommu=on net.ifnames=0 dm_mod.use_blk_mq=Y scsi_mod.use_blk_mq=Y` | Default kernel command line.                                         |
-| `elements_path`                  | `../elements`                                                                    | Exported as `ELEMENTS_PATH` for the in-tree elements.                |
-| `elements_custom`                | `custom-{{ target_group }}`                                                      | The distro's own element, appended after `elements_base`.            |
-| `vm_memory_mb`                   | `4096`                                                                           | VM memory in MB, written into the OVF descriptor.                    |
-| `vm_cpus`                        | `4`                                                                              | Virtual CPUs, written into the OVF descriptor.                       |
-| `add_swap`                       | `true`                                                                           | Create a swap LV inside the image (via `guestfish`) after the build. |
-| `swap_device`                    | `/dev/mapper/{{ dib_vg_name }}-lv_swap`                                          | Swap LV path added to `/etc/fstab` inside the image.                 |
-| `swap_size`                      | `4096`                                                                           | Swap LV size in MB.                                                  |
-| `vm_network`                     | `VM Network`                                                                     | Network name written into the OVF `NetworkSection`.                  |
+| `dib_openssh_server_hardening`   | `0`                                                                              | Disables the DIB SSH hardening element.                                                                                           |
+| `dib_cloud_init_datasources`     | `None`                                                                           | Disables cloud-init datasource detection.                                                                                         |
+| `dib_bootloader_default_cmdline` | `biosdevname=0 iommu=on net.ifnames=0 dm_mod.use_blk_mq=Y scsi_mod.use_blk_mq=Y` | Default kernel command line.                                                                                                      |
+| `elements_path`                  | `../elements`                                                                    | Exported as `ELEMENTS_PATH` for the in-tree elements.                                                                             |
+| `elements_custom`                | `custom-{{ target_group }}`                                                      | The distro's own element, appended after `elements_base`.                                                                         |
+| `vm_memory_mb`                   | `4096`                                                                           | VM memory in MB, written into the OVF descriptor.                                                                                 |
+| `vm_cpus`                        | `4`                                                                              | Virtual CPUs, written into the OVF descriptor.                                                                                    |
+| `add_swap`                       | `true`                                                                           | Create a swap LV inside the image (via `guestfish`) after the build.                                                              |
+| `swap_device`                    | `/dev/mapper/{{ dib_vg_name }}-lv_swap`                                          | Swap LV path added to `/etc/fstab` inside the image.                                                                              |
+| `swap_size`                      | `4096`                                                                           | Swap LV size in MB.                                                                                                               |
+| `vm_network`                     | `VM Network`                                                                     | Network name written into the OVF `NetworkSection`.                                                                               |
 
 <!-- markdownlint-enable MD013 -->
 
@@ -131,13 +131,40 @@ The Terraform integration contract. See [image-catalog.md](image-catalog.md).
 
 <!-- markdownlint-disable MD013 -->
 
-| Variable                        | Default                 | Description                                                                                   |
-| ------------------------------- | ----------------------- | --------------------------------------------------------------------------------------------- |
-| `aws_import_boot_mode`          | `{{ image_boot_mode }}` | Boot mode handed to AWS `ImportImage`. Separate only because the API takes it as a parameter. |
-| `gcp_replace_existing_image`    | `true`                  | Delete and recreate a GCP image of the same name rather than failing.                         |
-| `gcp_delete_qcow2_after_import` | `false`                 | Whether to remove the staged QCOW2 from GCS after a successful import.                        |
+| Variable                        | Default                 | Description                                                                                       |
+| ------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------- |
+| `aws_import_boot_mode`          | `{{ image_boot_mode }}` | Boot mode handed to AWS `ImportImage`. Separate only because the API takes it as a parameter.     |
+| `gcp_import_location`           | `us-central1`           | Region where the GCP import job runs. A `gcp_projects` entry in `vaults/gcp.yml` can override it. |
+| `gcp_replace_existing_image`    | `true`                  | Delete and recreate a GCP image of the same name rather than failing.                             |
+| `gcp_delete_qcow2_after_import` | `false`                 | Whether to remove the staged QCOW2 from GCS after a successful import.                            |
 
 <!-- markdownlint-enable MD013 -->
+
+---
+
+## OVF Metadata
+
+These shared defaults populate the OVF descriptor. A distro can override them
+when VMware requires a different numeric guest identifier.
+
+| Variable         | Default | Description                                     |
+| ---------------- | ------- | ----------------------------------------------- |
+| `ovf_os_id`      | `107`   | Numeric operating-system identifier in the OVF. |
+| `ovf_os_version` | `7`     | Version value written into the OVF metadata.    |
+
+---
+
+## vSphere Defaults
+
+The content library and template placement defaults can be overridden by
+`vaults/vsphere.yml`.
+
+| Variable                  | Default                              | Description                                 |
+| ------------------------- | ------------------------------------ | ------------------------------------------- |
+| `vsphere_content_library` | `Content_Library`                    | Content library used by vSphere imports.    |
+| `vsphere_template_name`   | `{{ inventory_hostname }}-base.tmpl` | Template name created from the OVA.         |
+| `vsphere_template_folder` | `Templates`                          | Inventory folder receiving the template.    |
+| `vsphere_template_host`   | empty                                | Optional ESXi host for template deployment. |
 
 ---
 
@@ -174,5 +201,5 @@ distro. See
 [adding-distros-and-releases.md](adding-distros-and-releases.md).
 
 Group files define only what differs per distro - `elements_base`,
-`vm_os_type` and `vm_os_description` - and may shadow any variable defined
+`image_ssh_username`, `vm_os_type` and `vm_os_description` - and may shadow any variable defined
 here. See [group-vars-distro.md](group-vars-distro.md).

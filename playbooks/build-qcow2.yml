@@ -115,7 +115,7 @@
               ansible.builtin.file:
                 path: "{{ swap_script.path }}"
                 state: absent
-              when: swap_script is defined
+              when: swap_script.path is defined
 
         - name: Retrieve image metadata
           ansible.builtin.command:

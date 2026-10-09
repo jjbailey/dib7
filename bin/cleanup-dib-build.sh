@@ -17,7 +17,11 @@ case "${1:-}" in
 esac
 
 build_dir="${DIB_BUILD_DIR:?DIB_BUILD_DIR is required}"
-dib_tmp="${DIB_TMP_DIR:-${TMP_DIR:-/tmp}/dib_}"
+dib_tmp="${DIB_TMP_DIR:-${TMPDIR:-/tmp}/dib_}"
+dib_tmp_root="${dib_tmp%/dib_}"
+if [ "$dib_tmp_root" = "$dib_tmp" ] ; then
+    dib_tmp_root="$(dirname -- "$dib_tmp")"
+fi
 vg_name="${DIB_VG_NAME:-vg1}"
 
 run()
@@ -58,7 +62,7 @@ while IFS= read -r mount_point; do
     [ -z "$mount_point" ] || run umount -l "$mount_point"
 done <<< "$mount_points"
 
-run_best_effort find "${TMP_DIR:-/tmp}" -maxdepth 1 -type d \
+run_best_effort find "$dib_tmp_root" -maxdepth 1 -type d \
     \( -name 'dib_build.*' -o -name 'dib_image.*' \) -exec rm -rf {} +
 
 lvm_loop_devices=""

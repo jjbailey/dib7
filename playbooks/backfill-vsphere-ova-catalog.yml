@@ -16,11 +16,12 @@
 # imported before that was fixed is in the content library but absent from the
 # catalog. This play closes that gap for those images.
 #
-# It touches no cloud API and needs no vault: every field is derived from
-# group_vars plus the stamps the pipeline already wrote next to the artifacts.
+# It touches no cloud API. It reads the selected vCenter from the vault so the
+# marker's server hostname can be checked and the catalog uses the same stable
+# vCenter name as the normal import playbooks.
 #
-#   ansible-playbook playbooks/backfill-vsphere-ova-catalog.yml
-#   ansible-playbook playbooks/backfill-vsphere-ova-catalog.yml -l debian
+#   ansible-playbook playbooks/backfill-vsphere-ova-catalog.yml --ask-vault-pass
+#   ansible-playbook playbooks/backfill-vsphere-ova-catalog.yml -l debian --ask-vault-pass
 #
 # Nothing is published for a host whose stamps do not prove the import
 # happened, so running it against a half-finished build dir is safe.
@@ -32,6 +33,9 @@
   tasks:
     - name: Include common setup tasks
       ansible.builtin.include_tasks: common-setup.yml
+
+    - name: Resolve the selected vCenter from the vault
+      ansible.builtin.include_tasks: tasks/select-vcenter.yml
 
     - name: Backfill the catalog for one image
       block:
@@ -53,25 +57,34 @@
             src: "{{ build_dir }}/{{ ova_file }}.imported"
           register: imported_stamp
 
-        # Marker format is "<sha1>  <library name>". Split once on the first run
-        # of whitespace rather than taking the last field: a content library
-        # name containing a space would otherwise come back as its final word,
-        # and the comparison below would then fail for the wrong reason.
+        # Current markers are "<sha1>  <vcenter hostname>  <library name>".
+        # A legacy two-field marker cannot prove which vCenter received the
+        # OVA, so it must be re-imported before a scoped catalog row is safe.
         - name: Read the fields of the content library import marker
           ansible.builtin.set_fact:
             marker_fields: >-
-              {{ (imported_stamp.content | b64decode | trim).split(None, 1) }}
+              {{ (imported_stamp.content | b64decode | trim).split(None, 2) }}
 
         - name: Fail if the import marker is malformed
           ansible.builtin.fail:
             msg: >-
               {{ build_dir }}/{{ ova_file }}.imported is not
-              "<sha1>  <library name>": {{ marker_fields | join(' / ') }}
-          when: marker_fields | length != 2
+              "<sha1>  <vcenter>  <library name>": {{ marker_fields | join(' / ') }}.
+              Markers without a vCenter hostname must be recreated by re-importing the OVA.
+          when: marker_fields | length != 3
 
-        - name: Extract the library the OVA actually landed in
+        - name: Extract the import target from the marker
           ansible.builtin.set_fact:
-            imported_library: "{{ marker_fields[1] }}"
+            imported_vcenter: "{{ marker_fields[1] }}"
+            imported_library: "{{ marker_fields[2] }}"
+
+        - name: Fail if the marker hostname differs from the selected vCenter
+          ansible.builtin.fail:
+            msg: >-
+              {{ ova_file }} was imported into vCenter '{{ imported_vcenter }}'
+              but the selected vCenter hostname is '{{ vcenter_hostname }}'.
+              Re-import it or select the matching vCenter before backfilling.
+          when: imported_vcenter | lower != vcenter_hostname | lower
 
         # Guards against backfilling an entry that claims the library configured
         # today when the artifact was imported into a different one.
@@ -123,6 +136,7 @@
             catalog_version: "{{ backfill_version }}"
             catalog_scope:
               content_library: "{{ vsphere_content_library }}"
+              vcenter: "{{ vsphere_target_name }}"
 
         - name: Mark the backfill successful
           ansible.builtin.set_fact:

@@ -10,6 +10,7 @@ from pathlib import Path
 
 import google.auth
 from google.auth.transport.requests import AuthorizedSession
+import requests
 
 from reconcile_catalog_common import read_snapshot, reconcile
 
@@ -66,5 +67,10 @@ def main():
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
-    except (OSError, ValueError, json.JSONDecodeError) as error:
+    except (
+        OSError,
+        ValueError,
+        json.JSONDecodeError,
+        requests.exceptions.RequestException,
+    ) as error:
         raise SystemExit(f"reconcile-catalog-gcp: {error}")

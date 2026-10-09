@@ -56,7 +56,7 @@
               - "-ova"
               - "{{ ova_file }}"
               - "-templateName"
-              - "{{ vsphere_template_name | default(inventory_hostname ~ '.tmpl') }}"
+              - "{{ vsphere_template_name }}"
               - "-folder"
               - "{{ vsphere_template_folder | default('Templates') }}"
               - "-vmHost"
@@ -75,12 +75,13 @@
           ansible.builtin.include_tasks: publish-image-catalog.yml
           vars:
             catalog_provider: vsphere
-            catalog_artifact_id: "{{ vsphere_template_name | default(inventory_hostname ~ '.tmpl') }}"
+            catalog_artifact_id: "{{ vsphere_template_name }}"
             catalog_artifact_type: content_library_template
             catalog_supersede: true
             catalog_boot_mode: "{{ image_boot_mode }}"
             catalog_scope:
               content_library: "{{ vsphere_content_library }}"
+              vcenter: "{{ vsphere_target_name }}"
 
         # Last task in the block, so a host only counts as succeeded if the
         # template creation and the catalog publish both worked.
