@@ -1,0 +1,11 @@
+#!/bin/bash
+# 02-set-machine-id
+# vim: set tabstop=4 shiftwidth=4 expandtab:
+
+if [ ${DIB_DEBUG_TRACE:-0} -gt 0 ]; then
+    set -x
+fi
+set -eu
+set -o pipefail
+
+systemd-machine-id-setup

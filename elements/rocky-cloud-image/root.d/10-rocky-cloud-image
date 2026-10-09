@@ -1,0 +1,57 @@
+#!/bin/bash
+# 10-rocky-cloud-image
+# vim: set tabstop=4 shiftwidth=4 expandtab:
+
+if [ ${DIB_DEBUG_TRACE:-0} -gt 0 ]; then
+    set -x
+fi
+set -eu
+set -o pipefail
+
+[ -n "$ARCH" ]
+[ -n "$TARGET_ROOT" ]
+
+case "$ARCH" in
+    amd64|x86_64)
+        ARCH=x86_64
+        ;;
+    arm64|aarch64)
+        ARCH=aarch64
+        ;;
+    *)
+        echo "rocky-cloud-image root element only supports the x86_64 and aarch64 values for \$ARCH"
+        exit 1
+        ;;
+esac
+
+DIB_CLOUD_IMAGES=${DIB_CLOUD_IMAGES:-https://dl.rockylinux.org/pub/rocky/${DIB_RELEASE}/images/${ARCH}}
+DIB_LOCAL_IMAGE=${DIB_LOCAL_IMAGE:-}
+
+if [ -n "$DIB_LOCAL_IMAGE" ]; then
+    IMAGE_LOCATION=$DIB_LOCAL_IMAGE
+    CACHED_IMAGE=$IMAGE_LOCATION
+    BASE_IMAGE_FILE=$(basename $DIB_LOCAL_IMAGE)
+    BASE_IMAGE_TAR=$BASE_IMAGE_FILE.tgz
+else
+    DIB_FLAVOR=${DIB_FLAVOR:-GenericCloud-Base}
+    BASE_IMAGE_FILE=${BASE_IMAGE_FILE:-Rocky-${DIB_RELEASE}-${DIB_FLAVOR}.latest.${ARCH}.qcow2}
+    BASE_IMAGE_TAR=$BASE_IMAGE_FILE.tgz
+    IMAGE_LOCATION=$DIB_CLOUD_IMAGES/$BASE_IMAGE_FILE
+    CACHED_IMAGE=$DIB_IMAGE_CACHE/$BASE_IMAGE_FILE
+
+    IMAGE_SUM_FILE=$BASE_IMAGE_FILE.CHECKSUM
+    IMAGE_SUM_LOCATION=$IMAGE_LOCATION.CHECKSUM
+    CACHED_SUM=$DIB_IMAGE_CACHE/$IMAGE_SUM_FILE
+
+    $TMP_HOOKS_PATH/bin/cache-url $IMAGE_LOCATION $CACHED_IMAGE
+    $TMP_HOOKS_PATH/bin/cache-url $IMAGE_SUM_LOCATION $CACHED_SUM
+    pushd $DIB_IMAGE_CACHE
+    if ! sha256sum --quiet --check $CACHED_SUM ; then
+        echo "ERROR: Image '$CACHED_IMAGE' failed sha256sum check!"
+        exit 1
+    fi
+    popd
+fi
+
+echo "Extracting image..."
+$TMP_HOOKS_PATH/bin/extract-image $BASE_IMAGE_FILE $BASE_IMAGE_TAR $IMAGE_LOCATION $CACHED_IMAGE

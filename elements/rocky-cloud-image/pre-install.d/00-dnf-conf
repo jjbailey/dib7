@@ -1,0 +1,34 @@
+#!/bin/bash
+# 00-dnf-conf
+# vim: set tabstop=4 shiftwidth=4 expandtab:
+
+if [ ${DIB_DEBUG_TRACE:-0} -gt 0 ]; then
+    set -x
+fi
+set -eu
+set -o pipefail
+
+CONF=/etc/dnf/dnf.conf
+
+if [ ! -f $CONF ] ; then
+    echo "00-dnf-conf: $CONF not found, skipping"
+    exit 0
+fi
+
+# Set KEY=VALUE in the [main] section, replacing any existing setting.
+set_dnf_opt() {
+    local key=$1 value=$2
+    if grep -qE "^[[:space:]]*${key}[[:space:]]*=" $CONF ; then
+        sed -i -E "s|^[[:space:]]*${key}[[:space:]]*=.*|${key}=${value}|" $CONF
+    elif grep -qE '^\[main\]' $CONF ; then
+        sed -i "/^\[main\]/a ${key}=${value}" $CONF
+    else
+        printf '[main]\n%s=%s\n' "$key" "$value" >> $CONF
+    fi
+}
+
+set_dnf_opt metadata_expire 0
+set_dnf_opt best False
+
+echo "00-dnf-conf: effective settings"
+grep -nE '^[[:space:]]*(metadata_expire|best|cachedir|keepcache)[[:space:]]*=' $CONF
