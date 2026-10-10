@@ -93,7 +93,9 @@ are the only copy.
 - `openeuler-minimal`
 
 The import playbooks publish provider-specific artifact IDs to a versioned image
-catalog. See [doc/image-catalog.md](doc/image-catalog.md) for the Terraform
+catalog. Browse available entries with `python3 bin/list-image-catalog.py`; add
+`--provider openstack --image ubuntu26041-base` to filter it. See
+[doc/image-catalog.md](doc/image-catalog.md) for the catalog format and Terraform
 hand-off.
 
 ## Quick Start
@@ -269,6 +271,7 @@ dib7/
 ├── bin/                         # Utility scripts
 │   ├── import-ova-vsphere.ps1   # PowerShell vSphere import script
 │   ├── import-ova-vsphere-template.ps1  # PowerShell template import script
+│   ├── list-image-catalog.py    # Read-only catalog report
 │   ├── publish-image-catalog.py # Catalog publisher
 │   ├── reconcile-catalog-aws.py # Removes catalog AMIs gone from AWS
 │   ├── reconcile-catalog-gcp.py # Removes catalog images gone from GCP

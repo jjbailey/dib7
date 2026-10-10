@@ -1,4 +1,4 @@
-# Image catalog contract
+# Image Catalog Contract
 
 DIB7 produces images; the deployment project consumes them. The import
 playbooks publish a machine-readable JSON catalog at `image_catalog_path`
@@ -8,6 +8,23 @@ the repo rather than in `build_dir` so it survives a wipe of the build tree, and
 it is committed here, which is what gives it history and a backup. It can
 contain site-specific identifiers, so do not publish it when synchronizing a
 public source tree.
+
+## Browsing Available Images
+
+Use the read-only report from the repository root to see all published entries
+or filter to a provider and logical image name:
+
+```bash
+python3 bin/list-image-catalog.py
+python3 bin/list-image-catalog.py --provider openstack --image ubuntu26041-base
+```
+
+Each result includes the provider artifact type, published version, project,
+region, scope, artifact ID, architecture, boot mode, and SSH username. The
+report shows `published` entries by default; use `--status all` to include
+retired rows. `--project`, `--region`, `--scope KEY=VALUE`, and
+`--artifact-type` further narrow the results. This command reads the catalog
+only and does not contact a cloud provider or change the file.
 
 The schema is [catalogs/image-catalog.schema.json](../catalogs/image-catalog.schema.json).
 Each entry is identified by `(logical_name, provider, artifact_type, version,
@@ -72,7 +89,8 @@ scope, so a new entry replaces every version of that artifact in the same
 target scope.
 
 The practical rule for consumers: **for `gcp`, `openstack`, and `vsphere` there
-is exactly one current row per image, artifact type, and target scope.** Version pinning is only meaningful for `aws`.
+is exactly one current row per image, artifact type, and target scope.** Version
+pinning is only meaningful for `aws`.
 
 A publisher only ever rewrites rows matching its own `provider`, so entries for
 other providers are left untouched. That is what makes it safe to re-run one
@@ -107,7 +125,7 @@ pin - the single row is current state by construction, and the artifact behind
 it is replaced by the next run - so a deployment that must not move underneath
 itself has to capture the catalog at release time instead of resolving it live.
 
-## Catalog reconciliation
+## Catalog Reconciliation
 
 The provider reconcilers compare published catalog rows with live cloud state
 and remove stale rows entirely. They also remove rows already marked `retired`,
@@ -155,10 +173,11 @@ script fails and names the flag to disambiguate:
 
 All four scripts accept `--force` when more than half of the active provider
 rows in the selected scope would be removed. Successful reconciliation exits
-zero, including when rows were removed; errors exit nonzero. `tests/validate.sh` checks syntax
-and catalog shape, but deliberately does not perform live cloud calls.
+zero, including when rows were removed; errors exit nonzero.
+`tests/validate.sh` checks syntax and catalog shape, but deliberately does not
+perform live cloud calls.
 
-### OpenStack credentials
+### OpenStack Credentials
 
 Before connecting, `reconcile-catalog-openstack.py` checks for the credentials
 needed by the OpenStack SDK. With password authentication, export these
@@ -178,7 +197,7 @@ export OS_PROJECT_NAME=my-project
 instead; those modes do not require the individual `OS_*` variables. Missing
 credentials are reported before any OpenStack connection is attempted.
 
-## Release capture
+## Release Capture
 
 That is what makes the release step load-bearing rather than optional: a
 release process can commit the generated file to a catalog repository or copy
