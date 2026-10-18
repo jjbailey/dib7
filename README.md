@@ -80,7 +80,7 @@ are the only copy.
 - Ubuntu 24.04 LTS (Noble)
 - Ubuntu 26.04 LTS (Resolute)
 
-### Upstream diskimage-builder Operating System Elements
+### Examples of Upstream diskimage-builder Operating System Elements
 
 - Debian
 - Ubuntu
@@ -89,8 +89,12 @@ are the only copy.
 - CentOS
 - Gentoo
 - `opensuse`
+- `rocky-container`
 - `almalinux-container`
 - `openeuler-minimal`
+
+This is a short list of OS-related elements, not a complete inventory of DIB's
+elements or variants.
 
 The import playbooks publish provider-specific artifact IDs to a versioned image
 catalog. Browse available entries with `python3 bin/list-image-catalog.py`; add
@@ -117,7 +121,7 @@ hand-off.
    builds from it. See
    [doc/python3-virtualenv.md](doc/python3-virtualenv.md).
 
-2. **Pinned Ansible/Python Dependencies**
+2. **Python and Ansible Galaxy Dependencies**
 
    ```bash
    ~/.dib7/bin/python3 -m pip install -r requirements.txt
@@ -220,7 +224,10 @@ release pipeline.
 
 3. **Deploy to Target Platform**
 
-   **AWS:**
+   **AWS:** Only import releases whose exact kernel is supported by VM
+   Import/Export. The `aws_import` group limits the run to the inventory's AWS
+   candidates but does not guarantee that every release in the group is
+   supported. See [doc/aws-supported-images.md](doc/aws-supported-images.md).
 
    ```bash
    ~/.dib7/bin/ansible-playbook playbooks/convert-qcow2-to-ova.yml \
@@ -278,7 +285,7 @@ dib7/
 │   ├── reconcile-catalog-openstack.py # Removes catalog images gone from OpenStack
 │   ├── reconcile-catalog-vsphere.py # Removes catalog objects gone from vSphere
 │   ├── reconcile_catalog_common.py # Shared catalog reconciliation logic
-│   ├── cleanup-dib-build.sh       # Removes leftovers from failed DIB builds
+│   ├── cleanup-dib-build.sh     # Removes leftovers from failed DIB builds
 │   ├── inspect-qcow2.sh         # Script for examining and modifying virtual machines
 │   └── *-vault.sh               # Vault management scripts
 ├── block-device-config/         # example DIB block-device layouts
@@ -287,9 +294,10 @@ dib7/
 ├── elements/                    # DIB elements for custom OS configurations
 ├── group_vars/                  # Ansible group variables
 ├── hosts.yml                    # Inventory file
+├── local/                       # Site-local run wrappers and helpers
 ├── patches/                     # Patches applied to the venv (see doc/fedora.md and doc/centos.md)
 ├── playbooks/                   # Ansible playbooks
-├── requirements.txt             # Pinned Python dependencies
+├── requirements.txt             # Python dependencies; core build tools are pinned
 ├── requirements.yml             # Pinned Ansible collections
 ├── templates/                   # Jinja2 templates
 ├── tests/                       # Syntax and data validation
@@ -304,8 +312,6 @@ dib7/
   collections used by DIB7
 - `doc/aws-supported-images.md` - AWS VM Import/Export Linux distribution support
 - `doc/centos.md` - CentOS Stream 10 cloud-image compatibility and patching
-- [DIB7 contact sheet](doc/dib7-contact-sheet.png) - visual overview of the project and image pipeline
-- [DIB7 presentation](doc/dib7-presentation.pptx) - project presentation slides
 - `doc/fedora.md` - Fedora Server 43+ diskimage-builder compatibility and patch
 - `doc/gcloud.md` - installing the Google Cloud CLI (`gcloud`)
 - `doc/gcp-supported-images.md` - GCP Compute Engine Linux distribution support
@@ -317,6 +323,9 @@ dib7/
 - `doc/python3-virtualenv.md` - setting up the diskimage-builder Python
   virtual environment
 - `doc/vaults.md` - vault file layout required by each playbook
+- [DIB7 contact sheet](doc/dib7-contact-sheet.png) - visual overview of the project and image pipeline
+- [DIB7 presentation](doc/dib7-presentation.pptx) - project presentation slides
+- [DIB7 presentation video](doc/dib7-presentation.mp4) - recorded video of the project presentation
 
 ## Playbooks
 
@@ -378,17 +387,18 @@ supported for one account.
 
 ```yaml
 gcp_projects:
-  my-project:
-    gcp_project: "my-project"
-    gcs_bucket: "my-image-bucket"
-    # Region that runs the import job, not a bucket or image location.
-    # See doc/vaults.md.
+  my-project-a:
+    gcp_project: "my-project-a"
+    gcs_bucket: "my-bucket-a"
     gcp_import_location: "us-central1"
     service_account_key: |
-      {
-        "type": "service_account",
-        ...
-      }
+      { ... JSON ... }
+  my-project-b:
+    gcp_project: "my-project-b"
+    gcs_bucket: "my-bucket-b"
+    gcp_import_location: "us-east1"
+    service_account_key: |
+      { ... JSON ... }
 ```
 
 Select one GCP project with `-e gcp_target_project=<key-or-project-id>`; a
@@ -455,12 +465,11 @@ vsphere_projects:
 # vcenter_password block remains supported.
 ```
 
-The selector is maintained in this repository. The previously documented
-`migrate-vmware` mirror path is absent from the checkout available here, so
-there is no verifiable external copy to edit first. It also derives the
-`GOVC_URL` / `GOVC_USERNAME` / `GOVC_PASSWORD` / `GOVC_INSECURE` and lowercase
-`govc_*` compatibility variables; keep them until a current source of truth is
-identified.
+The selector is mirrored in the sibling `migrate-vmware` repo at
+`playbooks/tasks/migration/common/select-vcenter.yml`; the two copies differ
+only in the header path comment, so port any change to both. It also derives
+the `GOVC_URL` / `GOVC_USERNAME` / `GOVC_PASSWORD` / `GOVC_INSECURE` and
+lowercase `govc_*` compatibility variables; keep them.
 
 The template playbook also uses these non-secret variables (site defaults in
 `group_vars/all/main.yml`):
@@ -585,7 +594,8 @@ executed by the local suite.
 1. **DIB Build Failures**
    - Ensure all system dependencies are installed
    - Check available disk space (>50GB recommended)
-   - Verify Python virtual environment is activated
+   - Confirm `~/.dib7` contains the project dependencies and that commands use
+     its executables. The playbooks do not require the environment to be activated.
 
 2. **Stamp-gate Failures**
    - If a stage says an artifact did not complete for the current host, inspect

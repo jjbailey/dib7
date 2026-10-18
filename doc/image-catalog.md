@@ -199,9 +199,9 @@ credentials are reported before any OpenStack connection is attempted.
 
 ## Release Capture
 
-That is what makes the release step load-bearing rather than optional: a
-release process can commit the generated file to a catalog repository or copy
-it to object storage, and for the superseding providers that copy is the only
-immutable record of what a given release deployed. Set `image_catalog_path`
-accordingly; credentials remain external to this contract and are configured
-independently by each project.
+Because GCP, OpenStack, and vSphere replace prior artifacts, a release that
+needs a stable record of what it deployed must capture the catalog at release
+time. A release process can commit the generated file to a catalog repository
+or copy it to object storage. Set `image_catalog_path` accordingly; credentials
+remain external to this contract and are configured independently by each
+project.

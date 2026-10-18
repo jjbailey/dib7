@@ -59,7 +59,10 @@ packages outside the venv.
 
 ## 5. Apply the DIB Compatibility Patches
 
-Required only if you build Fedora, but harmless otherwise:
+Apply the matching patch when building Fedora 43+ or CentOS Stream 10, unless
+the installed upstream element already contains that release's filename fix.
+Each patch changes only its own distro element and is harmless to the other
+builds sharing the venv.
 
 From the project root:
 
@@ -73,7 +76,7 @@ patch -b -d "$DIB7_SITE/diskimage_builder/elements/fedora/root.d" \
 
 <!-- markdownlint-enable MD013 -->
 
-See [fedora.md](fedora.md) for what the patch does and how to verify it.
+See [fedora.md](fedora.md) for what the Fedora patch does and how to verify it.
 
 CentOS Stream 10 builds also require the CentOS filename patch:
 
@@ -84,7 +87,6 @@ patch -b -d "$DIB7_SITE/diskimage_builder/elements/centos/root.d" \
 
 It is specific to `10-stream` and harmless for other CentOS releases. See
 [centos.md](centos.md) for what it changes and how to verify it. Reapply it
-
 after upgrading `diskimage-builder` unless the installed element includes the
 upstream fix.
 
@@ -137,11 +139,13 @@ source ~/.dib7/bin/activate
 ## Upgrading
 
 `requirements.txt` pins `ansible-core` and `diskimage-builder`. After changing a
-pin, reinstall, re-apply the Fedora patch if needed, and re-verify:
+pin, reinstall, re-apply the Fedora and/or CentOS patch if needed, and
+re-verify:
 
 ```bash
 ~/.dib7/bin/python3 -m pip install -r requirements.txt
 ```
 
-A `diskimage-builder` upgrade overwrites the patched `fedora` element, so
-re-apply the patch from section 5 and re-run the checks in section 6.
+A `diskimage-builder` upgrade can overwrite either patched element. Re-run
+`tests/validate.sh`; if it reports a missing upstream fix, apply the matching
+patch from section 5 and verify again.

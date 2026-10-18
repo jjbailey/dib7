@@ -47,16 +47,19 @@ Every successful import also publishes its provider-specific artifact ID to
 ### Core Infrastructure
 
 - **`build-qcow2.yml`**: Builds QCOW2 image using diskimage-builder.
-- **`convert-qcow2-to-ova.yml`**: Converts QCOW2 to OVA using qemu-img.
+- **`convert-qcow2-to-ova.yml`**: Converts QCOW2 to stream-optimized VMDK with
+  `qemu-img`, then packages the VMDK as an OVA with `ovftool`.
 
 ### Shared Task Files
 
 Included with `include_tasks`, never run standalone. `ansible-playbook
 --syntax-check` rejects them for that reason; it is not a defect.
 
-- **`common-setup.yml`**: Provides variables for tasks.
-- **`verify-stamp.yml`**: Refuses to consume an artifact the previous stage did
-  not produce this run, and records the run that did produce it.
+- **`common-setup.yml`**: Checks required inventory variables and ensures the
+  build directory exists.
+- **`verify-stamp.yml`**: Requires the preceding stage's stamp. When `run_id` is
+  supplied, it rejects a stamp from another run; without `run_id`, it accepts
+  any existing stamp and records its run ID for catalog versioning.
 - **`tasks/fail-if-stage-failed.yml`**: The failure summary shared by the
   "Report ... results" play that closes every playbook. Fail-closed by default
   (any host that did not reach `stage_succeeded` counts as a failure);
