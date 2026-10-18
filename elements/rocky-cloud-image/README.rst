@@ -4,9 +4,9 @@ rocky-cloud-image
 
 Use a Rocky Linux cloud image as the baseline for built disk images.
 
-diskimage-builder 3.42.0 ships no cloud-image element for Rocky Linux, only
-``rocky-container``. This element fills that gap and is modelled on the
-upstream ``centos`` element.
+The version pinned by this repository, diskimage-builder 3.43.0, ships no
+cloud-image element for Rocky Linux, only ``rocky-container``. This element
+fills that gap and is modelled on the upstream ``centos`` element.
 
 Environment Variables
 ---------------------
