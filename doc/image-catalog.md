@@ -113,10 +113,11 @@ conversion to inherit the build stamp's ID. Use one explicit run ID from the
 build onward for release versioning; `manual` does not identify a unique build.
 
 Provider-specific identifiers are recorded directly: AWS AMI IDs, GCP image
-self-links, OpenStack Glance image IDs, and vSphere content-library names.
-Additional scope fields identify a GCP project or vSphere content library where
-needed. Terraform should resolve a logical name for convenience rather than
-hardcoding an artifact id.
+self-links, and OpenStack Glance image IDs. For vSphere, OVA entries record the
+OVA filename (for example, `image.ova`); template entries record the inventory
+template name (for example, `image.tmpl`). Additional scope fields identify a
+GCP project or vSphere content library where needed. Terraform should resolve a
+logical name for convenience rather than hardcoding an artifact id.
 
 How to pin depends on the provider, and follows from the table above. For
 `aws`, pin `version` or the AMI id: both are stable, and older entries stay in
