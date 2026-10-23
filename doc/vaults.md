@@ -28,13 +28,16 @@ aws_projects:
     aws_region: "my-region"
     s3_bucket: "my-bucket"
     vmimport_role_name: "vmimport-role"
-    # Optional: aws_profile, aws_access_key_id,
-    # aws_secret_access_key, aws_session_token
+    # Selector aliases: aws_account_id/account_id, aws_profile/profile.
+    # Optional credentials: aws_access_key_id, aws_secret_access_key,
+    # aws_session_token
 ```
 
-Select an account with `-e aws_target_project=<key-or-account-id>`. A
-single-entry map is auto-selected. A legacy flat mapping containing
-`aws_region`, `s3_bucket`, and `vmimport_role_name` remains supported.
+Select an AWS entry by its map key, `aws_account_id`/`account_id`, or
+`aws_profile`/`profile` with
+`-e aws_target_project=<key-or-account-id-or-profile>`. A single-entry map is
+auto-selected. A legacy flat mapping containing `aws_region`, `s3_bucket`, and
+`vmimport_role_name` remains supported.
 
 ## GCP Vault
 
