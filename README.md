@@ -336,7 +336,7 @@ dib7/
 - `import-ova-aws.yml`: Upload OVA to S3, import to AWS AMI.
   Dependencies: `amazon.aws` collection, S3, VM Import.
   For direct playbook calls, pass `-e aws_target_project=<target>`;
-  the target may be a vault key or account ID. The `local/` shell wrappers instead
+  the target may be a vault key, account ID, or profile. The `local/` shell wrappers instead
   accept the environment variable `AWS_TARGET_PROJECT`.
 - `import-ova-vsphere.yml`: Import OVA to vSphere content library.
   This produces the `vSphere OVA` branch in the workflow.
@@ -376,11 +376,13 @@ aws_projects:
     aws_region: "my-region"
     s3_bucket: "my-bucket"
     vmimport_role_name: "vmimport-role"
-    # Optional profile or access-key fields.
+    # Optional selector aliases: aws_account_id/account_id, aws_profile/profile.
+    # Optional credentials: aws_access_key_id, aws_secret_access_key, aws_session_token.
 ```
 
-Select one AWS account with `-e aws_target_project=<key-or-account-id>`; a
-single-entry map is selected automatically. A legacy flat mapping remains
+Select an AWS entry by its map key, `aws_account_id`/`account_id`, or
+`aws_profile`/`profile` with `-e aws_target_project=<key-or-account-id-or-profile>`.
+A single-entry map is selected automatically. A legacy flat mapping remains
 supported for one account.
 
 ### GCP Vault (`vaults/gcp.yml`)

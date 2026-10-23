@@ -1,5 +1,5 @@
 #!/usr/bin/pwsh
-# import-ova-vsphere-template.ps1
+# bin/import-ova-vsphere-template.ps1
 # vim: set tabstop=4 shiftwidth=4 expandtab:
 
 <#
@@ -248,3 +248,4 @@ finally {
         Write-Warning "Failed to disconnect from vCenter Server: $_"
     }
 }
+

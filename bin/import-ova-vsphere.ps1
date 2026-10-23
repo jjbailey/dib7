@@ -1,5 +1,5 @@
 #!/usr/bin/pwsh
-# import-ova-vsphere.ps1
+# bin/import-ova-vsphere.ps1
 # vim: set tabstop=4 shiftwidth=4 expandtab:
 
 <#

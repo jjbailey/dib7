@@ -67,3 +67,4 @@ if ($Script -like '*-template.ps1') {
     $arguments.folder = 'Templates'
 }
 & $Script @arguments
+
