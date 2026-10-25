@@ -1,11 +1,14 @@
 ---
-# Pin collection versions tested with ansible-core 2.18.
-# Current playbooks use AWS, GCP, and OpenStack collections.
+# Pin collection versions selected for ansible-core 2.18.
+# Current playbooks use AWS, GCP, and OpenStack; Azure is pinned for setup only.
+# No Azure pipeline exists yet.
 # vSphere workflows shell out to local PowerShell helpers instead.
 collections:
   # amazon.aws 11.x requires ansible-core >= 2.17.
   - name: amazon.aws
     version: 11.4.0
+  - name: azure.azcollection
+    version: 4.1.0
   - name: google.cloud
     version: 1.13.0
   - name: openstack.cloud

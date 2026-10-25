@@ -51,6 +51,18 @@ Then install the pinned Galaxy collections:
 ~/.dib7/bin/ansible-galaxy collection install -r requirements.yml
 ```
 
+The Azure collection keeps its SDK dependencies in its own `requirements.txt`.
+Install those into the same virtual environment after installing the
+collections:
+
+```bash
+~/.dib7/bin/python3 -m pip install -r \
+  ~/.ansible/collections/ansible_collections/azure/azcollection/requirements.txt
+```
+
+The Azure CLI is a separate system package, not a Python dependency in this
+virtual environment. See [azure.md](azure.md).
+
 Invoke pip as `~/.dib7/bin/python3 -m pip`, not `~/.dib7/bin/pip`. The
 interpreter path is what activates the venv and fixes the shebangs written into
 the installed console scripts. Calling a `pip` wrapper directly installs under
