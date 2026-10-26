@@ -16,7 +16,6 @@ ansible-core 2.18.18 the pinned set stands at:
 | Collection           | Pinned | `requires_ansible` | Status |
 | -------------------- | ------ | ------------------ | ------ |
 | `amazon.aws`         | 11.4.0 | `>=2.17.0`         | OK     |
-| `azure.azcollection` | 4.1.0  | `>=2.16.0`         | OK     |
 | `google.cloud`       | 1.13.0 | `>=2.16.0`         | OK     |
 | `openstack.cloud`    | 2.6.0  | `>=2.8`            | OK     |
 
@@ -37,11 +36,15 @@ if a playbook ever starts using them.
 
 ---
 
-## Azure
+## Azure (staged)
 
-The pinned `azure.azcollection` collection is installed with the other
-collections. Install its Python SDK dependencies into the same `~/.dib7`
-virtual environment from the collection's own requirements file:
+`azure.azcollection` 4.1.0 is the version to pin when the Azure pipeline
+lands. It is commented out of `requirements.yml` until then, because the
+validation gate requires every listed pin and no playbook uses the collection
+yet. `vaults/azure.yml` and `bin/azure-vault.sh` are already in place.
+
+After restoring the pin, install the collection's Python SDK dependencies
+into `~/.dib7` from the collection's own requirements file:
 
 ```bash
 ~/.dib7/bin/python3 -m pip install -r \

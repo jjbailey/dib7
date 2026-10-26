@@ -1,13 +1,21 @@
-# Azure Workstation Setup
+# Azure (staged)
 
-This document covers the Azure tools and Python dependencies for the DIB7
-control node. It prepares the shared `~/.dib7` environment for Azure work; the
-repository does not have an Azure playbook or pipeline yet.
+Azure is on the roadmap and is not part of a build or import yet. What is
+already in the tree, so the pipeline does not have to invent its credential
+path later:
 
-## Ansible Collection and Python Dependencies
+- `vaults/azure.yml`, encrypted and unused by every current playbook
+- `bin/azure-vault.sh`, a symlink to `bin/edit-vault.sh`
 
-`azure.azcollection` is pinned in `requirements.yml` and is installed with the
-other DIB7 collections:
+Do not install `azure.azcollection` or the Azure CLI for the workflows that
+ship today. `requirements.yml` keeps the 4.1.0 pin commented out because
+`tests/validate.sh` requires every pin it lists. Restore that pin when the
+first Azure playbook lands, then follow the install below.
+
+## Ansible collection and Python dependencies
+
+When the pipeline lands, install the collection with the other pins and then
+its own SDK requirements into the same virtual environment Ansible uses:
 
 ```bash
 ~/.dib7/bin/ansible-galaxy collection install -r requirements.yml

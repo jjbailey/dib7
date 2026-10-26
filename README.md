@@ -126,8 +126,6 @@ hand-off.
    ```bash
    ~/.dib7/bin/python3 -m pip install -r requirements.txt
    ~/.dib7/bin/ansible-galaxy collection install -r requirements.yml
-   ~/.dib7/bin/python3 -m pip install -r \
-       ~/.ansible/collections/ansible_collections/azure/azcollection/requirements.txt
    ```
 
    Install via `~/.dib7/bin/python3 -m pip` rather than `~/.dib7/bin/pip` — the
@@ -168,8 +166,9 @@ hand-off.
 
    `requirements.txt` includes `diskimage-builder`, `ansible-core`, `PyYAML`,
    and the controller-side Python SDKs required by the AWS, GCP, and
-   OpenStack playbooks. Azure's SDK dependencies come from the Azure
-   collection's `requirements.txt`; see [doc/azure.md](doc/azure.md). The
+   OpenStack playbooks. Azure is staged, not installed: `vaults/azure.yml` and
+   `bin/azure-vault.sh` are ready, and the collection pin is restored when the
+   Azure pipeline lands. See [doc/azure.md](doc/azure.md). The
    project is validated with ansible-core 2.18.18.
    Keep the collection versions in `requirements.yml` aligned with that core
    version — `amazon.aws` 11.x in particular requires ansible-core 2.17 or
@@ -184,9 +183,8 @@ hand-off.
 
    `ovftool` (tested with 5.1.0), PowerShell with PowerCLI, and the Google
    Cloud CLI (`gcloud`) are installed separately for existing workflows. The
-   Azure CLI (`az`) is also documented as a system package for future Azure
-   work; there is no Azure pipeline yet. See the playbook dependency list below
-   and [doc/azure.md](doc/azure.md).
+   Azure CLI (`az`) is not required yet; install it when the Azure pipeline
+   lands. See [doc/azure.md](doc/azure.md).
 
 ### Basic Usage
 
@@ -316,7 +314,8 @@ dib7/
 - `doc/ansible-galaxy.md` - installing and verifying the Ansible Galaxy
   collections used by DIB7
 - `doc/aws-supported-images.md` - AWS VM Import/Export Linux distribution support
-- `doc/azure.md` - Azure collection, Python dependencies, and Azure CLI setup
+- `doc/azure.md` - staged Azure vault, and the collection and CLI to install when that pipeline lands
+- `MAINTENANCE-TERMS.md` - maintenance and support terms
 - `doc/centos.md` - CentOS Stream 10 cloud-image compatibility and patching
 - `doc/fedora.md` - Fedora Server 43+ diskimage-builder compatibility and patch
 - `doc/gcloud.md` - installing the Google Cloud CLI (`gcloud`)

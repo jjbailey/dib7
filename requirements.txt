@@ -6,9 +6,9 @@ diskimage-builder==3.43.0
 PyYAML>=6.0
 jsonschema>=4.0
 
-# Controller-side SDKs required by collections in requirements.yml.
-# Azure collection SDKs are installed from its own requirements.txt after
-# Galaxy installation; see doc/azure.md.
+# Controller-side SDKs required by the collections a shipped playbook uses.
+# Azure's SDK dependencies stay in the Azure collection's own requirements.txt
+# and are installed when that pipeline lands; see doc/azure.md.
 boto3>=1.34.0
 botocore>=1.34.0
 requests>=2.18.4
