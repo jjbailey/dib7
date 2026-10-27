@@ -1,7 +1,13 @@
 ---
-# Pin collection versions tested with ansible-core 2.18.
-# Current playbooks use AWS, GCP, and OpenStack collections.
+# Pin collection versions selected for ansible-core 2.18.
+# Current playbooks use AWS, GCP, and OpenStack.
 # vSphere workflows shell out to local PowerShell helpers instead.
+#
+# azure.azcollection 4.1.0 is staged, not required. vaults/azure.yml and
+# bin/azure-vault.sh are ready for the Azure pipeline on the roadmap, and no
+# playbook uses the collection yet. tests/validate.sh requires every pin here,
+# so the collection stays commented out until that pipeline lands. Restore this
+# pin, then install the collection's own requirements.txt (doc/azure.md).
 collections:
   # amazon.aws 11.x requires ansible-core >= 2.17.
   - name: amazon.aws
@@ -10,3 +16,5 @@ collections:
     version: 1.13.0
   - name: openstack.cloud
     version: 2.6.0
+  # - name: azure.azcollection
+  #   version: 4.1.0

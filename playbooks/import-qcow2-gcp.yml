@@ -53,7 +53,6 @@
               - activate-service-account
               - --key-file
               - "{{ sa_key_file.path }}"
-          register: gcloud_auth
           changed_when: false
           no_log: true
 
@@ -91,7 +90,6 @@
             dest: "{{ qcow2_file }}"
             src: "{{ build_dir }}/{{ qcow2_file }}"
             project: "{{ gcp_project }}"
-          register: gcs_upload
           no_log: true
 
         - name: Confirm QCOW2 upload to GCS

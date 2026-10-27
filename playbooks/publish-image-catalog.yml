@@ -40,7 +40,6 @@
           '--entry',
           build_dir ~ '/.' ~ image_name ~ '.catalog-entry.json']
          + (['--supersede'] if catalog_supersede | default(false) | bool else []) }}
-  register: catalog_publish
   changed_when: true
 
 - name: Remove temporary catalog entry

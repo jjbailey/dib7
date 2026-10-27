@@ -2,10 +2,11 @@
 
 ## Editing a Vault
 
-`bin/aws-vault.sh`, `bin/gcp-vault.sh`, `bin/openstack-vault.sh`, and
-`bin/vsphere-vault.sh` wrap `ansible-vault edit`/`create
+`bin/aws-vault.sh`, `bin/azure-vault.sh`, `bin/gcp-vault.sh`,
+`bin/openstack-vault.sh`, and `bin/vsphere-vault.sh` wrap `ansible-vault edit`/`create
 --encrypt-vault-id=default` against the matching file below, creating it if it
-doesn't exist yet:
+doesn't exist yet. `azure-vault.sh` edits the staged Azure vault; no playbook
+reads that file until the Azure pipeline lands.
 
 ```sh
 bin/aws-vault.sh
@@ -155,3 +156,10 @@ vsphere_projects:
 Select a vCenter with `-e vsphere_target_vcenter=<key-or-hostname>`. A
 single-entry map is auto-selected. The selected vCenter key is recorded in
 image-catalog scope so same-named content libraries remain distinct.
+
+## Azure Vault (staged)
+
+`vaults/azure.yml` and `bin/azure-vault.sh` are in place for the Azure
+pipeline on the roadmap. No playbook reads the vault yet, and
+`azure.azcollection` is not installed with the other pins. See
+[azure.md](azure.md) for what to install when that pipeline lands.

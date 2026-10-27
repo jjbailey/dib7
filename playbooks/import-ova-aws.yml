@@ -188,7 +188,16 @@
               IMPORT FAILED for {{ inventory_hostname }} at task
               '{{ ansible_failed_task.name }}'.
               {{ stage_error }}
-              S3 cleanup attempted.
+              {% if s3_upload is not defined %}
+              S3 cleanup skipped; the upload had not started.
+              {% elif s3_cleanup is skipped %}
+              S3 cleanup skipped.
+              {% elif s3_cleanup.failed | default(false) %}
+              S3 cleanup failed: {{ s3_cleanup.msg | default('no detail') }}.
+              Remove s3://{{ s3_bucket }}/{{ ova_file }} by hand.
+              {% else %}
+              S3 cleanup removed s3://{{ s3_bucket }}/{{ ova_file }}.
+              {% endif %}
 
       always:
         - name: Display import result

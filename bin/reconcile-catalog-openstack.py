@@ -128,11 +128,20 @@ def main():
             return False
         # The connection is region-scoped. A row recorded for another region
         # was not looked up, so it must not be removed. A row with no region
-        # predates the field and was already reachable through this connection.
-        recorded = image.get("region")
-        if region_name and isinstance(recorded, str) and recorded.strip():
-            return recorded == region_name
+        # predates the field and stays in scope (see region_checkable).
+        if region_name and has_region(image):
+            return image.get("region") == region_name
         return True
+
+    def has_region(image):
+        recorded = image.get("region")
+        return isinstance(recorded, str) and bool(recorded.strip())
+
+    def region_checkable(image):
+        # A row with no region may belong to another region, where its image
+        # would look missing from here, so a region-scoped lookup must not
+        # remove it. Retired rows go by status, so scope_match is enough.
+        return scope_match(image) and (not region_name or has_region(image))
 
     retired = [
         image for image in catalog["images"]
@@ -143,6 +152,12 @@ def main():
     stale = []
     for image in catalog["images"]:
         if image.get("provider") != "openstack" or image.get("status") != "published" or not scope_match(image):
+            continue
+        if not region_checkable(image):
+            print(
+                f"skipping {image.get('logical_name')} {image.get('version')} "
+                f"({image.get('artifact_id')}): no region recorded, so it is "
+                f"not checked or removed from region {region_name}")
             continue
         try:
             if connection.get_image(image["artifact_id"]) is None:
@@ -155,7 +170,7 @@ def main():
         + (f", region={region_name}" if region_name else "")
     )
     reconcile(
-        args.catalog, "openstack", stale, retired, scope_match,
+        args.catalog, "openstack", stale, retired, region_checkable,
         authenticated_name or authenticated_id, args.dry_run, args.force,
     )
 

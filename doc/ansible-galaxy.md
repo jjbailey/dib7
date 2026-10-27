@@ -13,11 +13,11 @@ instead, which may not match the pins. Use them for ad hoc checks.
 Each collection declares a floor in its `meta/runtime.yml`. Against
 ansible-core 2.18.18 the pinned set stands at:
 
-| Collection        | Pinned | `requires_ansible` | Status |
-| ----------------- | ------ | ------------------ | ------ |
-| `amazon.aws`      | 11.4.0 | `>=2.17.0`         | OK     |
-| `google.cloud`    | 1.13.0 | `>=2.16.0`         | OK     |
-| `openstack.cloud` | 2.6.0  | `>=2.8`            | OK     |
+| Collection           | Pinned | `requires_ansible` | Status |
+| -------------------- | ------ | ------------------ | ------ |
+| `amazon.aws`         | 11.4.0 | `>=2.17.0`         | OK     |
+| `google.cloud`       | 1.13.0 | `>=2.16.0`         | OK     |
+| `openstack.cloud`    | 2.6.0  | `>=2.8`            | OK     |
 
 To re-check after any upgrade:
 
@@ -33,6 +33,27 @@ are not listed in `requirements.yml` and are not referenced by any playbook —
 the vSphere workflows shell out to PowerShell helpers instead. Both declare
 `requires_ansible: >=2.17.0`, so both are satisfiable on ansible-core 2.18.18
 if a playbook ever starts using them.
+
+---
+
+## Azure (staged)
+
+`azure.azcollection` 4.1.0 is the version to pin when the Azure pipeline
+lands. It is commented out of `requirements.yml` until then, because the
+validation gate requires every listed pin and no playbook uses the collection
+yet. `vaults/azure.yml` and `bin/azure-vault.sh` are already in place.
+
+After restoring the pin, install the collection's Python SDK dependencies
+into `~/.dib7` from the collection's own requirements file:
+
+```bash
+~/.dib7/bin/python3 -m pip install -r \
+  ~/.ansible/collections/ansible_collections/azure/azcollection/requirements.txt
+```
+
+This step follows the collection's installation instructions. See
+[azure.md](azure.md) for the complete Azure workstation setup, including the
+Azure CLI.
 
 ---
 

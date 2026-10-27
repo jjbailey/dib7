@@ -13,9 +13,9 @@
 #   stage_failure_mode - 'fail_closed' (default, every stage but backfill) or
 #                        'explicit' (backfill only)
 #
-# fail_closed: anything that did not reach stage_succeeded counts as a failure.
-#   Keying off stage_failed instead would let a host that never ran the rescue -
-#   an unreachable host, for one - pass as though it had succeeded.
+# fail_closed: a host succeeded only when stage_succeeded is true. A defined
+#   false would otherwise pass, and a host that never ran the block (an
+#   unreachable host, for one) has the fact unset and counts as a failure.
 # explicit: hosts ended early by meta: end_host never set stage_succeeded, and
 #   having no artifact to backfill is the expected outcome there, not an error.
 #   Those hosts signal failure by setting stage_failed instead.
@@ -61,7 +61,7 @@
     stage_failures: >-
       {{ ansible_play_hosts_all
          | map('extract', hostvars)
-         | rejectattr('stage_succeeded', 'defined')
+         | rejectattr('stage_succeeded', 'equalto', true)
          | map(attribute='inventory_hostname')
          | list }}
 
