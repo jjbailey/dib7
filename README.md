@@ -155,6 +155,7 @@ hand-off.
    GenericCloud filename convention. Apply it from the project root:
 
    ```bash
+   DIB7_SITE=$(~/.dib7/bin/python3 -c "import site; print(site.getsitepackages()[0])")
    patch -b -d "$DIB7_SITE/diskimage_builder/elements/centos/root.d" \
          < patches/diskimage-builder-centos10-generic-image.patch
    ```

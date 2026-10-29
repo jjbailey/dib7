@@ -98,7 +98,7 @@ upstream fix.
 
 ```bash
 ~/.dib7/bin/ansible --version              # expect ansible-core 2.18.18
-~/.dib7/bin/disk-image-create --version    # expect 3.43.0
+~/.dib7/bin/disk-image-create --version    # expect 3.44.0
 ```
 
 Confirm the venv resolves its own packages:
