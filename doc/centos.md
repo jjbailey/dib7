@@ -8,8 +8,9 @@ CentOS changed the CentOS Stream 10 GenericCloud filename from
 `diskimage-builder` version can select the old name from the image index, so
 the download step fails.
 
-From the project root, apply the repository patch to the installed CentOS
-element:
+The repository patch targets `diskimage-builder` 3.44.0 (the pinned version)
+and makes `10-stream` match the new name explicitly. From the project root,
+apply it to the installed CentOS element:
 
 <!-- markdownlint-disable MD013 -->
 

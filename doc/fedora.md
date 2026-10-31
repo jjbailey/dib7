@@ -87,7 +87,7 @@ imported is exactly as broken as no patch at all. If check 1 points somewhere
 unexpected, see [python3-virtualenv.md](python3-virtualenv.md).
 
 Version output cannot distinguish a patched from an unpatched install: both
-report `diskimage-builder` 3.43.0. Use the `grep -c` check above.
+report `diskimage-builder` 3.44.0. Use the `grep -c` check above.
 
 ## Re-applying after a diskimage-builder upgrade
 

@@ -9,6 +9,8 @@ import fcntl
 import json
 import pathlib
 
+from jsonschema import Draft202012Validator
+
 from reconcile_catalog_common import load_catalog, write_catalog
 
 REQUIRED = {
@@ -17,6 +19,11 @@ REQUIRED = {
 }
 PROVIDERS = {"aws", "gcp", "openstack", "vsphere"}
 STATUSES = {"published", "retired"}
+ENTRY_SCHEMA = json.loads(
+    (pathlib.Path(__file__).resolve().parent.parent / "catalogs" / "image-catalog.schema.json")
+    .read_text(encoding="utf-8")
+)["properties"]["images"]["items"]
+ENTRY_VALIDATOR = Draft202012Validator(ENTRY_SCHEMA)
 
 def scope_identity(entry):
     """Return the provider scope that must remain distinct in the catalog."""
@@ -25,6 +32,8 @@ def scope_identity(entry):
                        separators=(",", ":")))
 
 def validate(entry):
+    if not isinstance(entry, dict):
+        raise ValueError("catalog entry must be an object")
     missing = sorted(REQUIRED - entry.keys())
     if missing:
         raise ValueError("catalog entry missing: " + ", ".join(missing))
@@ -39,6 +48,10 @@ def validate(entry):
             not isinstance(entry["ssh_username"], str) or
             not entry["ssh_username"].strip()):
         raise ValueError("ssh_username must be a non-empty string")
+    error = next(ENTRY_VALIDATOR.iter_errors(entry), None)
+    if error is not None:
+        field = ".".join(str(part) for part in error.path) or "entry"
+        raise ValueError(f"invalid catalog {field}: {error.message}")
 
 def main():
     parser = argparse.ArgumentParser()

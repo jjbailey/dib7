@@ -50,6 +50,14 @@ class CatalogEntryTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "unsupported status"):
             publish.validate(self.image(status="active"))
 
+    def test_publish_validation_rejects_invalid_scope_and_optional_fields(self):
+        with self.assertRaisesRegex(ValueError, "scope"):
+            publish.validate(self.image(scope=["not-a-mapping"]))
+        with self.assertRaisesRegex(ValueError, "project"):
+            publish.validate(self.image(project=123))
+        with self.assertRaisesRegex(ValueError, "extra"):
+            publish.validate(self.image(extra="unknown"))
+
     def test_publish_supersede_keeps_projects_separate(self):
         with tempfile.TemporaryDirectory() as directory:
             catalog = Path(directory) / "image-catalog.json"
