@@ -17,7 +17,7 @@ from reconcile_catalog_common import load_catalog
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_CATALOG = REPO_ROOT / "catalogs" / "image-catalog.json"
-PROVIDERS = ("aws", "gcp", "openstack", "vsphere")
+PROVIDERS = ("aws", "azure", "gcp", "openstack", "vsphere")
 
 def _parse_scope(value: str) -> tuple[str, str]:
     if "=" not in value:

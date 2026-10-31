@@ -236,8 +236,21 @@ for name, entry in gcp_entries:
         raise SystemExit(f"vaults/gcp.yml: gcp_projects[{name!r}] service_account_key is not valid JSON: {error}")
     if not str(client_email or "").strip():
         raise SystemExit(f"vaults/gcp.yml: gcp_projects[{name!r}] service_account_key.client_email missing or empty")
+
+azure = load("vaults/azure.yml")
+azure_projects = azure.get("azure_projects") or {}
+if not azure_projects:
+    raise SystemExit("vaults/azure.yml: no azure_projects found")
+for name, entry in azure_projects.items():
+    for key in ("tenant_id", "subscription_id", "client_id", "client_secret",
+                "resource_group", "location", "storage_account"):
+        if not str(entry.get(key) or "").strip():
+            raise SystemExit(f"vaults/azure.yml: azure_projects[{name!r}] {key} missing or empty")
+    account = str(entry["storage_account"])
+    if not (3 <= len(account) <= 24 and account.isascii() and account.isalnum() and account == account.lower()):
+        raise SystemExit(f"vaults/azure.yml: azure_projects[{name!r}] storage_account must be 3-24 lowercase letters and digits")
 PYTHON
-    echo "  ok   vault schemas (vsphere/openstack/aws/gcp)"
+    echo "  ok   vault schemas (vsphere/openstack/aws/gcp/azure)"
 else
     fail "vault schema check failed"
 fi

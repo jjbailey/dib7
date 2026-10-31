@@ -19,7 +19,6 @@ dib_vg_name: "vg1"
 dib_block_device: "gpt"
 dib_block_device_config: "{{ lookup('ansible.builtin.file', '../block-device-config/block-device-efi-config.yml') }}"
 dib_openssh_server_hardening: "0"
-dib_cloud_init_datasources: "None"
 dib_bootloader_default_cmdline: "biosdevname=0 iommu=on net.ifnames=0 dm_mod.use_blk_mq=Y scsi_mod.use_blk_mq=Y"
 
 elements_path: "../elements"
@@ -65,6 +64,15 @@ catalog_version: "{{ run_id | default(stage_source_run) | default('manual') }}"
 gcp_import_location: "us-central1"
 gcp_replace_existing_image: true
 gcp_delete_qcow2_after_import: false
+# Azure: blob container the VHD is staged in (an azure_projects entry may set
+# storage_container instead), whether a same-named managed image is replaced,
+# and whether the staged VHD blob is deleted once the image exists. A managed
+# image keeps its own copy of the disk, so the blob is not needed afterwards.
+azure_storage_container: "dib7-images"
+azure_replace_existing_image: true
+azure_delete_vhd_after_import: true
+# Gen2 VMs boot UEFI, Gen1 VMs boot BIOS; follows the image, not the provider.
+azure_hyper_v_generation: "{{ 'V2' if image_boot_mode == 'uefi' else 'V1' }}"
 
 # OVF metadata defaults. Override per distro when VMware's numeric guest ID
 # differs; vm_os_type remains the authoritative VMware guest string.
@@ -86,6 +94,7 @@ ova_file: "{{ image_name }}.ova"
 ovf_file: "{{ image_name }}.ovf"
 qcow2_file: "{{ image_name }}.qcow2"
 vmdk_file: "{{ image_name }}.vmdk"
+vhd_file: "{{ image_name }}.vhd"
 
 # Stage stamps. Each holds the run_id of the run that produced the artifact next
 # to it, and the following stage refuses to consume an artifact whose stamp is

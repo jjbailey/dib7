@@ -5,8 +5,7 @@
 `bin/aws-vault.sh`, `bin/azure-vault.sh`, `bin/gcp-vault.sh`,
 `bin/openstack-vault.sh`, and `bin/vsphere-vault.sh` wrap `ansible-vault edit`/`create
 --encrypt-vault-id=default` against the matching file below, creating it if it
-doesn't exist yet. `azure-vault.sh` edits the staged Azure vault; no playbook
-reads that file until the Azure pipeline lands.
+doesn't exist yet.
 
 ```sh
 bin/aws-vault.sh
@@ -157,9 +156,24 @@ Select a vCenter with `-e vsphere_target_vcenter=<key-or-hostname>`. A
 single-entry map is auto-selected. The selected vCenter key is recorded in
 image-catalog scope so same-named content libraries remain distinct.
 
-## Azure Vault (staged)
+## Azure Vault
 
-`vaults/azure.yml` and `bin/azure-vault.sh` are in place for the Azure
-pipeline on the roadmap. No playbook reads the vault yet, and
-`azure.azcollection` is not installed with the other pins. See
-[azure.md](azure.md) for what to install when that pipeline lands.
+`vaults/azure.yml`
+
+```yaml
+azure_projects:
+  my-subscription:
+    tenant_id: "00000000-0000-0000-0000-000000000000"
+    subscription_id: "11111111-1111-1111-1111-111111111111"
+    client_id: "22222222-2222-2222-2222-222222222222"
+    client_secret: "my-client-secret"
+    resource_group: "my-resource-group" # must already exist
+    location: "westus2"
+    storage_account: "mystagingaccount" # 3-24 lowercase letters/digits; created if missing
+    storage_container: "dib7-images"    # optional; created if missing
+```
+
+Select an entry with `-e azure_target_project=<key-or-subscription-id>`. A
+single-entry map is auto-selected. There is no legacy flat mapping. The
+service principal needs rights to create the storage account and images in the
+resource group. See [azure.md](azure.md) for the full import flow.

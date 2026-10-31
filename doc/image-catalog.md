@@ -75,6 +75,7 @@ a new run destroys what the older rows point at:
 | provider    | what a new run does to the previous artifact                                                       | catalog policy      |
 | ----------- | -------------------------------------------------------------------------------------------------- | ------------------- |
 | `aws`       | nothing; a new AMI id is minted and the old AMI persists                                           | versions accumulate |
+| `azure`     | managed image deleted and recreated under the same name, so the resource ID is stable              | supersedes          |
 | `gcp`       | image deleted and recreated under the same name, so the selfLink is stable and its content changes | supersedes          |
 | `openstack` | image deleted by name; the old UUID stops resolving even though each upload mints a new one        | supersedes          |
 | `vsphere`   | content library item and template are named for the image and overwritten in place                 | supersedes          |
@@ -83,13 +84,13 @@ a new run destroys what the older rows point at:
 
 Note that a unique-looking `artifact_id` is not the test - OpenStack mints a
 fresh UUID every upload and still supersedes, because the previous image is
-deleted. The publishers for the three superseding providers pass `--supersede`,
+deleted. The publishers for the four superseding providers pass `--supersede`,
 which drops `version` from the match while retaining project, region, and
 scope, so a new entry replaces every version of that artifact in the same
 target scope.
 
-The practical rule for consumers: **for `gcp`, `openstack`, and `vsphere` there
-is exactly one current row per image, artifact type, and target scope.** Version
+The practical rule for consumers: **for `azure`, `gcp`, `openstack`, and
+`vsphere` there is exactly one current row per image, artifact type, and target scope.** Version
 pinning is only meaningful for `aws`.
 
 A publisher only ever rewrites rows matching its own `provider`, so entries for
@@ -112,8 +113,10 @@ verify the stamp. Legacy conversion stamps may also contain `manual`; rerun
 conversion to inherit the build stamp's ID. Use one explicit run ID from the
 build onward for release versioning; `manual` does not identify a unique build.
 
-Provider-specific identifiers are recorded directly: AWS AMI IDs, GCP image
-self-links, and OpenStack Glance image IDs. For vSphere, OVA entries record the
+Provider-specific identifiers are recorded directly: AWS AMI IDs, Azure
+managed-image resource IDs, GCP image self-links, and OpenStack Glance image
+IDs. Azure rows record the subscription ID as `project`, the location as
+`region`, and `scope.resource_group`. For vSphere, OVA entries record the
 OVA filename (for example, `image.ova`); template entries record the inventory
 template name (for example, `image.tmpl`). Additional scope fields identify a
 GCP project or vSphere content library where needed. Terraform should resolve a
@@ -121,10 +124,11 @@ logical name for convenience rather than hardcoding an artifact id.
 
 How to pin depends on the provider, and follows from the table above. For
 `aws`, pin `version` or the AMI id: both are stable, and older entries stay in
-the catalog. For `gcp`, `openstack` and `vsphere` there is nothing durable to
-pin - the single row is current state by construction, and the artifact behind
-it is replaced by the next run - so a deployment that must not move underneath
-itself has to capture the catalog at release time instead of resolving it live.
+the catalog. For `azure`, `gcp`, `openstack` and `vsphere` there is nothing
+durable to pin - the single row is current state by construction, and the
+artifact behind it is replaced by the next run - so a deployment that must not
+move underneath itself has to capture the catalog at release time instead of
+resolving it live.
 
 ## Catalog Reconciliation
 
@@ -136,6 +140,7 @@ under an exclusive lock before an atomic replacement.
 
 ```bash
 ~/.dib7/bin/python3 bin/reconcile-catalog-aws.py --region us-west-2 --dry-run
+~/.dib7/bin/python3 bin/reconcile-catalog-azure.py --dry-run
 ~/.dib7/bin/python3 bin/reconcile-catalog-gcp.py --dry-run
 ~/.dib7/bin/python3 bin/reconcile-catalog-openstack.py --dry-run
 ~/.dib7/bin/python3 bin/reconcile-catalog-vsphere.py --dry-run
@@ -152,6 +157,12 @@ script fails and names the flag to disambiguate:
 - **AWS** groups AMI checks by region and supports `--region` and `--profile`.
   The scope is the account, selected with `--project` (`--account-id` is an
   alias) when the catalog contains rows for more than one AWS account.
+- **Azure** checks managed-image resource IDs and infers the subscription when
+  the catalog contains one; use `--subscription` (alias `--project`) otherwise.
+  Credentials come from `AZURE_TENANT`, `AZURE_CLIENT_ID`, and `AZURE_SECRET`
+  (or the SDK's `*_ID`/`AZURE_CLIENT_SECRET` spellings), else
+  `DefaultAzureCredential`. A row whose resource ID names a different
+  subscription is refused rather than checked.
 - **GCP** checks image self-links and infers the project when the catalog
   contains one; use `--project` or `--credentials-file` when needed. The
   resolved credentials must belong to the selected project, and the script
@@ -172,7 +183,7 @@ script fails and names the flag to disambiguate:
   every vCenter. Removal deletes the exact row that was checked, not every row
   that shares its artifact name.
 
-All four scripts accept `--force` when more than half of the active provider
+All five scripts accept `--force` when more than half of the active provider
 rows in the selected scope would be removed. Successful reconciliation exits
 zero, including when rows were removed; errors exit nonzero.
 `tests/validate.sh` checks syntax and catalog shape, but deliberately does not
@@ -200,7 +211,7 @@ credentials are reported before any OpenStack connection is attempted.
 
 ## Release Capture
 
-Because GCP, OpenStack, and vSphere replace prior artifacts, a release that
+Because Azure, GCP, OpenStack, and vSphere replace prior artifacts, a release that
 needs a stable record of what it deployed must capture the catalog at release
 time. A release process can commit the generated file to a catalog repository
 or copy it to object storage. Set `image_catalog_path` accordingly; credentials

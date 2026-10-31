@@ -1,0 +1,331 @@
+---
+# playbooks/import-qcow2-azure.yml
+# vim: set tabstop=2 shiftwidth=2 expandtab:
+
+# Import QCOW2 file to an Azure managed image.
+#
+# Azure only accepts a fixed-format VHD, uploaded as a page blob, whose virtual
+# size is a whole number of MiB. The QCOW2 is converted locally with qemu-img
+# (the fixed VHD is written sparse, so it costs only the used blocks on disk),
+# staged in a blob container, and registered as a managed image. The storage
+# account and container are created when missing.
+
+- name: Import QCOW2 to Azure Managed Image
+  hosts: "{{ target_hosts | default('all') }}"
+  gather_facts: false
+  serial: 1
+
+  pre_tasks:
+    - name: Verify qemu-img is available
+      ansible.builtin.command:
+        cmd: qemu-img --version
+      register: qemu_img_check
+      failed_when: qemu_img_check.rc != 0
+      changed_when: false
+
+  tasks:
+    - name: Import and process image
+      block:
+        - name: Include common setup tasks
+          ansible.builtin.include_tasks: common-setup.yml
+
+        - name: Select the Azure project for this run
+          ansible.builtin.include_tasks: tasks/select-azure-project.yml
+
+        - name: Require a QCOW2 built by this run
+          ansible.builtin.include_tasks: verify-stamp.yml
+          vars:
+            stamp_file: "{{ build_stamp_file }}"
+            stamp_producer: build-qcow2
+
+        - name: Verify source file exists
+          ansible.builtin.stat:
+            path: "{{ build_dir }}/{{ qcow2_file }}"
+          register: qcow2_stat
+
+        - name: Fail if source QCOW2 file is missing or empty
+          ansible.builtin.fail:
+            msg: "Source QCOW2 file {{ build_dir }}/{{ qcow2_file }} is missing or empty"
+          when: not qcow2_stat.stat.exists or not qcow2_stat.stat.isreg or (qcow2_stat.stat.size | default(0) | int) == 0
+
+        - name: Read the QCOW2 virtual size
+          ansible.builtin.command:
+            argv:
+              - qemu-img
+              - info
+              - --output=json
+              - "{{ build_dir }}/{{ qcow2_file }}"
+          register: qcow2_info
+          changed_when: false
+
+        # Azure rejects a VHD whose virtual size is not a whole number of MiB,
+        # and only at image-creation time, after the whole upload. image_size
+        # is in GiB, so every current build passes; this catches a change that
+        # would break it before anything is uploaded.
+        - name: Fail if the virtual size is not a whole number of MiB
+          ansible.builtin.fail:
+            msg: >-
+              {{ qcow2_file }} has virtual size
+              {{ (qcow2_info.stdout | from_json)['virtual-size'] }} bytes, which is
+              not a multiple of 1 MiB. Azure cannot create an image from it.
+          when: ((qcow2_info.stdout | from_json)['virtual-size'] | int) % 1048576 != 0
+
+        # Step 1: convert through a temporary file and promote it only after
+        # success, so an interrupted conversion is never uploaded. force_size
+        # keeps the exact virtual size instead of qemu-img's CHS rounding.
+        - name: Remove any partial VHD left by an earlier run
+          ansible.builtin.file:
+            path: "{{ build_dir }}/.{{ vhd_file }}.tmp"
+            state: absent
+
+        - name: Convert QCOW2 to a fixed VHD
+          ansible.builtin.command:
+            argv:
+              - qemu-img
+              - convert
+              - -f
+              - qcow2
+              - -O
+              - vpc
+              - -o
+              - subformat=fixed,force_size=on
+              - "{{ build_dir }}/{{ qcow2_file }}"
+              - "{{ build_dir }}/.{{ vhd_file }}.tmp"
+          changed_when: true
+
+        - name: Promote the converted VHD
+          ansible.builtin.command:
+            argv:
+              - mv
+              - -f
+              - "{{ build_dir }}/.{{ vhd_file }}.tmp"
+              - "{{ build_dir }}/{{ vhd_file }}"
+          changed_when: true
+
+        # Everything that talks to Azure runs in this inner block so that only
+        # these tasks carry the service principal. See select-azure-project.yml
+        # for why this is module_defaults rather than environment.
+        - name: Upload and register the image
+          module_defaults:
+            group/azure.azcollection.all: "{{ azure_module_defaults }}"
+          block:
+            # Step 2: create the staging storage account only when it is
+            # missing. An existing account is used as-is; this playbook never
+            # changes the settings of an account somebody else configured.
+            - name: Check for the staging storage account
+              azure.azcollection.azure_rm_storageaccount_info:
+                resource_group: "{{ azure_resource_group }}"
+                name: "{{ azure_storage_account }}"
+              register: azure_storage_account_info
+
+            - name: Create the staging storage account
+              azure.azcollection.azure_rm_storageaccount:
+                resource_group: "{{ azure_resource_group }}"
+                name: "{{ azure_storage_account }}"
+                location: "{{ azure_location }}"
+                account_type: Standard_LRS
+                kind: StorageV2
+                https_only: true
+                minimum_tls_version: TLS1_2
+                allow_blob_public_access: false
+                tags:
+                  managed_by: dib7
+              when: azure_storage_account_info.storageaccounts | default([]) | length == 0
+
+            - name: Read the staging storage account endpoints
+              azure.azcollection.azure_rm_storageaccount_info:
+                resource_group: "{{ azure_resource_group }}"
+                name: "{{ azure_storage_account }}"
+              register: azure_storage_account_ready
+              failed_when: azure_storage_account_ready.storageaccounts | default([]) | length == 0
+
+            # An existing account is used as it is, so check its region before
+            # the upload: Azure only rejects a VHD from another region when the
+            # image is created, after the whole disk has been sent.
+            - name: Fail when the staging storage account is in another region
+              ansible.builtin.assert:
+                that:
+                  - >-
+                    ((azure_storage_account_ready.storageaccounts | first).location | lower | replace(' ', ''))
+                    == (azure_location | lower | replace(' ', ''))
+                fail_msg: >-
+                  Storage account {{ azure_storage_account }} is in
+                  {{ (azure_storage_account_ready.storageaccounts | first).location }},
+                  but images are created in {{ azure_location }}. Use a storage
+                  account in the same region as the image.
+                quiet: true
+
+            # The blob endpoint comes from Azure rather than being assembled
+            # here, so a sovereign cloud's endpoint suffix is still right.
+            - name: Record the staged VHD blob URI
+              ansible.builtin.set_fact:
+                azure_vhd_blob_uri: >-
+                  {{ (azure_storage_account_ready.storageaccounts | first).primary_endpoints.blob.endpoint
+                     | regex_replace('/+$', '') }}/{{ azure_storage_container }}/{{ vhd_file }}
+
+            # Step 3: always upload the current VHD, as GCP does, so a blob
+            # left by an earlier build of the same name is never reused. The
+            # container is created when missing. Page-blob upload skips
+            # all-zero pages, so only the used blocks travel.
+            - name: Upload VHD to Azure Blob Storage
+              azure.azcollection.azure_rm_storageblob:
+                resource_group: "{{ azure_resource_group }}"
+                storage_account_name: "{{ azure_storage_account }}"
+                container: "{{ azure_storage_container }}"
+                blob: "{{ vhd_file }}"
+                blob_type: page
+                src: "{{ build_dir }}/{{ vhd_file }}"
+                force: true
+              register: azure_vhd_upload
+
+            - name: Confirm VHD upload to Azure Blob Storage
+              ansible.builtin.debug:
+                msg: "VHD uploaded to {{ azure_vhd_blob_uri }}"
+
+            # Step 4: replace an existing managed image so reruns publish the
+            # current artifact. The resource ID is derived from the name, so it
+            # is stable across runs while its content changes - like GCP.
+            #
+            # azure_rm_image_info fails outright when given name plus
+            # resource_group and the image does not exist, so every lookup
+            # here lists the resource group and filters by name instead.
+            - name: List managed images in the resource group
+              azure.azcollection.azure_rm_image_info:
+                resource_group: "{{ azure_resource_group }}"
+              register: azure_rg_images
+
+            - name: Record any existing managed image of this name
+              ansible.builtin.set_fact:
+                azure_existing_images: "{{ azure_rg_images.images | default([]) | selectattr('name', 'equalto', image_name) | list }}"
+
+            - name: Refuse to overwrite an existing image when replacement is disabled
+              ansible.builtin.fail:
+                msg: >-
+                  Azure image {{ image_name }} already exists in resource group
+                  {{ azure_resource_group }}. Set azure_replace_existing_image=true
+                  to replace it.
+              when:
+                - azure_existing_images | length > 0
+                - not (azure_replace_existing_image | bool)
+
+            - name: Delete existing image if it exists
+              azure.azcollection.azure_rm_image:
+                resource_group: "{{ azure_resource_group }}"
+                name: "{{ image_name }}"
+                state: absent
+              when:
+                - azure_existing_images | length > 0
+                - azure_replace_existing_image | bool
+
+            # Step 5: register the managed image from the staged blob.
+            - name: Create managed image from the VHD
+              azure.azcollection.azure_rm_image:
+                resource_group: "{{ azure_resource_group }}"
+                name: "{{ image_name }}"
+                location: "{{ azure_location }}"
+                source: "{{ azure_vhd_blob_uri }}"
+                os_type: Linux
+                hyper_v_generation: "{{ azure_hyper_v_generation }}"
+                tags:
+                  name: "{{ image_name }}"
+                  version: "{{ catalog_version }}"
+                state: present
+
+            - name: Verify managed image creation
+              azure.azcollection.azure_rm_image_info:
+                resource_group: "{{ azure_resource_group }}"
+              register: azure_image_info
+              vars:
+                azure_new_images: "{{ azure_image_info.images | default([]) | selectattr('name', 'equalto', image_name) | list }}"
+              retries: "{{ azure_image_lookup_retries | default(20) | int }}"
+              delay: "{{ azure_image_lookup_delay | default(3) | int }}"
+              until: >-
+                azure_new_images | length > 0 and
+                (azure_new_images | first).provisioning_state == 'Succeeded'
+
+            - name: Record new image ID
+              ansible.builtin.set_fact:
+                new_image_id: "{{ (azure_image_info.images | selectattr('name', 'equalto', image_name) | first).id }}"
+
+            - name: Display new image ID
+              ansible.builtin.debug:
+                msg: "Import complete! Image ID: {{ new_image_id }}"
+
+            # A managed image holds its own copy of the disk, so the staged
+            # blob is no longer needed once the image exists.
+            - name: Remove VHD from Azure Blob Storage after successful import
+              azure.azcollection.azure_rm_storageblob:
+                resource_group: "{{ azure_resource_group }}"
+                storage_account_name: "{{ azure_storage_account }}"
+                container: "{{ azure_storage_container }}"
+                blob: "{{ vhd_file }}"
+                state: absent
+              when: azure_delete_vhd_after_import | bool
+
+        - name: Publish imported image to image catalog
+          ansible.builtin.include_tasks: publish-image-catalog.yml
+          vars:
+            catalog_provider: azure
+            catalog_artifact_id: "{{ new_image_id }}"
+            catalog_artifact_type: managed_image
+            catalog_supersede: true
+            catalog_project: "{{ azure_subscription_id }}"
+            catalog_region: "{{ azure_location }}"
+            catalog_scope:
+              resource_group: "{{ azure_resource_group }}"
+            catalog_boot_mode: "{{ image_boot_mode }}"
+
+        # Last task in the block, so a host only counts as succeeded if the
+        # import and the catalog publish both worked.
+        - name: Mark the import successful
+          ansible.builtin.set_fact:
+            stage_succeeded: true
+
+      rescue:
+        - name: Record that the import failed
+          ansible.builtin.set_fact:
+            # stderr before msg: a failed command task reports msg as
+            # "non-zero return code", so testing msg first would never reach
+            # the error text qemu-img actually printed.
+            stage_error: >-
+              {{ ansible_failed_task.name | default('unknown task') }}:
+              {{ (ansible_failed_result.stderr | default('', true))
+                 or (ansible_failed_result.stdout | default('', true))
+                 or (ansible_failed_result.msg | default('', true))
+                 or 'unknown error' }}
+              {{ ('rc=' ~ ansible_failed_result.rc) if ansible_failed_result.rc is defined else '' }}
+
+        - name: Report the import failure
+          ansible.builtin.debug:
+            msg: >-
+              IMPORT FAILED for {{ inventory_hostname }} at task
+              '{{ ansible_failed_task.name | default('unknown task') }}'.
+              {{ stage_error }}
+              {% if azure_vhd_upload is defined and azure_vhd_blob_uri is defined %}
+              VHD left at {{ azure_vhd_blob_uri }} for debugging/retry.
+              {% else %}
+              Source QCOW2 remains at {{ build_dir }}/{{ qcow2_file }} for debugging/retry.
+              {% endif %}
+
+      always:
+        # The VHD is a derived intermediate whose apparent size is the full
+        # virtual disk; never leave it in build_dir, whatever happened.
+        - name: Remove the local VHD
+          ansible.builtin.file:
+            path: "{{ item }}"
+            state: absent
+          loop:
+            - "{{ build_dir }}/.{{ vhd_file }}.tmp"
+            - "{{ build_dir }}/{{ vhd_file }}"
+
+- name: Report import results
+  hosts: "{{ target_hosts | default('all') }}"
+  gather_facts: false
+  ignore_unreachable: true
+
+  tasks:
+    - name: Fail if any image failed to import
+      ansible.builtin.include_tasks: tasks/fail-if-stage-failed.yml
+      vars:
+        stage_name: import-qcow2-azure
+

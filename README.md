@@ -12,7 +12,8 @@ DIB7 streamlines the entire lifecycle of VM image creation and deployment:
 
 - **Build**: Create base QCOW2 images using diskimage-builder
 - **Convert**: Transform images to platform-specific formats (OVA)
-- **Deploy**: Import and publish images to AWS, GCP, OpenStack and VMware vSphere
+- **Deploy**: Import and publish images to AWS, Azure, GCP, OpenStack and
+  VMware vSphere
 
 ## Architecture
 
@@ -25,6 +26,8 @@ flowchart TB
     QCOW2 --> GCS["🪣 GCS Bucket"]
     GCS --> GCP_IMG["☁️ GCP Image"]
     QCOW2 --> OPENSTACK_IMG["☁️ OpenStack Image"]
+    QCOW2 --> VHD["💽 fixed VHD"]
+    VHD --> AZURE_IMG["☁️ Azure Managed Image"]
     OVA --> S3["🪣 S3 Bucket"]
     S3 --> AWS_IMG["☁️ AWS AMI"]
     OVA --> VSPHERE_IMG["☁️ vSphere OVA"]
@@ -34,6 +37,7 @@ flowchart TB
     OPENSTACK_IMG --> CATALOG
     VSPHERE_IMG --> CATALOG
     VSPHERE_TPL --> CATALOG
+    AZURE_IMG --> CATALOG
 ```
 
 ## Supported Platforms
@@ -41,6 +45,7 @@ flowchart TB
 ### Cloud Providers
 
 - **AWS** - AMI import via S3 and VM Import/Export
+- **Azure** - managed images imported from fixed VHDs staged in Blob Storage
 - **GCP** - Compute Engine images via Cloud Storage (GCS)
 - **OpenStack** - Glance images via direct upload
 - **VMware vSphere** - Content Library OVA deployment and vSphere template creation
@@ -55,6 +60,9 @@ canonical copies, so add detail there rather than here:
 
 - **AWS VM Import/Export** -
   [doc/aws-supported-images.md](doc/aws-supported-images.md)
+- **Azure managed images** - this repository does not maintain a
+  vendor-backed per-release guest OS matrix. See [doc/azure.md](doc/azure.md)
+  for the import workflow and Azure-specific requirements.
 - **GCP Compute Engine** (Migrate to Virtual Machines) -
   [doc/gcp-supported-images.md](doc/gcp-supported-images.md)
 - **OpenStack Glance** - no provider-wide OS version list. Glance stores and
@@ -167,9 +175,8 @@ hand-off.
 
    `requirements.txt` includes `diskimage-builder`, `ansible-core`, `PyYAML`,
    and the controller-side Python SDKs required by the AWS, GCP, and
-   OpenStack playbooks. Azure is staged, not installed: `vaults/azure.yml` and
-   `bin/azure-vault.sh` are ready, and the collection pin is restored when the
-   Azure pipeline lands. See [doc/azure.md](doc/azure.md). The
+   OpenStack playbooks. The Azure collection's SDKs are installed from that
+   collection's own `requirements.txt`; see [doc/azure.md](doc/azure.md). The
    project is validated with ansible-core 2.18.18.
    Keep the collection versions in `requirements.yml` aligned with that core
    version — `amazon.aws` 11.x in particular requires ansible-core 2.17 or
@@ -184,8 +191,9 @@ hand-off.
 
    `ovftool` (tested with 5.1.0), PowerShell with PowerCLI, and the Google
    Cloud CLI (`gcloud`) are installed separately for existing workflows. The
-   Azure CLI (`az`) is not required yet; install it when the Azure pipeline
-   lands. See [doc/azure.md](doc/azure.md).
+   Azure import needs only `qemu-img` (from `qemu-utils`); the Azure CLI
+   (`az`) is optional and is useful for inspecting results. See
+   [doc/azure.md](doc/azure.md).
 
 ### Basic Usage
 
@@ -247,6 +255,13 @@ release pipeline.
      -e "run_id=$RUN_ID" -l <host-or-group> --ask-vault-pass
    ```
 
+   **Azure:**
+
+   ```bash
+   ~/.dib7/bin/ansible-playbook playbooks/import-qcow2-azure.yml \
+     -e "run_id=$RUN_ID" -l <host-or-group> --ask-vault-pass
+   ```
+
    **OpenStack:**
 
    ```bash
@@ -285,6 +300,7 @@ dib7/
 │   ├── list-image-catalog.py    # Read-only catalog report
 │   ├── publish-image-catalog.py # Catalog publisher
 │   ├── reconcile-catalog-aws.py # Removes catalog AMIs gone from AWS
+│   ├── reconcile-catalog-azure.py # Removes catalog images gone from Azure
 │   ├── reconcile-catalog-gcp.py # Removes catalog images gone from GCP
 │   ├── reconcile-catalog-openstack.py # Removes catalog images gone from OpenStack
 │   ├── reconcile-catalog-vsphere.py # Removes catalog objects gone from vSphere
@@ -299,7 +315,7 @@ dib7/
 ├── group_vars/                  # Ansible group variables
 ├── hosts.yml                    # Inventory file
 ├── local/                       # Site-local run wrappers and helpers
-├── patches/                     # Patches applied to the venv (see doc/fedora.md and doc/centos.md)
+├── patches/                     # Venv fixes; see doc/fedora.md, doc/centos.md
 ├── playbooks/                   # Ansible playbooks
 ├── requirements.txt             # Python dependencies; core build tools are pinned
 ├── requirements.yml             # Pinned Ansible collections
@@ -315,7 +331,7 @@ dib7/
 - `doc/ansible-galaxy.md` - installing and verifying the Ansible Galaxy
   collections used by DIB7
 - `doc/aws-supported-images.md` - AWS VM Import/Export Linux distribution support
-- `doc/azure.md` - staged Azure vault, and the collection and CLI to install when that pipeline lands
+- `doc/azure.md` - Azure managed-image import, its vault, collection, and reconciler
 - `MAINTENANCE-TERMS.md` - maintenance and support terms
 - `doc/centos.md` - CentOS Stream 10 cloud-image compatibility and patching
 - `doc/fedora.md` - Fedora Server 43+ diskimage-builder compatibility and patch
@@ -323,15 +339,18 @@ dib7/
 - `doc/gcp-supported-images.md` - GCP Compute Engine Linux distribution support
 - `doc/group-vars-all.md` - defaults shared by all builds
 - `doc/group-vars-distro.md` - per-distro variables and differences
-- `doc/image-catalog.md` - catalog format, reconciliation, and Terraform hand-off contract
+- `doc/image-catalog.md` - catalog format, reconciliation, and Terraform
+  hand-off contract
 - `doc/phases.md` - DIB phase subdirectories, execution order, and chroot behavior
 - `doc/playbooks-overview.md` - what each playbook does and when to run it
 - `doc/python3-virtualenv.md` - setting up the diskimage-builder Python
   virtual environment
 - `doc/vaults.md` - vault file layout required by each playbook
-- [DIB7 contact sheet](doc/dib7-contact-sheet.png) - visual overview of the project and image pipeline
+- [DIB7 contact sheet](doc/dib7-contact-sheet.png) - visual overview of the
+  project and image pipeline
 - [DIB7 presentation](doc/dib7-presentation.pptx) - project presentation slides
-- [DIB7 presentation video](doc/dib7-presentation.mp4) - recorded video of the project presentation
+- [DIB7 presentation video](doc/dib7-presentation.mp4) - recorded video of the
+  project presentation
 
 ## Playbooks
 
@@ -342,8 +361,8 @@ dib7/
 - `import-ova-aws.yml`: Upload OVA to S3, import to AWS AMI.
   Dependencies: `amazon.aws` collection, S3, VM Import.
   For direct playbook calls, pass `-e aws_target_project=<target>`;
-  the target may be a vault key, account ID, or profile. The `local/` shell wrappers instead
-  accept the environment variable `AWS_TARGET_PROJECT`.
+  the target may be a vault key, account ID, or profile. The `local/` wrappers
+  instead accept the environment variable `AWS_TARGET_PROJECT`.
 - `import-ova-vsphere.yml`: Import OVA to vSphere content library.
   This produces the `vSphere OVA` branch in the workflow.
   Dependencies: pwsh, PowerCLI.
@@ -360,11 +379,19 @@ dib7/
   For direct playbook calls, pass `-e gcp_target_project=<target>`;
   the target may be a vault key or project ID. The `local/` shell wrappers instead
   accept the environment variable `GCP_TARGET_PROJECT`.
+- `import-qcow2-azure.yml`: Import QCOW2 to an Azure managed image. Converts
+  the QCOW2 to a fixed VHD, uploads it as a page blob (creating the staging
+  storage account and container when missing), and by default replaces any
+  existing image of the same name (see `azure_replace_existing_image`).
+  Dependencies: qemu-img, `azure.azcollection` collection.
+  For direct playbook calls, pass `-e azure_target_project=<target>`;
+  the target may be a vault key or subscription ID. The `local/` shell wrappers
+  instead accept the environment variable `AZURE_TARGET_PROJECT`.
 - `import-qcow2-openstack.yml`: Import QCOW2 to OpenStack.
   Dependencies: `openstack.cloud` collection.
   For direct playbook calls, pass `-e openstack_target_project=<target>`;
-  the target may be a vault key, project name, or project ID. The `local/` shell wrappers instead
-  accept the environment variable `OPENSTACK_TARGET_PROJECT`.
+  the target may be a vault key, project name, or project ID. The `local/`
+  wrappers instead accept the environment variable `OPENSTACK_TARGET_PROJECT`.
 - `backfill-vsphere-ova-catalog.yml`: Rebuild missing vSphere OVA catalog rows
   for artifacts already imported into the content library.
 
@@ -412,6 +439,26 @@ gcp_projects:
 Select one GCP project with `-e gcp_target_project=<key-or-project-id>`; a
 single-entry map is selected automatically. A legacy flat mapping remains
 supported for one project.
+
+### Azure Vault (`vaults/azure.yml`)
+
+```yaml
+azure_projects:
+  my-subscription:
+    tenant_id: "..."
+    subscription_id: "..."
+    client_id: "..."
+    client_secret: "..."
+    resource_group: "my-resource-group"
+    location: "westus2"
+    storage_account: "mystagingaccount"
+    storage_container: "dib7-images" # optional
+```
+
+Select one subscription with `-e azure_target_project=<key-or-subscription-id>`;
+a single-entry map is auto-selected. The storage account and container are
+created when missing. See [doc/vaults.md](doc/vaults.md) and
+[doc/azure.md](doc/azure.md).
 
 ### OpenStack Vault (`vaults/openstack.yml`)
 
