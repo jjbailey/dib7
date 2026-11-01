@@ -128,6 +128,7 @@
                 https_only: true
                 minimum_tls_version: TLS1_2
                 allow_blob_public_access: false
+                allow_shared_key_access: true
                 tags:
                   managed_by: dib7
               when: azure_storage_account_info.storageaccounts | default([]) | length == 0
@@ -138,6 +139,20 @@
                 name: "{{ azure_storage_account }}"
               register: azure_storage_account_ready
               failed_when: azure_storage_account_ready.storageaccounts | default([]) | length == 0
+
+            # azure_rm_storageblob uses account-key authentication. Existing
+            # accounts are not modified, so stop early when their owner has
+            # disabled Shared Key access.
+            - name: Fail when the staging storage account disallows Shared Key access
+              ansible.builtin.fail:
+                msg: >-
+                  Storage account {{ azure_storage_account }} disallows Shared Key
+                  access, which this upload requires. Enable Shared Key access
+                  (allowSharedKeyAccess) or use a different storage account.
+                  Existing account settings are not changed by this playbook.
+              when:
+                - (azure_storage_account_ready.storageaccounts | first).allow_shared_key_access is not none
+                - not ((azure_storage_account_ready.storageaccounts | first).allow_shared_key_access | bool)
 
             # An existing account is used as it is, so check its region before
             # the upload: Azure only rejects a VHD from another region when the
@@ -176,6 +191,7 @@
                 blob_type: page
                 src: "{{ build_dir }}/{{ vhd_file }}"
                 force: true
+                auth_mode: key
               register: azure_vhd_upload
 
             - name: Confirm VHD upload to Azure Blob Storage

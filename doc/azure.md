@@ -11,11 +11,17 @@ as an Azure **managed image**:
    it succeeded or not.
 2. The staging storage account is created if it does not exist yet
    (Standard_LRS, StorageV2, HTTPS-only, TLS 1.2, no public blob access,
-   tagged `managed_by: dib7`). The blob container is also created if missing.
-   An existing account is used as it is; the playbook never changes its
-   settings. It must be in the project's `location`, because Azure only
-   creates an image from a VHD in the same region; the playbook checks this
-   before uploading.
+   Shared Key access enabled, tagged `managed_by: dib7`). The blob container is
+   also created if missing. An existing account is used as it is; the playbook
+   never changes its settings. Existing accounts must allow Shared Key access,
+   which the playbook checks before uploading. This is required because the
+   blob upload uses account-key authentication. Shared Key credentials grant
+   broad access to the storage account, so use a dedicated account and protect
+   its keys. Microsoft recommends Microsoft Entra ID where possible; this
+   import workflow currently requires Shared Key authorization for its upload.
+   The account must also be in the project's `location`, because
+   Azure only creates an image from a VHD in the same region; the playbook
+   checks this before uploading.
 3. The VHD is always uploaded as a page blob, replacing any blob with the same
    name, so a blob from an earlier build is never reused. All-zero pages are
    skipped, so only the used blocks go over the network.
@@ -55,7 +61,20 @@ the credentials are explicit parameters, the modules also never fall back to
 
 The principal needs permission to create storage accounts and images in the
 resource group (for example, Contributor on the resource group or the
-subscription). The resource group must already exist.
+subscription). The resource group must already exist. The principal also needs
+permission to retrieve the storage account key for the upload. To check whether
+Shared Key authorization is disabled, run:
+
+```bash
+az storage account show \
+  --name <storage-account> \
+  --resource-group <resource-group> \
+  --query allowSharedKeyAccess --output tsv
+```
+
+If this returns `false`, the playbook will stop before uploading. Azure treats
+an unset `allowSharedKeyAccess` value as enabled. See Microsoft's [Shared Key authorization guidance](https://learn.microsoft.com/en-us/azure/storage/common/shared-key-authorization-prevent?tabs=portal)
+for details.
 
 ### Variables
 
