@@ -19,20 +19,20 @@ DIB7 streamlines the entire lifecycle of VM image creation and deployment:
 
 ```mermaid
 flowchart TB
-    DIB["diskimage-builder"] --> QCOW2["💽 qcow2"]
-    QCOW2 --> VMDK["📦 vmdk"]
-    VMDK --> OVF["📄 ovf"]
-    OVF --> OVA["📦 ova"]
-    QCOW2 --> GCS["🪣 GCS Bucket"]
-    GCS --> GCP_IMG["☁️ GCP Image"]
-    QCOW2 --> OPENSTACK_IMG["☁️ OpenStack Image"]
-    QCOW2 --> VHD["💽 fixed VHD"]
-    VHD --> AZURE_IMG["☁️ Azure Managed Image"]
-    OVA --> S3["🪣 S3 Bucket"]
-    S3 --> AWS_IMG["☁️ AWS AMI"]
-    OVA --> VSPHERE_IMG["☁️ vSphere OVA"]
-    VSPHERE_IMG --> VSPHERE_TPL["☁️ vSphere Template"]
-    AWS_IMG --> CATALOG["🗂️ Versioned Image Catalog"]
+    DIB["diskimage-builder"] --> QCOW2["QCOW2"]
+    QCOW2 --> VMDK["VMDK"]
+    VMDK --> OVF["OVF"]
+    OVF --> OVA["OVA"]
+    QCOW2 --> GCS["GCS Bucket"]
+    GCS --> GCP_IMG["GCP Image"]
+    QCOW2 --> OPENSTACK_IMG["OpenStack Image"]
+    QCOW2 --> VHD["Fixed VHD"]
+    VHD --> AZURE_IMG["Azure Managed Image"]
+    OVA --> S3["S3 Bucket"]
+    S3 --> AWS_IMG["AWS AMI"]
+    OVA --> VSPHERE_IMG["vSphere OVA"]
+    VSPHERE_IMG --> VSPHERE_TPL["vSphere Template"]
+    AWS_IMG --> CATALOG["Versioned Image Catalog"]
     GCP_IMG --> CATALOG
     OPENSTACK_IMG --> CATALOG
     VSPHERE_IMG --> CATALOG
@@ -520,7 +520,7 @@ vsphere_projects:
 # vcenter_password block remains supported.
 ```
 
-The selector is mirrored in the sibling `migrate-vmware` repo at
+The selector is mirrored in the sibling `migrate-v2v` repo at
 `playbooks/tasks/migration/common/select-vcenter.yml`; the two copies differ
 only in the header path comment, so port any change to both. It also derives
 the `GOVC_URL` / `GOVC_USERNAME` / `GOVC_PASSWORD` / `GOVC_INSECURE` and
