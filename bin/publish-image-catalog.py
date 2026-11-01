@@ -17,7 +17,7 @@ REQUIRED = {
     "logical_name", "provider", "artifact_id", "artifact_type", "version",
     "architecture", "boot_mode", "source_build", "status",
 }
-PROVIDERS = {"aws", "gcp", "openstack", "vsphere"}
+PROVIDERS = {"aws", "azure", "gcp", "openstack", "vsphere"}
 STATUSES = {"published", "retired"}
 ENTRY_SCHEMA = json.loads(
     (pathlib.Path(__file__).resolve().parent.parent / "catalogs" / "image-catalog.schema.json")
@@ -62,8 +62,8 @@ def main():
         action="store_true",
         help="drop older versions of this logical_name/provider/artifact_type "
              "instead of keeping them alongside. For providers where a new run "
-             "destroys or overwrites what the older rows point at: gcp, "
-             "openstack and vsphere, but not aws.",
+             "destroys or overwrites what the older rows point at: azure, "
+             "gcp, openstack and vsphere, but not aws.",
     )
     args = parser.parse_args()
 
@@ -97,9 +97,12 @@ def main():
         #               the selfLink is stable and its content changes
         #   openstack - image is deleted by name, so the old UUID stops
         #               resolving even though each upload mints a new one
+        #   azure     - managed image is deleted and recreated under the same
+        #               name, so the resource ID is stable and its content
+        #               changes, as with gcp
         #   aws       - nothing is deregistered and each import mints a new AMI
         #               id, so older versions stay independently deployable
-        # Only AWS is additive; the other three supersede.
+        # Only AWS is additive; the other four supersede.
         #
         # Rows for other providers or other project/region/scope slices are never
         # examined, so a publisher only rewrites its own target slice.

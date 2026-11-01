@@ -10,7 +10,7 @@ images, including:
 
 - Building base images (QCOW2)
 - Converting images to platform-specific formats (OVA, VMDK)
-- Importing/publishing images to cloud providers (AWS, GCP, OpenStack, VMware vSphere)
+- Importing/publishing images to cloud providers (AWS, Azure, GCP, OpenStack, VMware vSphere)
 
 ## Workflow Pipeline
 
@@ -34,6 +34,7 @@ build to a cloud-ready artifact.
 
 - **AWS**: Uploads are handled via `import-ova-aws.yml`.
 - **GCP**: Direct import of QCOW2 via `import-qcow2-gcp.yml`.
+- **Azure**: QCOW2 converted to a fixed VHD and imported via `import-qcow2-azure.yml`.
 - **OpenStack**: Direct import of QCOW2 via `import-qcow2-openstack.yml`.
 - **vSphere**: Deploy the `vSphere OVA` via `import-ova-vsphere.yml`, or
   create a `vSphere Template` via `import-ova-vsphere-template.yml`.
@@ -67,10 +68,12 @@ Included with `include_tasks`, never run standalone. `ansible-playbook
   hosts ended early by `meta: end_host` are not errors.
 - **`publish-image-catalog.yml`**: Writes one entry into the image catalog.
   Included by each import playbook after its import succeeds.
-- **`tasks/select-aws-project.yml`**, **`tasks/select-gcp-project.yml`**,
+- **`tasks/select-aws-project.yml`**, **`tasks/select-azure-project.yml`**,
+  **`tasks/select-gcp-project.yml`**,
   **`tasks/select-openstack-project.yml`**, and
   **`tasks/select-vcenter.yml`**: Select one provider target from the
-  corresponding multi-target Vault, with legacy flat-Vault compatibility.
+  corresponding multi-target Vault, with legacy flat-Vault compatibility
+  (except Azure, which has no legacy format).
   See
   [image-catalog.md](image-catalog.md).
 
@@ -78,6 +81,8 @@ Included with `include_tasks`, never run standalone. `ansible-playbook
 
 - **`import-qcow2-gcp.yml`** (GCP): Uploads QCOW2 to GCS, registers as
   Compute Engine Image.
+- **`import-qcow2-azure.yml`** (Azure): Converts QCOW2 to a fixed VHD,
+  uploads it to Blob Storage, and registers a managed image.
 - **`import-qcow2-openstack.yml`** (OpenStack): Direct upload of QCOW2 to
   Glance as Image.
 - **`import-ova-vsphere.yml`** (vSphere): Deploys OVA to vCenter content
@@ -107,6 +112,7 @@ the following order:
 ### Branching Logic
 
 - **For GCP**: Run `import-qcow2-gcp.yml`.
+- **For Azure**: Run `import-qcow2-azure.yml`.
 - **For OpenStack**: Run `import-qcow2-openstack.yml`.
 - **For vSphere**: Run `convert-qcow2-to-ova.yml` → `import-ova-vsphere.yml`
   if you want the `vSphere OVA` only.

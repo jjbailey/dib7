@@ -12,7 +12,7 @@
         "required": ["logical_name", "provider", "artifact_id", "artifact_type", "version", "architecture", "boot_mode", "source_build", "status"],
         "properties": {
           "logical_name": {"type": "string", "minLength": 1},
-          "provider": {"enum": ["aws", "gcp", "openstack", "vsphere"]},
+          "provider": {"enum": ["aws", "azure", "gcp", "openstack", "vsphere"]},
           "region": {"type": "string"},
           "project": {"type": "string"},
           "scope": {"type": "object", "additionalProperties": {"type": "string"}},

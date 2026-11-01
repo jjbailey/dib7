@@ -193,7 +193,7 @@ class AwsCommandTests(unittest.TestCase):
 
 class ReconcileExitStatusTests(unittest.TestCase):
     def test_all_providers_return_success_after_removing_rows(self):
-        for provider in ["aws", "gcp", "openstack", "vsphere"]:
+        for provider in ["aws", "azure", "gcp", "openstack", "vsphere"]:
             with self.subTest(provider=provider), tempfile.TemporaryDirectory() as directory:
                 module = load_script(f"reconcile-catalog-{provider}.py", f"reconcile_{provider}_exit_test")
                 catalog = Path(directory) / "catalog.json"
@@ -208,6 +208,9 @@ class ReconcileExitStatusTests(unittest.TestCase):
                 with ExitStack() as stack:
                     if provider == "aws":
                         stack.enter_context(patch.object(module, "live_ami_ids", side_effect=AssertionError("unexpected cloud call")))
+                    elif provider == "azure":
+                        # Only a retired row: no image lookup, so no client.
+                        stack.enter_context(patch.object(module, "ComputeManagementClient", side_effect=AssertionError("unexpected cloud call")))
                     elif provider == "gcp":
                         stack.enter_context(patch.object(module.google.auth, "default", return_value=(Mock(), "test-project")))
                         stack.enter_context(patch.object(module, "AuthorizedSession"))

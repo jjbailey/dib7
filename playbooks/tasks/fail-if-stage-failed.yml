@@ -57,11 +57,22 @@
     - inventory_hostname == (ansible_play_hosts | first | default(''))
     - (stage_failure_mode | default('fail_closed')) == 'fail_closed'
     - stage_failures | length > 0
+  # Build the succeeded list and take its complement rather than rejectattr
+  # on stage_succeeded directly: a failed host never sets the fact, and
+  # testing an attribute that is missing from hostvars raises instead of
+  # comparing false - which crashed this very task in exactly the case it
+  # exists to report. selectattr('...', 'defined') is the safe guard, as in
+  # the explicit-mode task above.
   vars:
-    stage_failures: >-
+    stage_succeeded_hosts: >-
       {{ ansible_play_hosts_all
          | map('extract', hostvars)
-         | rejectattr('stage_succeeded', 'equalto', true)
+         | selectattr('stage_succeeded', 'defined')
+         | selectattr('stage_succeeded', 'equalto', true)
          | map(attribute='inventory_hostname')
+         | list }}
+    stage_failures: >-
+      {{ ansible_play_hosts_all
+         | reject('in', stage_succeeded_hosts)
          | list }}
 

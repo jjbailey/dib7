@@ -56,7 +56,6 @@ than repeated in each `group_vars/<group>/main.yml`. Only `elements_base`,
 | `dib_block_device`               | `gpt`                                                                            | Partition table type, exported as `DIB_BLOCK_DEVICE`.                                                                             |
 | `dib_block_device_config`        | `block-device-efi-config.yml`                                                    | LVM/EFI block device layout, looked up from the example files in `block-device-config/`; copy or replace one for your deployment. |
 | `dib_openssh_server_hardening`   | `0`                                                                              | Disables the DIB SSH hardening element.                                                                                           |
-| `dib_cloud_init_datasources`     | `None`                                                                           | Disables cloud-init datasource detection.                                                                                         |
 | `dib_bootloader_default_cmdline` | `biosdevname=0 iommu=on net.ifnames=0 dm_mod.use_blk_mq=Y scsi_mod.use_blk_mq=Y` | Default kernel command line.                                                                                                      |
 | `elements_path`                  | `../elements`                                                                    | Exported as `ELEMENTS_PATH` for the in-tree elements.                                                                             |
 | `elements_custom`                | `custom-{{ target_group }}`                                                      | The distro's own element, appended after `elements_base`.                                                                         |
@@ -83,12 +82,13 @@ different extensions.
 
 <!-- markdownlint-disable MD013 -->
 
-| Variable     | Value                    | Description                                        |
-| ------------ | ------------------------ | -------------------------------------------------- |
-| `ova_file`   | `{{ image_name }}.ova`   | Final OVA archive.                                 |
-| `ovf_file`   | `{{ image_name }}.ovf`   | OVF descriptor XML.                                |
-| `qcow2_file` | `{{ image_name }}.qcow2` | QCOW2 disk image (primary build output).           |
-| `vmdk_file`  | `{{ image_name }}.vmdk`  | VMDK disk image (converted from QCOW2 for VMware). |
+| Variable     | Value                    | Description                                            |
+| ------------ | ------------------------ | ------------------------------------------------------ |
+| `ova_file`   | `{{ image_name }}.ova`   | Final OVA archive.                                     |
+| `ovf_file`   | `{{ image_name }}.ovf`   | OVF descriptor XML.                                    |
+| `qcow2_file` | `{{ image_name }}.qcow2` | QCOW2 disk image (primary build output).               |
+| `vmdk_file`  | `{{ image_name }}.vmdk`  | VMDK disk image (converted from QCOW2 for VMware).     |
+| `vhd_file`   | `{{ image_name }}.vhd`   | Fixed VHD (converted from QCOW2 for Azure; transient). |
 
 <!-- markdownlint-enable MD013 -->
 
@@ -131,12 +131,16 @@ The Terraform integration contract. See [image-catalog.md](image-catalog.md).
 
 <!-- markdownlint-disable MD013 -->
 
-| Variable                        | Default                 | Description                                                                                       |
-| ------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------- |
-| `aws_import_boot_mode`          | `{{ image_boot_mode }}` | Boot mode handed to AWS `ImportImage`. Separate only because the API takes it as a parameter.     |
-| `gcp_import_location`           | `us-central1`           | Region where the GCP import job runs. A `gcp_projects` entry in `vaults/gcp.yml` can override it. |
-| `gcp_replace_existing_image`    | `true`                  | Delete and recreate a GCP image of the same name rather than failing.                             |
-| `gcp_delete_qcow2_after_import` | `false`                 | Whether to remove the staged QCOW2 from GCS after a successful import.                            |
+| Variable                        | Default                  | Description                                                                                       |
+| ------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------- |
+| `aws_import_boot_mode`          | `{{ image_boot_mode }}`  | Boot mode handed to AWS `ImportImage`. Separate only because the API takes it as a parameter.     |
+| `gcp_import_location`           | `us-central1`            | Region where the GCP import job runs. A `gcp_projects` entry in `vaults/gcp.yml` can override it. |
+| `gcp_replace_existing_image`    | `true`                   | Delete and recreate a GCP image of the same name rather than failing.                             |
+| `gcp_delete_qcow2_after_import` | `false`                  | Whether to remove the staged QCOW2 from GCS after a successful import.                            |
+| `azure_storage_container`       | `dib7-images`            | Blob container for the staged VHD. An `azure_projects` entry can override it.                     |
+| `azure_replace_existing_image`  | `true`                   | Delete and recreate an Azure managed image of the same name rather than failing.                  |
+| `azure_delete_vhd_after_import` | `true`                   | Remove the staged VHD blob after the managed image is created.                                    |
+| `azure_hyper_v_generation`      | `V2` if `uefi` else `V1` | Hyper-V generation of the managed image, derived from `image_boot_mode`.                          |
 
 <!-- markdownlint-enable MD013 -->
 

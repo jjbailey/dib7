@@ -62,7 +62,6 @@
             DIB_BLOCK_DEVICE: "{{ dib_block_device }}"
             DIB_BLOCK_DEVICE_CONFIG: "{{ dib_block_device_config }}"
             DIB_OPENSSH_SERVER_HARDENING: "{{ dib_openssh_server_hardening }}"
-            DIB_CLOUD_INIT_DATASOURCES: "{{ dib_cloud_init_datasources }}"
             DIB_BOOTLOADER_DEFAULT_CMDLINE: "{{ dib_bootloader_default_cmdline }}"
             DPKG_OPTS: "{{ dpkg_opts }}"
             DEBIAN_FRONTEND: "{{ debian_frontend }}"

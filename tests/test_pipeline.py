@@ -65,6 +65,97 @@ class AnsibleRegressionTests(unittest.TestCase):
                 }
                 self.assert_success(self.run_tasks(tasks, variables))
 
+    def azure_selection_tasks(self, *assertions):
+        # Supply synthetic vault data directly; never open a real vault.
+        tasks = [task for task in tasks_file('tasks/select-azure-project.yml')
+                 if 'ansible.builtin.include_vars' not in task]
+        if assertions:
+            tasks.append({'ansible.builtin.assert': {'that': list(assertions)}})
+        return tasks
+
+    def azure_project(self, subscription_id, **updates):
+        project = {
+            'tenant_id': 'tenant', 'subscription_id': subscription_id,
+            'client_id': 'client', 'client_secret': 'secret',
+            'resource_group': 'rg-test', 'location': 'westus2',
+            'storage_account': 'dib7test',
+        }
+        project.update(updates)
+        return project
+
+    def test_azure_selection_by_subscription_builds_module_credentials(self):
+        tasks = self.azure_selection_tasks(
+            "azure_target_project_name == 'second'",
+            "azure_resource_group == 'rg-second'",
+            "azure_storage_container == 'dib7-images'",
+            "azure_module_defaults.auth_source == 'auto'",
+            "azure_module_defaults.subscription_id == 'sub-2'",
+            "azure_module_defaults.tenant == 'tenant'",
+            "azure_module_defaults.client_id == 'client'",
+            "azure_module_defaults.secret == 'secret'",
+        )
+        variables = {
+            'azure_storage_container': 'dib7-images',
+            'azure_target_project': 'sub-2',
+            'azure_projects': {
+                'first': self.azure_project('sub-1'),
+                'second': self.azure_project('sub-2', resource_group='rg-second'),
+            },
+        }
+        self.assert_success(self.run_tasks(tasks, variables))
+
+    def test_azure_selection_rejects_ambiguous_unknown_and_invalid_targets(self):
+        two = {'first': self.azure_project('sub-1'), 'second': self.azure_project('sub-2')}
+        # The configuration assert is no_log, so its failure is reported as
+        # censored output rather than by fail_msg; match on the task name.
+        cases = {
+            'ambiguous': ({'azure_projects': two}, 'No Azure project selected'),
+            'unknown': ({'azure_projects': two, 'azure_target_project': 'sub-9'},
+                        'matches no vault key'),
+            'bad storage name': ({'azure_projects': {
+                'only': self.azure_project('sub-1', storage_account='Not_Valid')}},
+                'Validate the selected Azure project configuration'),
+            'missing secret': ({'azure_projects': {
+                'only': self.azure_project('sub-1', client_secret='')}},
+                'Validate the selected Azure project configuration'),
+        }
+        for name, (variables, expected) in cases.items():
+            with self.subTest(name):
+                result = self.run_tasks(self.azure_selection_tasks(),
+                                        {'azure_storage_container': 'c', **variables})
+                self.assertNotEqual(result.returncode, 0, result.stdout)
+                failed_at = result.stdout[result.stdout.rfind('TASK ['):]
+                self.assertIn(expected, failed_at, result.stdout)
+                self.assertNotIn("'secret'", result.stdout)
+
+    def test_stage_failure_summary_names_hosts_that_never_set_success(self):
+        # A rescued host usually never sets stage_succeeded at all. The summary
+        # used to crash on that missing attribute instead of reporting it.
+        report = self.directory / 'report.yml'
+        report.write_text(yaml.safe_dump([
+            {'hosts': 'all', 'gather_facts': False, 'tasks': [
+                {'ansible.builtin.set_fact': {'stage_succeeded': True},
+                 'when': "inventory_hostname == 'good'"},
+                {'ansible.builtin.set_fact': {'stage_error': 'simulated import error'},
+                 'when': "inventory_hostname == 'rescued'"},
+            ]},
+            {'hosts': 'all', 'gather_facts': False, 'tasks': [
+                {'ansible.builtin.include_tasks': str(ROOT / 'playbooks/tasks/fail-if-stage-failed.yml'),
+                 'vars': {'stage_name': 'probe'}},
+            ]},
+        ], sort_keys=False))
+        result = subprocess.run(
+            [str(VENV_BIN / 'ansible-playbook'), '-i', 'good,rescued,skipped,', '-c', 'local',
+             '-e', 'ansible_python_interpreter=' + sys.executable, str(report)],
+            cwd=ROOT, text=True, capture_output=True, timeout=180,
+        )
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertNotIn('has no attribute', result.stdout)
+        self.assertIn('probe failed for 2 of', result.stdout)
+        self.assertIn('rescued: simulated import error', result.stdout)
+        self.assertIn('skipped: see log', result.stdout)
+        self.assertNotIn('good:', result.stdout)
+
     def test_failed_aws_import_finalizer_allows_next_serial_host(self):
         tasks = tasks_file('import-ova-aws.yml')[0]['tasks']
         finalizer = next(task['always'] for task in tasks if 'always' in task)

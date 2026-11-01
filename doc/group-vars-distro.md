@@ -43,7 +43,6 @@ because they are DIB inputs.
 | `dib_block_device`               | `gpt`                                 | Partition table type. Exported as `DIB_BLOCK_DEVICE`.                               |
 | `dib_block_device_config`        | path to `block-device-efi-config.yml` | LVM/EFI block device layout file. Exported as `DIB_BLOCK_DEVICE_CONFIG`.            |
 | `dib_openssh_server_hardening`   | `0`                                   | Disables the DIB SSH hardening element. Exported as `DIB_OPENSSH_SERVER_HARDENING`. |
-| `dib_cloud_init_datasources`     | `None`                                | Disables cloud-init datasource detection. Exported as `DIB_CLOUD_INIT_DATASOURCES`. |
 | `dib_bootloader_default_cmdline` | kernel parameters                     | Default kernel command line. Exported as `DIB_BOOTLOADER_DEFAULT_CMDLINE`.          |
 
 <!-- markdownlint-enable MD013 MD060 -->
