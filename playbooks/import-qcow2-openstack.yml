@@ -131,11 +131,13 @@
             stage_succeeded: true
 
       rescue:
+        # Delete by the captured ID, not the name: Glance does not enforce
+        # unique names, so a by-name delete could remove a different image.
         - name: Remove failed Glance image
           openstack.cloud.image:
             auth: "{{ openstack_auth }}"
             region_name: "{{ openstack_region_name }}"
-            name: "{{ image_name }}"
+            name: "{{ image_upload.image.id }}"
             state: absent
           when:
             - image_upload is defined
