@@ -240,6 +240,95 @@ class ReconcileExitStatusTests(unittest.TestCase):
             result = subprocess.run(command, text=True, capture_output=True, timeout=30)
             self.assertNotEqual(result.returncode, 0)
 
+class AzureCredentialTests(unittest.TestCase):
+    SUBSCRIPTION = "00000000-0000-0000-0000-000000000001"
+
+    def setUp(self):
+        self.module = load_script("reconcile-catalog-azure.py", "reconcile_azure_credential_test")
+        self.directory = tempfile.TemporaryDirectory()
+        self.root = Path(self.directory.name)
+        self.vault = self.root / "azure.yml"
+        self.vault.write_text("$ANSIBLE_VAULT;1.1;AES256\n")
+        self.password = self.root / "vault-pass"
+        self.password.write_text("test\n")
+        self.environ = patch.dict(self.module.os.environ, {
+            "DIB7_VENV_BIN": str(self.root),
+            "VAULT_PASSWORD_FILE": str(self.password),
+        }, clear=True)
+        self.environ.start()
+
+    def tearDown(self):
+        self.environ.stop()
+        self.directory.cleanup()
+
+    def fake_vault(self, projects):
+        # Stand-in for ansible-vault view: print the decrypted YAML.
+        plaintext = self.root / "plaintext.json"
+        plaintext.write_text(json.dumps({"azure_projects": projects}))
+        binary = self.root / "ansible-vault"
+        binary.write_text(f"#!/bin/sh\ncat '{plaintext}'\n")
+        binary.chmod(0o755)
+
+    def entry(self, **updates):
+        entry = {"tenant_id": "tenant", "client_id": "client", "client_secret": "secret",
+                 "subscription_id": self.SUBSCRIPTION}
+        entry.update(updates)
+        return entry
+
+    def credential(self):
+        with patch.object(self.module, "ClientSecretCredential") as client_secret, \
+                patch.object(self.module, "DefaultAzureCredential") as default:
+            self.module.azure_credential(self.SUBSCRIPTION, self.vault)
+        return client_secret, default
+
+    def test_environment_service_principal_wins_without_reading_the_vault(self):
+        self.module.os.environ.update(AZURE_TENANT="env-tenant", AZURE_CLIENT_ID="env-client", AZURE_SECRET="env-secret")
+        with patch.object(self.module, "read_azure_vault", side_effect=AssertionError("vault read")):
+            client_secret, _ = self.credential()
+        client_secret.assert_called_once_with("env-tenant", "env-client", "env-secret")
+
+    def test_vault_service_principal_for_the_reconciled_subscription(self):
+        self.fake_vault({"other": self.entry(subscription_id="other-sub", client_id="wrong"),
+                         "lab": self.entry()})
+        client_secret, default = self.credential()
+        client_secret.assert_called_once_with("tenant", "client", "secret")
+        default.assert_not_called()
+
+    def test_falls_back_when_the_vault_has_no_entry_for_the_subscription(self):
+        self.fake_vault({"other": self.entry(subscription_id="other-sub")})
+        client_secret, default = self.credential()
+        client_secret.assert_not_called()
+        default.assert_called_once_with()
+
+    def test_falls_back_without_a_password_file_instead_of_prompting(self):
+        del self.module.os.environ["VAULT_PASSWORD_FILE"]
+        self.fake_vault({"lab": self.entry()})
+        with patch.object(self.module, "_vault_password_file", return_value=None):
+            client_secret, default = self.credential()
+        client_secret.assert_not_called()
+        default.assert_called_once_with()
+
+    def test_ambiguous_subscription_requires_a_target_project(self):
+        self.fake_vault({"east": self.entry(), "west": self.entry(client_id="west-client")})
+        with self.assertRaisesRegex(ValueError, "AZURE_TARGET_PROJECT"):
+            self.credential()
+        self.module.os.environ["AZURE_TARGET_PROJECT"] = "west"
+        client_secret, _ = self.credential()
+        client_secret.assert_called_once_with("tenant", "west-client", "secret")
+
+    def test_target_project_for_another_subscription_is_refused(self):
+        self.fake_vault({"other": self.entry(subscription_id="other-sub")})
+        self.module.os.environ["AZURE_TARGET_PROJECT"] = "other"
+        with self.assertRaisesRegex(ValueError, "not " + self.SUBSCRIPTION):
+            self.credential()
+
+    def test_failed_decryption_is_reported(self):
+        binary = self.root / "ansible-vault"
+        binary.write_text("#!/bin/sh\nexit 1\n")
+        binary.chmod(0o755)
+        with self.assertRaisesRegex(ValueError, "could not decrypt"):
+            self.credential()
+
 class CatalogSchemaTests(unittest.TestCase):
     """The catalog's shape is declared twice; keep the two declarations equal."""
 
