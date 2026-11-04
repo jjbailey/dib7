@@ -57,7 +57,7 @@ image's point release and kernel against that row before importing.
 - Fedora 43 — 6.17.1
 - Fedora 18, 19, 20, 37–40 are EOL per AWS
 
-Note that Fedora 44 is not yet listed, which `fedora44` builds.
+Note that Fedora 44 is not yet listed, which `fedora45` builds.
 
 ## Oracle Linux
 
@@ -127,7 +127,7 @@ SLES 11 and 12 are EOL per AWS.
 | `centos10s`   | **Not listed**          | Upstream lists CentOS Stream 9 only                                                    |
 | `debian1215`  | **Not listed**          | The rolling `bookworm` point release is not one of the listed 12.2 / 12.4 / 12.7       |
 | `debian1307`  | **Check point/kernel**  | AWS lists Debian 13.6 with kernel 6.12.0; verify the rolling `trixie` build matches    |
-| `fedora44`    | **Not listed**          | Upstream lists Fedora 41–43                                                            |
+| `fedora45`    | **Not listed**          | Upstream lists Fedora 41–43                                                            |
 | `rocky102`    | **Check point release** | AWS lists Rocky 10.0–10.1; this rolling target's exact point release must be confirmed |
 | `ubuntu24045` | Yes                     | Upstream lists Ubuntu 24.04                                                            |
 | `ubuntu26041` | Yes                     | Ubuntu 26.04 is listed with kernel 7.0.0; confirm the built kernel matches             |

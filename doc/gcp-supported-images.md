@@ -96,7 +96,7 @@ images.
 | `centos10s`   | Yes                     | CentOS Stream 10                                                                                             |
 | `debian1215`  | Yes                     | Debian 12.x                                                                                                  |
 | `debian1307`  | **Check point release** | DIB tracks rolling `trixie`; GCP lists Debian 13.0–13.2, so confirm the built point release before importing |
-| `fedora44`    | **Not listed**          | Fedora does not appear in the table at all                                                                   |
+| `fedora45`    | **Not listed**          | Fedora does not appear in the table at all                                                                   |
 | `rocky102`    | Yes                     | Confirm the point release lands at or below 10.1                                                             |
 | `ubuntu24045` | Yes                     | Known good, imports successfully                                                                             |
 | `ubuntu26041` | Yes                     | Supported by GCP and AWS — see below                                                                         |
@@ -104,7 +104,7 @@ images.
 <!-- markdownlint-enable MD013 -->
 
 Fedora is absent from the M2VM table entirely, in contrast to AWS, which lists
-Fedora 41–43. `fedora44` is therefore off-matrix on both clouds.
+Fedora 41–43. `fedora45` is therefore off-matrix on both clouds.
 
 ## Ubuntu 26.04 import to GCP
 

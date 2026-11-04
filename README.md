@@ -83,7 +83,7 @@ are the only copy.
 - CentOS Stream 10
 - Debian 12 (Bookworm)
 - Debian 13 (Trixie)
-- Fedora 44
+- Fedora 45
 - Rocky Linux 10
 - Ubuntu 24.04 LTS (Noble)
 - Ubuntu 26.04 LTS (Resolute)
