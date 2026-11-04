@@ -9,7 +9,9 @@ import json
 import os
 import subprocess
 from pathlib import Path
-from reconcile_catalog_common import read_snapshot, reconcile
+from reconcile_catalog_common import read_snapshot, read_vault, reconcile, report_credentials
+
+CREDENTIAL_FIELDS = ("vcenter_hostname", "vcenter_username", "vcenter_password")
 
 POWERSHELL_QUERY = r"""
 $ErrorActionPreference = 'Stop'
@@ -28,13 +30,56 @@ try {
 }
 """
 
-def query_live_artifacts(library):
-    required = ("vcenter_hostname", "vcenter_username", "vcenter_password")
-    missing = [name for name in required if not os.environ.get(name)]
-    if missing:
+def vault_vcenter(document, vcenter):
+    """The vsphere.yml credentials for a catalog vCenter label, or None.
+
+    The label is what select-vcenter.yml recorded: a vsphere_projects key, or
+    "legacy" for the flat vcenter_* mapping. Rows with no label predate it;
+    like select-vcenter.yml with no request, they take the flat mapping, else
+    a single vsphere_projects entry.
+    """
+    projects = {str(key): entry for key, entry in (document.get("vsphere_projects") or {}).items()
+                if isinstance(entry, dict)}
+    flat = document if str(document.get("vcenter_hostname") or "").strip() else None
+    if vcenter == "legacy":
+        return ("legacy", flat) if flat else None
+    if vcenter:
+        return (vcenter, projects[vcenter]) if vcenter in projects else None
+    if flat:
+        return "legacy", flat
+    if len(projects) == 1:
+        return next(iter(projects.items()))
+    return None
+
+def vcenter_environment(vcenter, vault_file):
+    """vcenter_* environment for PowerCLI: exported values, else the vault.
+
+    vcenter_hostname/vcenter_username/vcenter_password (or the VCENTER_*
+    spellings) win when all three are exported. Otherwise the vault entry
+    for the reconciled vCenter supplies them.
+    """
+    exported = {name: os.environ.get(name) or os.environ.get(name.upper()) for name in CREDENTIAL_FIELDS}
+    if all(exported.values()):
+        report_credentials("vSphere", "vcenter_* environment")
+        return exported
+    document = read_vault(vault_file) if vault_file else None
+    selected = vault_vcenter(document, vcenter) if document is not None else None
+    if selected is None:
+        missing = [name for name, value in exported.items() if not value]
         raise ValueError(
-            "missing vCenter environment variable(s): " + ", ".join(missing))
+            "missing vCenter environment variable(s): " + ", ".join(missing)
+            + f"; or add vCenter {vcenter or '(unscoped)'} to {Path(vault_file).name}")
+    key, entry = selected
+    values = {name: str(entry.get(name) or "") for name in CREDENTIAL_FIELDS}
+    missing = [name for name, value in values.items() if not value.strip()]
+    if missing:
+        raise ValueError(f"vsphere.yml {key} is missing {', '.join(missing)}")
+    report_credentials("vSphere", f"{Path(vault_file).name} {key}")
+    return values
+
+def query_live_artifacts(library, vcenter=None, vault_file=None):
     env = os.environ.copy()
+    env.update(vcenter_environment(vcenter, vault_file))
     env["vsphere_catalog_library"] = library
     result = subprocess.run(["pwsh", "-NoProfile", "-NonInteractive", "-Command", POWERSHELL_QUERY],
                             capture_output=True, text=True, check=True, env=env)
@@ -51,6 +96,8 @@ def main():
                         default=repo_dir / "catalogs/image-catalog.json")
     parser.add_argument("--library")
     parser.add_argument("--vcenter", help="only reconcile entries for this vCenter key/hostname")
+    parser.add_argument("--vault-file", type=Path, default=repo_dir / "vaults/vsphere.yml",
+                        help="encrypted vault holding vCenter credentials")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
@@ -97,7 +144,7 @@ def main():
         raise ValueError("catalog contains multiple vSphere vCenters; provide --vcenter")
     else:
         vcenter = next(iter(vcenters)) if len(vcenters) == 1 else None
-    library_items, templates = query_live_artifacts(library)
+    library_items, templates = query_live_artifacts(library, vcenter, args.vault_file)
 
     def scope_match(image):
         image_scope = image.get("scope") or {}

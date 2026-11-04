@@ -6,13 +6,61 @@
 
 import argparse
 import json
+import os
 from pathlib import Path
 
 import google.auth
 from google.auth.transport.requests import AuthorizedSession
+from google.oauth2 import service_account
 import requests
 
-from reconcile_catalog_common import read_snapshot, reconcile
+from reconcile_catalog_common import (
+    read_snapshot,
+    read_vault,
+    reconcile,
+    report_credentials,
+    select_vault_project,
+    vault_projects,
+)
+
+SCOPES = ["https://www.googleapis.com/auth/cloud-platform"]
+
+def gcp_credentials(project, vault_file, credentials_file=None):
+    """--credentials-file, then GOOGLE_APPLICATION_CREDENTIALS, then the vault,
+    then the remaining Google defaults (gcloud login, metadata server).
+
+    The vault entry is the gcp_projects one whose key or gcp_project is the
+    reconciled project (GCP_TARGET_PROJECT disambiguates, as for the import
+    playbooks); its service_account_key authenticates.
+
+    Returns (credentials, the project the credentials carry).
+    """
+    if credentials_file:
+        report_credentials("GCP", f"--credentials-file {credentials_file}")
+        return google.auth.load_credentials_from_file(credentials_file, scopes=SCOPES)
+    if os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", "").strip():
+        report_credentials("GCP", "GOOGLE_APPLICATION_CREDENTIALS environment")
+        return google.auth.default(scopes=SCOPES)
+    document = read_vault(vault_file)
+    if document is not None:
+        selected = select_vault_project(
+            vault_projects(document, "gcp_projects"), project,
+            ("gcp_project", "project_id"), "GCP_TARGET_PROJECT", "gcp_projects")
+        if selected is not None:
+            key, entry = selected
+            raw = entry.get("service_account_key")
+            try:
+                info = json.loads(raw) if isinstance(raw, str) else dict(raw or {})
+            except (TypeError, ValueError) as error:
+                raise ValueError(
+                    f"gcp_projects[{key!r}].service_account_key is not valid JSON: {error}") from error
+            if not info.get("client_email"):
+                raise ValueError(f"gcp_projects[{key!r}].service_account_key has no client_email")
+            report_credentials("GCP", f"service account from {Path(vault_file).name} gcp_projects[{key}]")
+            credentials = service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
+            return credentials, info.get("project_id")
+    report_credentials("GCP", "Google application default credentials (gcloud, metadata server)")
+    return google.auth.default(scopes=SCOPES)
 
 def main():
     repo_dir = Path(__file__).resolve().parents[1]
@@ -20,7 +68,10 @@ def main():
     parser.add_argument("--catalog", type=Path,
                         default=repo_dir / "catalogs/image-catalog.json")
     parser.add_argument("--project")
-    parser.add_argument("--credentials-file", type=Path)
+    parser.add_argument("--credentials-file", type=Path,
+                        help="service-account JSON, instead of the environment or the vault")
+    parser.add_argument("--vault-file", type=Path, default=repo_dir / "vaults/gcp.yml",
+                        help="encrypted vault holding gcp_projects service accounts")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
@@ -35,25 +86,21 @@ def main():
     if not project:
         raise ValueError(
             "catalog contains multiple GCP projects; provide --project")
-    credentials_args = {"scopes": [
-        "https://www.googleapis.com/auth/cloud-platform"]}
-    if args.credentials_file:
-        credentials, credential_project = google.auth.load_credentials_from_file(
-            args.credentials_file, **credentials_args)
-    else:
-        credentials, credential_project = google.auth.default(**credentials_args)
-    credential_project = credential_project or getattr(credentials, "project_id", None)
-    if credential_project and str(credential_project) != str(project):
-        raise ValueError(
-            f"resolved GCP credentials belong to project {credential_project}, not --project {project}")
-    session = AuthorizedSession(credentials)
     def scope_match(image): return image.get("project") == project
     retired = [image for image in catalog["images"] if image.get(
         "provider") == "gcp" and image.get("status") == "retired" and scope_match(image)]
+    published = [image for image in catalog["images"] if image.get(
+        "provider") == "gcp" and image.get("status") == "published" and scope_match(image)]
     stale = []
-    for image in catalog["images"]:
-        if image.get("provider") != "gcp" or image.get("status") != "published" or not scope_match(image):
-            continue
+    if published:
+        credentials, credential_project = gcp_credentials(
+            project, args.vault_file, args.credentials_file)
+        credential_project = credential_project or getattr(credentials, "project_id", None)
+        if credential_project and str(credential_project) != str(project):
+            raise ValueError(
+                f"resolved GCP credentials belong to project {credential_project}, not --project {project}")
+        session = AuthorizedSession(credentials)
+    for image in published:
         response = session.get(image["artifact_id"])
         if response.status_code == 404:
             stale.append((image, "image not found"))

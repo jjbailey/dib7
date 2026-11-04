@@ -14,8 +14,12 @@ import datetime as dt
 import fcntl
 import json
 import os
+import shutil
 import stat
+import subprocess
+import sys
 import tempfile
+from pathlib import Path
 
 def now_utc():
     return dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
@@ -106,3 +110,111 @@ def reconcile(path, provider, stale, retired, scope_match, scope_label, dry_run,
         fcntl.flock(lock, fcntl.LOCK_UN)
     print(f"removed {changed} entries in {path}")
     return changed
+
+# Credentials. The reconcilers take them in the usual order: an explicit
+# command-line flag, then credential variables exported in the environment,
+# then the provider's vault entry for the reconciled scope, then whatever the
+# SDK or CLI finds on its own (az login, ~/.aws, gcloud). Exported variables
+# are a deliberate per-shell choice, so they win; cached logins are often
+# stale or blocked, so they come last. The vault is opened only when it is
+# needed and never with a prompt.
+
+def _vault_password_file():
+    """Use the same lookup as bin/edit-vault.sh, minus the prompt."""
+    configured = os.environ.get("VAULT_PASSWORD_FILE")
+    if configured:
+        path = Path(configured).expanduser()
+        if not path.is_file():
+            raise ValueError(f"VAULT_PASSWORD_FILE does not name a readable file: {path}")
+        return path
+    default = Path.home() / ".ssh" / "dib-vault-pass"
+    return default if default.is_file() else None
+
+def _ansible_vault_binary():
+    venv_binary = Path(os.environ.get("DIB7_VENV_BIN", str(Path.home() / ".dib7" / "bin"))) / "ansible-vault"
+    if venv_binary.is_file() and os.access(venv_binary, os.X_OK):
+        return str(venv_binary)
+    return shutil.which("ansible-vault")
+
+def read_vault(vault_file):
+    """Return the decrypted vault document.
+
+    Returns None when the vault cannot be opened without prompting (no file,
+    no password file, or no ansible-vault), so the caller can fall back. A
+    vault that is there but will not decrypt is an error, not a fallback.
+    """
+    vault_file = Path(vault_file)
+    if not vault_file.is_file():
+        return None
+    password_file = _vault_password_file()
+    binary = _ansible_vault_binary()
+    if password_file is None or binary is None:
+        return None
+    try:
+        result = subprocess.run(
+            [binary, "view", "--vault-password-file", str(password_file), str(vault_file)],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except subprocess.CalledProcessError as error:
+        raise ValueError(
+            f"ansible-vault could not decrypt {vault_file} (exit status {error.returncode})"
+        ) from error
+    import yaml
+
+    document = yaml.safe_load(result.stdout)
+    return document if isinstance(document, dict) else {}
+
+def vault_projects(document, map_name):
+    """The <map_name> entries of a decrypted vault, keyed by string."""
+    projects = (document or {}).get(map_name) or {}
+    if not isinstance(projects, dict):
+        raise ValueError(f"vault {map_name} is not a mapping")
+    return {str(key): entry for key, entry in projects.items() if isinstance(entry, dict)}
+
+def select_vault_project(projects, scope, fields, target_variable, map_name):
+    """Pick the vault entry for the reconciled scope, as select-*-project.yml do.
+
+    An explicit request in target_variable (the same *_TARGET_PROJECT the
+    import playbooks take) matches a vault key or one of fields. Without one,
+    the entry whose fields name the scope is used. Returns (key, entry), or
+    None when the vault has no entry for the scope. scope may be None (rows
+    that predate a project column); then only an explicit request selects.
+    """
+    def identities(entry):
+        return {str(entry.get(field) or "").strip().lower() for field in fields} - {""}
+
+    scope_id = str(scope).strip().lower() if scope else None
+    requested = os.environ.get(target_variable, "").strip() or None
+    if requested:
+        matches = [(key, entry) for key, entry in projects.items()
+                   if requested.lower() in identities(entry) | {key.lower()}]
+        if not matches:
+            raise ValueError(
+                f"{target_variable} {requested!r} matches no key or {'/'.join(fields)} in "
+                f"{map_name}; available: {', '.join(sorted(projects)) or '<none>'}")
+    elif scope_id:
+        matches = [(key, entry) for key, entry in projects.items()
+                   if scope_id in identities(entry) | {key.lower()}]
+        if not matches:
+            return None
+    else:
+        return None
+    if len(matches) > 1:
+        raise ValueError(
+            f"several {map_name} entries match ({', '.join(sorted(key for key, _ in matches))}); "
+            f"set {target_variable} to one key")
+    key, entry = matches[0]
+    if scope_id and scope_id not in identities(entry) | {key.lower()}:
+        named = ", ".join(sorted(identities(entry))) or key
+        raise ValueError(f"{map_name}[{key!r}] is for {named}, not {scope}")
+    return key, entry
+
+def require_fields(map_name, key, entry, fields):
+    for field in fields:
+        if not str(entry.get(field) or "").strip():
+            raise ValueError(f"{map_name}[{key!r}].{field} must be a non-empty string")
+
+def report_credentials(provider, source):
+    print(f"{provider} credentials: {source}", file=sys.stderr)
