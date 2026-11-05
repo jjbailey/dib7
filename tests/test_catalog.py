@@ -391,6 +391,21 @@ class VaultCredentialOrderTests(unittest.TestCase):
         self.assertIsNone(credentials.env)
         self.assertIsNone(credentials.profile)
 
+    def test_aws_profile_alias_selects_vault_entry(self):
+        self.fake_vault({"aws_projects": {"lab": {
+            "aws_account_id": "111111111111", "aws_profile": "lab-profile"}}})
+        with patch.dict("os.environ", {"AWS_TARGET_PROJECT": "lab-profile"}):
+            credentials = reconcile_aws.aws_credentials("111111111111", self.vault)
+        self.assertEqual(credentials.profile, "lab-profile")
+
+    def test_aws_legacy_vault_credentials_take_precedence(self):
+        self.fake_vault({"aws_region": "us-east-1", "s3_bucket": "bucket",
+                         "vmimport_role_name": "role", "aws_account_id": "111111111111",
+                         "aws_access_key_id": "LEGACY_AK", "aws_secret_access_key": "LEGACY_SK",
+                         "aws_projects": self.AWS["aws_projects"]})
+        credentials = reconcile_aws.aws_credentials("111111111111", self.vault)
+        self.assertEqual(credentials.env["AWS_ACCESS_KEY_ID"], "LEGACY_AK")
+
     # GCP
     def test_gcp_exported_key_file_skips_the_vault(self):
         reconcile_gcp = load_script("reconcile-catalog-gcp.py", "reconcile_gcp_credential_test")
@@ -412,6 +427,15 @@ class VaultCredentialOrderTests(unittest.TestCase):
             default.assert_not_called()
             self.assertEqual(reconcile_gcp.gcp_credentials("other", self.vault)[0], "ambient")
 
+    def test_gcp_legacy_vault_service_account(self):
+        reconcile_gcp = load_script("reconcile-catalog-gcp.py", "reconcile_gcp_legacy_test")
+        key = {"type": "service_account", "project_id": "lab", "client_email": "legacy@example.com"}
+        self.fake_vault({"gcp_project": "lab", "service_account_key": key})
+        with patch.object(reconcile_gcp.service_account.Credentials, "from_service_account_info",
+                          return_value="legacy") as info:
+            self.assertEqual(reconcile_gcp.gcp_credentials("lab", self.vault), ("legacy", "lab"))
+        self.assertEqual(info.call_args.args[0]["client_email"], "legacy@example.com")
+
     # OpenStack
     OPENSTACK = {"openstack_projects": {"9999": {
         "auth_url": "https://keystone/v3", "username": "u", "password": "p",
@@ -429,6 +453,17 @@ class VaultCredentialOrderTests(unittest.TestCase):
     def test_openstack_vault_entry_alone(self):
         module = load_script("reconcile-catalog-openstack.py", "reconcile_openstack_credential_test")
         self.fake_vault(self.OPENSTACK)
+        with patch.object(module.openstack, "connect") as connect:
+            module.openstack_connection(self.vault, "lab", "R1")
+        connect.assert_called_once_with(
+            load_envvars=False, load_yaml_config=False, auth_url="https://keystone/v3",
+            username="u", password="p", project_id="9999", project_name="lab", region_name="R1")
+
+    def test_openstack_legacy_vault_auth(self):
+        module = load_script("reconcile-catalog-openstack.py", "reconcile_openstack_legacy_test")
+        self.fake_vault({"openstack_auth": {"auth_url": "https://keystone/v3",
+                                              "username": "u", "password": "p",
+                                              "project_name": "lab", "project_id": 9999}})
         with patch.object(module.openstack, "connect") as connect:
             module.openstack_connection(self.vault, "lab", "R1")
         connect.assert_called_once_with(

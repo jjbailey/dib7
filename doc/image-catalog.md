@@ -172,7 +172,10 @@ to stderr (for example `AWS credentials: aws.yml aws_projects[lab]`):
    or `legacy` for the flat mapping). When several entries match, set the
    `*_TARGET_PROJECT` variable the playbooks take (`AWS_TARGET_PROJECT`,
    `AZURE_TARGET_PROJECT`, `GCP_TARGET_PROJECT`, `OPENSTACK_TARGET_PROJECT`).
-   `--vault-file` reads another vault.
+   `--vault-file` reads another vault. The AWS, GCP, and OpenStack reconcilers
+   also accept the legacy flat vault shapes when no target is explicitly
+   requested and the entry matches the catalog scope. As in the import
+   playbooks, a matching legacy entry takes precedence over a project map.
 4. Whatever the SDK or CLI finds on its own: the default `~/.aws` profile or
    an instance profile, `az login` or managed identity, the gcloud
    application-default login. OpenStack and vSphere have no such fallback and

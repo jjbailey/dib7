@@ -63,17 +63,26 @@ def openstack_connection(vault_file, project, region_name, cloud=None):
         return openstack.connect(**connection_args)
     document = read_vault(vault_file)
     selected = None
+    legacy = None
     if document is not None:
-        selected = select_vault_project(
-            vault_projects(document, "openstack_projects"), project,
-            ("project_name", "project_id"), "OPENSTACK_TARGET_PROJECT", "openstack_projects")
+        legacy = document.get("openstack_auth")
+        if isinstance(legacy, dict) and not os.environ.get("OPENSTACK_TARGET_PROJECT", "").strip():
+            selected = select_vault_project(
+                {"legacy": legacy}, project, ("project_name", "project_id"),
+                "OPENSTACK_TARGET_PROJECT", "openstack_projects")
+        if selected is None:
+            selected = select_vault_project(
+                vault_projects(document, "openstack_projects"), project,
+                ("project_name", "project_id"), "OPENSTACK_TARGET_PROJECT", "openstack_projects")
     if selected is None:
         validate_openstack_environment(None)  # raises with the usual guidance
     key, auth = selected
     options = {name: (str(value) if name == "project_id" else value)
                for name, value in auth.items() if value not in (None, "")}
     options.update(connection_args)
-    report_credentials("OpenStack", f"{Path(vault_file).name} openstack_projects[{key}]")
+    source = (f"{Path(vault_file).name} openstack_auth" if auth is legacy
+              else f"{Path(vault_file).name} openstack_projects[{key}]")
+    report_credentials("OpenStack", source)
     return openstack.connect(load_envvars=False, load_yaml_config=False, **options)
 
 def project_name(connection):

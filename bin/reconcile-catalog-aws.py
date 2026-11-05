@@ -52,12 +52,22 @@ def aws_credentials(project, vault_file, profile=None):
         return AwsCredentials()
     document = read_vault(vault_file)
     if document is not None:
-        selected = select_vault_project(
-            vault_projects(document, "aws_projects"), project,
-            ("aws_account_id", "account_id"), "AWS_TARGET_PROJECT", "aws_projects")
+        legacy = (document if str(document.get("aws_region") or "").strip()
+                  and "s3_bucket" in document and "vmimport_role_name" in document else None)
+        legacy_account = str((legacy or {}).get("aws_account_id")
+                             or (legacy or {}).get("account_id") or "").strip()
+        if legacy and not os.environ.get("AWS_TARGET_PROJECT", "").strip() and (
+                not project or not legacy_account or legacy_account == project):
+            selected = ("legacy", legacy)
+        else:
+            selected = select_vault_project(
+                vault_projects(document, "aws_projects"), project,
+                ("aws_account_id", "account_id", "aws_profile", "profile"),
+                "AWS_TARGET_PROJECT", "aws_projects")
         if selected is not None:
             key, entry = selected
-            source = f"{Path(vault_file).name} aws_projects[{key}]"
+            source = (f"{Path(vault_file).name} legacy" if entry is legacy
+                      else f"{Path(vault_file).name} aws_projects[{key}]")
             entry_profile = str(entry.get("aws_profile") or entry.get("profile") or "").strip()
             if entry_profile:
                 report_credentials("AWS", f"{source} (profile {entry_profile})")
@@ -66,7 +76,7 @@ def aws_credentials(project, vault_file, profile=None):
             secret = str(entry.get("aws_secret_access_key") or "").strip()
             if not (key_id and secret):
                 raise ValueError(
-                    f"aws_projects[{key!r}] has neither aws_profile nor "
+                    f"{source} has neither aws_profile nor "
                     "aws_access_key_id/aws_secret_access_key")
             env = dict(os.environ, AWS_ACCESS_KEY_ID=key_id, AWS_SECRET_ACCESS_KEY=secret)
             token = str(entry.get("aws_session_token") or "").strip()

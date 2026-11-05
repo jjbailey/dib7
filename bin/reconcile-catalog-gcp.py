@@ -43,20 +43,28 @@ def gcp_credentials(project, vault_file, credentials_file=None):
         return google.auth.default(scopes=SCOPES)
     document = read_vault(vault_file)
     if document is not None:
-        selected = select_vault_project(
-            vault_projects(document, "gcp_projects"), project,
-            ("gcp_project", "project_id"), "GCP_TARGET_PROJECT", "gcp_projects")
+        legacy = document if str(document.get("gcp_project") or "").strip() else None
+        if legacy and not os.environ.get("GCP_TARGET_PROJECT", "").strip() and (
+                str(legacy["gcp_project"]).strip().lower() == str(project).strip().lower()):
+            selected = ("legacy", legacy)
+        else:
+            selected = select_vault_project(
+                vault_projects(document, "gcp_projects"), project,
+                ("gcp_project", "project_id"), "GCP_TARGET_PROJECT", "gcp_projects")
         if selected is not None:
             key, entry = selected
+            entry_name = "legacy gcp_project" if entry is legacy else f"gcp_projects[{key!r}]"
             raw = entry.get("service_account_key")
             try:
                 info = json.loads(raw) if isinstance(raw, str) else dict(raw or {})
             except (TypeError, ValueError) as error:
                 raise ValueError(
-                    f"gcp_projects[{key!r}].service_account_key is not valid JSON: {error}") from error
+                    f"{entry_name}.service_account_key is not valid JSON: {error}") from error
             if not info.get("client_email"):
-                raise ValueError(f"gcp_projects[{key!r}].service_account_key has no client_email")
-            report_credentials("GCP", f"service account from {Path(vault_file).name} gcp_projects[{key}]")
+                raise ValueError(f"{entry_name}.service_account_key has no client_email")
+            source = (f"{Path(vault_file).name} legacy" if entry is legacy
+                      else f"{Path(vault_file).name} gcp_projects[{key}]")
+            report_credentials("GCP", f"service account from {source}")
             credentials = service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
             return credentials, info.get("project_id")
     report_credentials("GCP", "Google application default credentials (gcloud, metadata server)")
