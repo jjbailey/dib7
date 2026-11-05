@@ -125,6 +125,20 @@
               Name: "{{ image_name }}"
             state: present
 
+        # The import creates the backing EBS snapshot without a Name; give
+        # it the AMI's name so it is identifiable in the console.
+        - name: Tag imported AMI snapshots
+          amazon.aws.ec2_tag:
+            region: "{{ aws_region }}"
+            resource: "{{ item }}"
+            tags:
+              Name: "{{ image_name }}"
+            state: present
+          loop: >-
+            {{ (ami_info.images | first).block_device_mappings
+               | map(attribute='ebs') | select('defined')
+               | map(attribute='snapshot_id') | select('defined') | list }}
+
         - name: Publish imported AMI to image catalog
           ansible.builtin.include_tasks: publish-image-catalog.yml
           vars:
