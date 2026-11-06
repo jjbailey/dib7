@@ -192,6 +192,17 @@ class AwsCommandTests(unittest.TestCase):
     def test_no_profile_argument_without_profile(self):
         self.assertNotIn("--profile", self.describe_images_argv(None))
 
+    def test_only_dead_ami_states_count_as_gone(self):
+        images = [{"ImageId": "ami-ok", "State": "available"},
+                  {"ImageId": "ami-new", "State": "pending"},
+                  {"ImageId": "ami-bad", "State": "failed"},
+                  {"ImageId": "ami-err", "State": "error"}]
+        result = Mock(stdout=json.dumps({"Images": images}))
+        with patch.object(reconcile_aws.subprocess, "run", return_value=result):
+            live = reconcile_aws.live_ami_ids("us-east-1", ["ami-ok", "ami-new", "ami-bad", "ami-err"],
+                                              reconcile_aws.AwsCredentials())
+        self.assertEqual(live, {"ami-ok", "ami-new"})
+
 class ReconcileExitStatusTests(unittest.TestCase):
     def test_all_providers_return_success_after_removing_rows(self):
         for provider in ["aws", "azure", "gcp", "openstack", "vsphere"]:

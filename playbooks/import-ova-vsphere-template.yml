@@ -81,6 +81,10 @@
               - "{{ vsphere_template_folder | default('Templates') }}"
               - "-vmHost"
               - "{{ vsphere_template_host | default('') }}"
+            # The password goes in on stdin, not environment: Ansible runs the
+            # module as sh -c 'VAR=... python ...', which would leave it readable
+            # in ps for the whole upload (same reason as Azure's module_defaults).
+            stdin: "{{ vcenter_password }}"
           delegate_to: localhost
           register: template_result
           changed_when: template_result.rc == 0
@@ -88,7 +92,7 @@
           environment:
             vcenter_hostname: "{{ vcenter_hostname }}"
             vcenter_username: "{{ vcenter_username }}"
-            vcenter_password: "{{ vcenter_password }}"
+            vcenter_password_stdin: "1"
 
         - name: Publish vSphere template to image catalog
           ansible.builtin.include_tasks: publish-image-catalog.yml

@@ -388,7 +388,8 @@
               IMPORT FAILED for {{ inventory_hostname }} at task
               '{{ ansible_failed_task.name | default('unknown task') }}'.
               {{ stage_error }}
-              QCOW2 left at gs://{{ gcs_bucket }}/{{ qcow2_file }} for debugging/retry.
+              {{ 'QCOW2 may already be removed from' if gcp_delete_qcow2_after_import | default(false) | bool else 'QCOW2 left at' }}
+              gs://{{ gcs_bucket }}/{{ qcow2_file }}{{ '' if gcp_delete_qcow2_after_import | default(false) | bool else ' for debugging/retry' }}.
 
       always:
         - name: Remove temp service account key file

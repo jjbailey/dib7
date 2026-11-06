@@ -142,8 +142,8 @@ source ~/.dib7/bin/activate
 
 ## Upgrading
 
-`requirements.txt` pins `ansible-core` and `diskimage-builder`. After changing a
-pin, reinstall, re-apply the Fedora and/or CentOS patch if needed, and
+`requirements.txt` pins every package exactly: `ansible-core`,
+`diskimage-builder`, and the controller-side SDKs. After changing a pin, reinstall, re-apply the Fedora and/or CentOS patch if needed, and
 re-verify:
 
 ```bash

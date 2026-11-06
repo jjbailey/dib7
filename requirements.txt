@@ -3,15 +3,17 @@ ansible-core==2.18.18
 diskimage-builder==3.44.0
 
 # Direct Python dependencies used by local repo scripts and validation.
-PyYAML>=6.0
-jsonschema>=4.0
+PyYAML==6.0.2
+jsonschema==4.26.0
 
 # Controller-side SDKs required by the collections a shipped playbook uses.
+# Pinned to the versions in the tested ~/.dib7 venv so a fresh install
+# reproduces it; bump them together with requirements.yml.
 # Azure's SDK dependencies stay in the Azure collection's own requirements.txt
 # and are installed separately; see doc/azure.md.
-boto3>=1.34.0
-botocore>=1.34.0
-requests>=2.18.4
-google-auth>=1.3.0
-google-cloud-storage>=1.2.0
-openstacksdk>=1.0.0
+boto3==1.42.54
+botocore==1.42.54
+requests==2.34.2
+google-auth==2.40.1
+google-cloud-storage==3.9.0
+openstacksdk==4.7.0

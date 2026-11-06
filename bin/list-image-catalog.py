@@ -118,6 +118,8 @@ def main(argv: list[str] | None = None) -> int:
         raise SystemExit("list-image-catalog: every catalog image must be an object")
 
     matches = [entry for entry in images if _matches(entry, args)]
+    # Two stable sorts on purpose: _sort_key groups, newest version first
+    # within a group. Do not merge or reorder them.
     matches.sort(key=lambda entry: str(entry.get("version", "")), reverse=True)
     matches.sort(key=_sort_key)
 

@@ -34,6 +34,13 @@
         # the build succeeds there is no artifact any later stage should touch,
         # and dropping the convert stamp too stops a half-refreshed build_dir
         # from looking converted.
+        # Keep the previous build's log for post-hoc debugging; the next task
+        # removes the current one.
+        - name: Keep the previous build log
+          ansible.builtin.command:
+            argv: [mv, -f, "{{ build_dir }}/{{ image_name }}.log", "{{ build_dir }}/{{ image_name }}.log.prev"]
+            removes: "{{ build_dir }}/{{ image_name }}.log"
+
         - name: Remove old build artifacts
           ansible.builtin.file:
             path: "{{ build_dir }}/{{ item }}"
@@ -88,7 +95,7 @@
             - name: Create temporary swap configuration script
               ansible.builtin.tempfile:
                 state: file
-                suffix: .sh
+                suffix: .guestfish
               register: swap_script
 
             - name: Generate swap setup script content

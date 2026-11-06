@@ -15,7 +15,7 @@ CREDENTIAL_FIELDS = ("vcenter_hostname", "vcenter_username", "vcenter_password")
 
 POWERSHELL_QUERY = r"""
 $ErrorActionPreference = 'Stop'
-$password = ConvertTo-SecureString $env:vcenter_password -AsPlainText -Force
+$password = ConvertTo-SecureString ([Console]::In.ReadLine()) -AsPlainText -Force
 $credential = [PSCredential]::new($env:vcenter_username, $password)
 $server = $env:vcenter_hostname
 $library = $env:vsphere_catalog_library
@@ -78,10 +78,15 @@ def vcenter_environment(vcenter, vault_file):
     return values
 
 def query_live_artifacts(library, vcenter=None, vault_file=None):
+    credentials = vcenter_environment(vcenter, vault_file)
     env = os.environ.copy()
-    env.update(vcenter_environment(vcenter, vault_file))
+    env.update(credentials)
+    # The password reaches PowerCLI on stdin, not in pwsh's environment.
+    for name in ("vcenter_password", "VCENTER_PASSWORD"):
+        env.pop(name, None)
     env["vsphere_catalog_library"] = library
     result = subprocess.run(["pwsh", "-NoProfile", "-NonInteractive", "-Command", POWERSHELL_QUERY],
+                            input=credentials["vcenter_password"] + "\n",
                             capture_output=True, text=True, check=True, env=env)
     try:
         document = json.loads(result.stdout.strip())

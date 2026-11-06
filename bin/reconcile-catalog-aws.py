@@ -22,6 +22,7 @@ from reconcile_catalog_common import (
 )
 
 AMI_BATCH_SIZE = 100
+DEAD_AMI_STATES = frozenset({"failed", "error", "invalid"})
 
 # Exported variables that pick AWS credentials on purpose; the aws CLI reads them.
 AWS_ENVIRONMENT = ("AWS_PROFILE", "AWS_ACCESS_KEY_ID", "AWS_WEB_IDENTITY_TOKEN_FILE")
@@ -78,6 +79,8 @@ def aws_credentials(project, vault_file, profile=None):
                 raise ValueError(
                     f"{source} has neither aws_profile nor "
                     "aws_access_key_id/aws_secret_access_key")
+            # The CLI's own credential variables: they sit in the child's
+            # environment (same-user /proc only), never on a command line.
             env = dict(os.environ, AWS_ACCESS_KEY_ID=key_id, AWS_SECRET_ACCESS_KEY=secret)
             token = str(entry.get("aws_session_token") or "").strip()
             if token:
@@ -107,8 +110,12 @@ def live_ami_ids(region, ami_ids, credentials=None):
                    "Name=image-id,Values=" + ",".join(ami_ids[start:start + AMI_BATCH_SIZE]),
                    "--output", "json"]
         result = _aws(command, credentials)
+        # A failed/error/invalid AMI is not bootable, so its row goes too.
+        # Anything else, including 'pending' from an import still finishing,
+        # stays: dropping it would race a concurrent publish.
         live.update(item["ImageId"]
-                    for item in json.loads(result.stdout).get("Images", []))
+                    for item in json.loads(result.stdout).get("Images", [])
+                    if item.get("State") not in DEAD_AMI_STATES)
     return live
 
 def main():

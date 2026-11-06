@@ -52,6 +52,13 @@ if (-not $vCenterUser) { $vCenterUser = $env:vcenter_username }
 if (-not $vCenterPassword -and $env:vcenter_password) {
     $vCenterPassword = ConvertTo-SecureString $env:vcenter_password -AsPlainText -Force
 }
+# The playbooks pass the password on stdin so it never appears in ps.
+if (-not $vCenterPassword -and $env:vcenter_password_stdin) {
+    $stdinPassword = [Console]::In.ReadLine()
+    if ($stdinPassword) {
+        $vCenterPassword = ConvertTo-SecureString $stdinPassword -AsPlainText -Force
+    }
+}
 
 if (-not $vCenterServer -or -not $vCenterUser -or -not $vCenterPassword) {
     Write-Error "vCenter connection parameters not provided."

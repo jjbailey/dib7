@@ -65,7 +65,9 @@ Included with `include_tasks`, never run standalone. `ansible-playbook
   "Report ... results" play that closes every playbook. Fail-closed by default
   (a host counts as a failure unless `stage_succeeded` is true);
   `stage_failure_mode: explicit` is used only by the backfill playbook, where
-  hosts ended early by `meta: end_host` are not errors.
+  hosts ended early by `meta: end_host` are not errors. Each failed host fails
+  on its own line, so the PLAY RECAP shows `failed=1` against the distro that
+  failed rather than the first host in `hosts.yml`.
 - **`publish-image-catalog.yml`**: Writes one entry into the image catalog.
   Included by each import playbook after its import succeeds.
 - **`tasks/select-aws-project.yml`**, **`tasks/select-azure-project.yml`**,

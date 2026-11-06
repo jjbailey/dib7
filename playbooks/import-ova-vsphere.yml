@@ -76,6 +76,10 @@
               - "{{ vsphere_content_library }}"
               - "-ova"
               - "{{ build_dir }}/{{ ova_file }}"
+            # The password goes in on stdin, not environment: Ansible runs the
+            # module as sh -c 'VAR=... python ...', which would leave it readable
+            # in ps for the whole upload (same reason as Azure's module_defaults).
+            stdin: "{{ vcenter_password }}"
           delegate_to: localhost
           register: import_result
           changed_when: import_result.rc == 0
@@ -83,7 +87,7 @@
           environment:
             vcenter_hostname: "{{ vcenter_hostname }}"
             vcenter_username: "{{ vcenter_username }}"
-            vcenter_password: "{{ vcenter_password }}"
+            vcenter_password_stdin: "1"
 
         # Coexists with the content_library_template entry published by
         # import-ova-vsphere-template.yml: artifact_type is part of the catalog
