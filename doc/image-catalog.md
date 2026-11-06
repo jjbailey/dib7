@@ -150,6 +150,44 @@ Use the project virtualenv interpreter for these commands. The GCP and
 OpenStack reconcilers depend on SDK packages installed there, and the vSphere
 reconciler also requires `pwsh` with PowerCLI.
 
+### Credentials
+
+Every reconciler chooses credentials in the same order and prints its choice
+to stderr (for example `AWS credentials: aws.yml aws_projects[lab]`):
+
+1. An explicit flag: `--profile` (AWS), `--credentials-file` (GCP), or
+   `--cloud` (OpenStack).
+2. Credential variables exported in the shell: `AWS_PROFILE`,
+   `AWS_ACCESS_KEY_ID`, or `AWS_WEB_IDENTITY_TOKEN_FILE`; `AZURE_TENANT`,
+   `AZURE_CLIENT_ID`, and `AZURE_SECRET` (or the SDK's `*_ID`/`CLIENT_SECRET`
+   spellings); `GOOGLE_APPLICATION_CREDENTIALS`; `OS_CLOUD` or `OS_AUTH_URL`
+   with the rest of `OS_*`; all three of `vcenter_hostname`,
+   `vcenter_username`, and `vcenter_password` (or `VCENTER_*`).
+3. The vault entry for the scope being reconciled, matched the way the import
+   playbooks match it: `aws_projects` by key or `aws_account_id`,
+   `azure_projects` by `subscription_id`, `gcp_projects` by key or
+   `gcp_project`, `openstack_projects` by key, `project_name`, or
+   `project_id` (used alone, nothing filled in from `clouds.yaml`), and the
+   vSphere vault by the row's `scope.vcenter` label (a `vsphere_projects` key,
+   or `legacy` for the flat mapping). When several entries match, set the
+   `*_TARGET_PROJECT` variable the playbooks take (`AWS_TARGET_PROJECT`,
+   `AZURE_TARGET_PROJECT`, `GCP_TARGET_PROJECT`, `OPENSTACK_TARGET_PROJECT`).
+   `--vault-file` reads another vault. The AWS, GCP, and OpenStack reconcilers
+   also accept the legacy flat vault shapes when no target is explicitly
+   requested and the entry matches the catalog scope. As in the import
+   playbooks, a matching legacy entry takes precedence over a project map.
+4. Whatever the SDK or CLI finds on its own: the default `~/.aws` profile or
+   an instance profile, `az login` or managed identity, the gcloud
+   application-default login. OpenStack and vSphere have no such fallback and
+   stop with a message naming what to set.
+
+The vault is opened only when steps 1 and 2 did not decide, and only with
+`VAULT_PASSWORD_FILE` or `~/.ssh/dib-vault-pass`; without either it is
+skipped instead of prompting. A vault that is present but will not decrypt is
+an error. Exported credentials override the vault for that shell, so an
+unexpected `environment` in the stderr line is the cue to look for a stale
+export.
+
 Each reconciler works on one target scope and auto-selects it when the catalog
 holds exactly one; when the catalog holds several targets for a provider, the
 script fails and names the flag to disambiguate:
@@ -159,24 +197,20 @@ script fails and names the flag to disambiguate:
   alias) when the catalog contains rows for more than one AWS account.
 - **Azure** checks managed-image resource IDs and infers the subscription when
   the catalog contains one; use `--subscription` (alias `--project`) otherwise.
-  Credentials come from `AZURE_TENANT`, `AZURE_CLIENT_ID`, and `AZURE_SECRET`
-  (or the SDK's `*_ID`/`AZURE_CLIENT_SECRET` spellings), else
-  `DefaultAzureCredential`. A row whose resource ID names a different
+  A row whose resource ID names a different
   subscription is refused rather than checked.
 - **GCP** checks image self-links and infers the project when the catalog
   contains one; use `--project` or `--credentials-file` when needed. The
   resolved credentials must belong to the selected project, and the script
   fails with both project IDs when they disagree.
-- **OpenStack** checks Glance image IDs through the selected clouds.yaml entry
-  and supports `--cloud`, `--project-id`, and `--region-name`. It requires
+- **OpenStack** checks Glance image IDs and supports `--cloud`, `--project-id`, and `--region-name`. It requires
   `--project-id` when the catalog holds several OpenStack projects and
   `--region-name` when it holds several regions, and it verifies the
   authenticated project against the selection before touching anything. A row
   recorded for a different region is left alone. A row with no region predates
   the field and is still checked.
 - **vSphere** checks content-library items and templates through
-  `pwsh`/PowerCLI, which requires `vcenter_hostname`, `vcenter_username`, and
-  `vcenter_password` in the environment. It selects the content library
+  `pwsh`/PowerCLI. It selects the content library
   automatically when the catalog holds one (`--library` otherwise). Pass
   `--vcenter` when the catalog holds several vCenters, or when some rows name a
   vCenter and others do not. A row with no `scope.vcenter` is not treated as
@@ -191,9 +225,10 @@ perform live cloud calls.
 
 ### OpenStack Credentials
 
-Before connecting, `reconcile-catalog-openstack.py` checks for the credentials
-needed by the OpenStack SDK. With password authentication, export these
-variables (project ID may be used instead of project name):
+Without `--cloud`, exported `OS_*` variables, or a matching
+`vaults/openstack.yml` entry, `reconcile-catalog-openstack.py` stops before
+connecting and names what is missing. To use an RC environment instead of the
+vault, export these (project ID may be used instead of project name):
 
 ```bash
 export OS_AUTH_URL=https://keystone.example.com:5000/v3
@@ -206,8 +241,7 @@ export OS_PROJECT_NAME=my-project
 `OS_USER_ID` may be used instead of `OS_USERNAME`, and `OS_TOKEN` instead of
 `OS_PASSWORD` when using token authentication. If credentials are stored in a
 `clouds.yaml` entry, pass its name with `--cloud <name>` or set `OS_CLOUD`
-instead; those modes do not require the individual `OS_*` variables. Missing
-credentials are reported before any OpenStack connection is attempted.
+instead; those modes do not require the individual `OS_*` variables.
 
 ## Release Capture
 

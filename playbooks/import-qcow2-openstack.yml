@@ -34,6 +34,17 @@
             msg: "Source QCOW2 file {{ build_dir }}/{{ qcow2_file }} is missing or empty"
           when: not qcow2_stat.stat.exists or not qcow2_stat.stat.isreg or (qcow2_stat.stat.size | default(0) | int) == 0
 
+        # Catch a damaged source before spending an upload on it.
+        - name: Check QCOW2 integrity
+          ansible.builtin.command:
+            argv:
+              - qemu-img
+              - check
+              - -f
+              - qcow2
+              - "{{ build_dir }}/{{ qcow2_file }}"
+          changed_when: false
+
         - name: Check if image already exists in OpenStack
           openstack.cloud.image_info:
             auth: "{{ openstack_auth }}"
@@ -108,6 +119,35 @@
         - name: Record new image ID
           ansible.builtin.set_fact:
             new_image_id: "{{ (image_status.images | first).id }}"
+            glance_size: "{{ (image_status.images | first).size | default(0, true) | int }}"
+            glance_hash_algo: "{{ (image_status.images | first).hash_algo | default('', true) | lower }}"
+            glance_hash_value: "{{ (image_status.images | first).hash_value | default('', true) | lower }}"
+
+        # An 'active' image is not proof the bytes arrived intact: a damaged
+        # upload can go active and then fail to boot. Glance hashes the data it
+        # received, so hash the local file the same way and compare.
+        - name: Hash the local QCOW2 with Glance's algorithm
+          ansible.builtin.stat:
+            path: "{{ build_dir }}/{{ qcow2_file }}"
+            get_checksum: true
+            checksum_algorithm: "{{ glance_hash_algo }}"
+          register: qcow2_hash
+          when: glance_hash_algo | length > 0
+
+        - name: Fail if the uploaded image does not match the local QCOW2
+          ansible.builtin.fail:
+            msg: >-
+              OpenStack image {{ new_image_id }} does not match {{ build_dir }}/{{ qcow2_file }}:
+              size {{ glance_size }} vs {{ qcow2_hash.stat.size | default(qcow2_stat.stat.size) }},
+              {{ glance_hash_algo | default('hash', true) }}
+              {{ glance_hash_value | default('missing', true) }} vs
+              {{ qcow2_hash.stat.checksum | default('not computed') }}.
+              The upload was corrupted in transit; the image will be removed.
+          when: >-
+            glance_hash_algo | length == 0 or
+            glance_hash_value | length == 0 or
+            (glance_size | int) != (qcow2_hash.stat.size | int) or
+            glance_hash_value != (qcow2_hash.stat.checksum | lower)
 
         - name: Display new image ID
           ansible.builtin.debug:

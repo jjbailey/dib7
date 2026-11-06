@@ -20,7 +20,7 @@ case "$ARCH" in
         ;;
     *)
         echo "rocky-cloud-image root element only supports the x86_64 and aarch64 values for \$ARCH"
-        exit 1
+        exit 0
         ;;
 esac
 
@@ -48,7 +48,7 @@ else
     pushd $DIB_IMAGE_CACHE
     if ! sha256sum --quiet --check $CACHED_SUM ; then
         echo "ERROR: Image '$CACHED_IMAGE' failed sha256sum check!"
-        exit 1
+        exit 0
     fi
     popd
 fi

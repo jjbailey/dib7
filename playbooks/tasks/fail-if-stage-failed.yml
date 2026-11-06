@@ -20,49 +20,29 @@
 #   having no artifact to backfill is the expected outcome there, not an error.
 #   Those hosts signal failure by setting stage_failed instead.
 #
-# Both tasks are pinned to one host rather than run_once: a run_once fail marks
-# every host in the play, which would put an identical fatal: line in the log
-# per distro and bury the real one the summary tells you to grep for.
+# Each failed host fails on its own row, so the PLAY RECAP blames the distro
+# that actually failed. Neither run_once nor a summary fail pinned to the first
+# host does that: run_once marks every host failed, and a pinned fail charges
+# the whole stage's failure to whichever distro sorts first in hosts.yml. The
+# first host only prints the summary, as a debug.
 
-- name: Fail if any host reported a failure of {{ stage_name }}
-  ansible.builtin.fail:
-    msg: |-
-      {{ stage_name }} failed for {{ stage_failures | length }} of
-      {{ ansible_play_hosts_all | length }} hosts:
-      {% for host in stage_failures %}
-        {{ host }}: {{ hostvars[host].stage_error | default('see log') | trim }}
-      {% endfor %}
-  when:
-    - inventory_hostname == (ansible_play_hosts | first | default(''))
-    - (stage_failure_mode | default('fail_closed')) == 'explicit'
-    - stage_failures | length > 0
-  vars:
-    stage_failures: >-
-      {{ ansible_play_hosts_all
-         | map('extract', hostvars)
-         | selectattr('stage_failed', 'defined')
-         | selectattr('stage_failed')
-         | map(attribute='inventory_hostname')
-         | list }}
-
-- name: Fail if any host did not complete {{ stage_name }}
-  ansible.builtin.fail:
-    msg: |-
-      {{ stage_name }} failed for {{ stage_failures | length }} of
-      {{ ansible_play_hosts_all | length }} hosts:
-      {% for host in stage_failures %}
-        {{ host }}: {{ hostvars[host].stage_error | default('see log') | trim }}
-      {% endfor %}
-  when:
-    - inventory_hostname == (ansible_play_hosts | first | default(''))
-    - (stage_failure_mode | default('fail_closed')) == 'fail_closed'
-    - stage_failures | length > 0
+- name: Collect the hosts that failed {{ stage_name }}
+  ansible.builtin.set_fact:
+    stage_failure_hosts: >-
+      {{ (ansible_play_hosts_all
+          | map('extract', hostvars)
+          | selectattr('stage_failed', 'defined')
+          | selectattr('stage_failed')
+          | map(attribute='inventory_hostname')
+          | list)
+         if (stage_failure_mode | default('fail_closed')) == 'explicit'
+         else (ansible_play_hosts_all | reject('in', stage_succeeded_hosts) | list) }}
   # Build the succeeded list and take its complement rather than rejectattr
   # on stage_succeeded directly: a failed host never sets the fact, and
   # testing an attribute that is missing from hostvars raises instead of
   # comparing false - which crashed this very task in exactly the case it
   # exists to report. selectattr('...', 'defined') is the safe guard, as in
-  # the explicit-mode task above.
+  # the explicit-mode branch.
   vars:
     stage_succeeded_hosts: >-
       {{ ansible_play_hosts_all
@@ -71,8 +51,39 @@
          | selectattr('stage_succeeded', 'equalto', true)
          | map(attribute='inventory_hostname')
          | list }}
-    stage_failures: >-
-      {{ ansible_play_hosts_all
-         | reject('in', stage_succeeded_hosts)
-         | list }}
+
+# Taken before the per-host fail below, which itself removes hosts from
+# ansible_play_hosts: these are failed hosts already out of this play (an
+# unreachable host, for one) that cannot fail on their own row.
+- name: Note failed hosts that are no longer in the play
+  ansible.builtin.set_fact:
+    stage_failures_absent: "{{ stage_failure_hosts | reject('in', ansible_play_hosts) | list }}"
+
+- name: Summarize {{ stage_name }} failures
+  ansible.builtin.debug:
+    msg: |-
+      {{ stage_name }} failed for {{ stage_failure_hosts | length }} of
+      {{ ansible_play_hosts_all | length }} hosts:
+      {% for host in stage_failure_hosts %}
+        {{ host }}: {{ hostvars[host].stage_error | default('see log') | trim }}
+      {% endfor %}
+  when:
+    - inventory_hostname == (ansible_play_hosts | first | default(''))
+    - stage_failure_hosts | length > 0
+
+- name: Fail if this host did not complete {{ stage_name }}
+  ansible.builtin.fail:
+    msg: >-
+      {{ stage_name }} failed for {{ inventory_hostname }}:
+      {{ stage_error | default('see log') | trim }}
+  when: inventory_hostname in stage_failure_hosts
+
+- name: Fail for failed hosts that left the play before the {{ stage_name }} report
+  ansible.builtin.fail:
+    msg: >-
+      {{ stage_name }} failed for {{ stage_failures_absent | join(', ') }}
+      (no longer in the play); see the log above.
+  when:
+    - inventory_hostname == (ansible_play_hosts | first | default(''))
+    - stage_failures_absent | length > 0
 

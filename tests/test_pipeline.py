@@ -155,6 +155,10 @@ class AnsibleRegressionTests(unittest.TestCase):
         self.assertIn('rescued: simulated import error', result.stdout)
         self.assertIn('skipped: see log', result.stdout)
         self.assertNotIn('good:', result.stdout)
+        # The recap blames the hosts that failed, not the first host listed.
+        self.assertRegex(result.stdout, r'good\s+:.*failed=0')
+        self.assertRegex(result.stdout, r'rescued\s+:.*failed=1')
+        self.assertRegex(result.stdout, r'skipped\s+:.*failed=1')
 
     def test_failed_aws_import_finalizer_allows_next_serial_host(self):
         tasks = tasks_file('import-ova-aws.yml')[0]['tasks']

@@ -12,7 +12,14 @@ from pathlib import Path
 import keystoneauth1.exceptions
 import openstack
 
-from reconcile_catalog_common import read_snapshot, reconcile
+from reconcile_catalog_common import (
+    read_snapshot,
+    read_vault,
+    reconcile,
+    report_credentials,
+    select_vault_project,
+    vault_projects,
+)
 
 def validate_openstack_environment(cloud):
     """Fail with actionable credentials guidance before connecting to OpenStack."""
@@ -34,9 +41,49 @@ def validate_openstack_environment(cloud):
         raise ValueError(
             "missing required OpenStack environment variable(s): "
             + ", ".join(missing)
-            + "; set the OS_* credentials or use --cloud with a configured "
-            "clouds.yaml entry"
+            + "; set the OS_* credentials, use --cloud with a configured "
+            "clouds.yaml entry, or add the project to vaults/openstack.yml"
         )
+
+def openstack_connection(vault_file, project, region_name, cloud=None):
+    """--cloud, then OS_CLOUD / OS_* environment, then the vault entry.
+
+    The vault entry is the openstack_projects one whose key, project_name,
+    or project_id is the reconciled project (OPENSTACK_TARGET_PROJECT
+    disambiguates, as for the import playbooks). It is used alone: an openrc
+    or clouds.yaml for another project must not fill in what it leaves out.
+    """
+    connection_args = {"region_name": region_name} if region_name else {}
+    if cloud:
+        report_credentials("OpenStack", f"--cloud {cloud}")
+        return openstack.connect(cloud=cloud, **connection_args)
+    if os.environ.get("OS_CLOUD") or os.environ.get("OS_AUTH_URL"):
+        validate_openstack_environment(None)
+        report_credentials("OpenStack", "OS_* environment")
+        return openstack.connect(**connection_args)
+    document = read_vault(vault_file)
+    selected = None
+    legacy = None
+    if document is not None:
+        legacy = document.get("openstack_auth")
+        if isinstance(legacy, dict) and not os.environ.get("OPENSTACK_TARGET_PROJECT", "").strip():
+            selected = select_vault_project(
+                {"legacy": legacy}, project, ("project_name", "project_id"),
+                "OPENSTACK_TARGET_PROJECT", "openstack_projects")
+        if selected is None:
+            selected = select_vault_project(
+                vault_projects(document, "openstack_projects"), project,
+                ("project_name", "project_id"), "OPENSTACK_TARGET_PROJECT", "openstack_projects")
+    if selected is None:
+        validate_openstack_environment(None)  # raises with the usual guidance
+    key, auth = selected
+    options = {name: (str(value) if name == "project_id" else value)
+               for name, value in auth.items() if value not in (None, "")}
+    options.update(connection_args)
+    source = (f"{Path(vault_file).name} openstack_auth" if auth is legacy
+              else f"{Path(vault_file).name} openstack_projects[{key}]")
+    report_credentials("OpenStack", source)
+    return openstack.connect(load_envvars=False, load_yaml_config=False, **options)
 
 def project_name(connection):
     try:
@@ -49,7 +96,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--catalog", type=Path,
                         default=repo_dir / "catalogs/image-catalog.json")
-    parser.add_argument("--cloud")
+    parser.add_argument("--cloud", help="clouds.yaml entry, instead of OS_* or the vault")
+    parser.add_argument("--vault-file", type=Path, default=repo_dir / "vaults/openstack.yml",
+                        help="encrypted vault holding openstack_projects credentials")
     parser.add_argument("--region-name")
     parser.add_argument(
         "--project-id",
@@ -69,8 +118,6 @@ def main():
         print("no OpenStack catalog entries found")
         return 0
 
-    validate_openstack_environment(args.cloud)
-
     region_names = {
         str(image.get("region"))
         for image in catalog["images"]
@@ -87,12 +134,9 @@ def main():
     else:
         region_name = None
 
-    connection_args = {}
-    if args.cloud:
-        connection_args["cloud"] = args.cloud
-    if region_name:
-        connection_args["region_name"] = region_name
-    connection = openstack.connect(**connection_args)
+    vault_scope = str(args.project_id) if args.project_id else (
+        next(iter(projects)) if len(projects) == 1 else None)
+    connection = openstack_connection(args.vault_file, vault_scope, region_name, args.cloud)
     authenticated_id = connection.current_project_id
     authenticated_name = project_name(connection)
     authenticated_identities = {str(value) for value in (

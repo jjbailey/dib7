@@ -24,7 +24,8 @@
     The username for vCenter authentication. Can be provided via environment variable 'vcenter_username'.
 
 .PARAMETER vCenterPassword
-    The password for vCenter authentication. Can be provided via environment variable 'vcenter_password'.
+    The password for vCenter authentication. Can be provided via environment variable 'vcenter_password', or on stdin
+    when 'vcenter_password_stdin' is set.
 
 .EXAMPLE
     .\import-ova-vsphere.ps1 -library "MyLibrary" -ova "C:\path\to\file.ova"
@@ -64,6 +65,13 @@ if (-not $vCenterUser) { $vCenterUser = $env:vcenter_username }
 if (-not $vCenterPassword) {
     if ($env:vcenter_password) {
         $vCenterPassword = ConvertTo-SecureString $env:vcenter_password -AsPlainText -Force
+    }
+    elseif ($env:vcenter_password_stdin) {
+        # The playbooks pass the password on stdin so it never appears in ps.
+        $stdinPassword = [Console]::In.ReadLine()
+        if ($stdinPassword) {
+            $vCenterPassword = ConvertTo-SecureString $stdinPassword -AsPlainText -Force
+        }
     }
 }
 

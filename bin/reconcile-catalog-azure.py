@@ -14,21 +14,50 @@ from azure.identity import ClientSecretCredential, DefaultAzureCredential
 from azure.mgmt.compute import ComputeManagementClient
 from azure.mgmt.core.tools import parse_resource_id
 
-from reconcile_catalog_common import read_snapshot, reconcile
+from reconcile_catalog_common import (
+    read_snapshot,
+    read_vault,
+    reconcile,
+    report_credentials,
+    require_fields,
+    select_vault_project,
+    vault_projects,
+)
 
-def credential_from_environment():
-    """Prefer the AZURE_* names azure.azcollection reads, then the SDK's own.
+def azure_credential(subscription, vault_file):
+    """Choose credentials: AZURE_* environment, then the vault, then az login.
 
     The playbook passes AZURE_TENANT/AZURE_CLIENT_ID/AZURE_SECRET; the Azure
     SDK's EnvironmentCredential spells them AZURE_TENANT_ID and
-    AZURE_CLIENT_SECRET. Accept either, and fall back to
-    DefaultAzureCredential (az login, managed identity) when neither is set.
+    AZURE_CLIENT_SECRET. Accept either. Otherwise use the service principal
+    the import playbook uses, from vaults/azure.yml (AZURE_TARGET_PROJECT
+    disambiguates, as for the import playbooks). DefaultAzureCredential
+    (az login, managed identity) is the last resort; Entra ID security
+    defaults can block az login for interactive users.
     """
     tenant = os.environ.get("AZURE_TENANT") or os.environ.get("AZURE_TENANT_ID")
     client_id = os.environ.get("AZURE_CLIENT_ID")
     secret = os.environ.get("AZURE_SECRET") or os.environ.get("AZURE_CLIENT_SECRET")
     if tenant and client_id and secret:
+        report_credentials("Azure", "service principal from AZURE_* environment")
         return ClientSecretCredential(tenant, client_id, secret)
+
+    document = read_vault(vault_file)
+    if document is not None:
+        selected = select_vault_project(
+            vault_projects(document, "azure_projects"), subscription,
+            ("subscription_id",), "AZURE_TARGET_PROJECT", "azure_projects")
+        if selected is not None:
+            key, entry = selected
+            require_fields("azure_projects", key, entry, ("tenant_id", "client_id", "client_secret"))
+            report_credentials("Azure", f"service principal from {vault_file.name} azure_projects[{key}]")
+            return ClientSecretCredential(
+                str(entry["tenant_id"]).strip(),
+                str(entry["client_id"]).strip(),
+                str(entry["client_secret"]).strip(),
+            )
+
+    report_credentials("Azure", "DefaultAzureCredential (az login, managed identity)")
     return DefaultAzureCredential()
 
 def main():
@@ -38,6 +67,8 @@ def main():
                         default=repo_dir / "catalogs/image-catalog.json")
     parser.add_argument("--subscription", "--project", dest="subscription",
                         help="only reconcile this Azure subscription ID")
+    parser.add_argument("--vault-file", type=Path, default=repo_dir / "vaults/azure.yml",
+                        help="encrypted vault holding azure_projects service principals")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
@@ -61,7 +92,7 @@ def main():
         "provider") == "azure" and image.get("status") == "published" and scope_match(image)]
     stale = []
     if published:
-        client = ComputeManagementClient(credential_from_environment(), subscription)
+        client = ComputeManagementClient(azure_credential(subscription, args.vault_file), subscription)
         for image in published:
             parts = parse_resource_id(image["artifact_id"])
             # The artifact ID names its own subscription. A row whose ID

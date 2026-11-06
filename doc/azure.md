@@ -100,9 +100,19 @@ passes this check.
 This works like the GCP reconciler. It selects the subscription automatically
 when the catalog holds only one; otherwise pass `--subscription` (alias
 `--project`). It removes rows whose managed image no longer exists, and rows
-already marked `retired`. It reads `AZURE_TENANT`/`AZURE_TENANT_ID`,
-`AZURE_CLIENT_ID`, and `AZURE_SECRET`/`AZURE_CLIENT_SECRET`, and falls back to
-`DefaultAzureCredential` (`az login`, managed identity).
+already marked `retired`. It chooses credentials in this order:
+
+1. `AZURE_TENANT`/`AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, and
+   `AZURE_SECRET`/`AZURE_CLIENT_SECRET` from the environment.
+2. The service principal in `vaults/azure.yml` whose `subscription_id` is the
+   subscription being reconciled. Set `AZURE_TARGET_PROJECT` to a vault key
+   when several entries share that subscription. The vault password comes
+   from `VAULT_PASSWORD_FILE` or `~/.ssh/dib-vault-pass`. Without either, this
+   step is skipped instead of prompting.
+3. `DefaultAzureCredential` (`az login`, managed identity). Entra ID security
+   defaults can block `az login` for interactive users (`AADSTS530035`).
+
+The chosen source is printed to stderr. `--vault-file` reads another vault.
 
 ## Ansible collection and Python dependencies
 

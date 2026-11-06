@@ -57,7 +57,7 @@ image's point release and kernel against that row before importing.
 - Fedora 43 — 6.17.1
 - Fedora 18, 19, 20, 37–40 are EOL per AWS
 
-Note that Fedora 44 is not yet listed, which `fedora45` builds.
+Note that Fedora 45 is not yet listed, which `fedora45` builds.
 
 ## Oracle Linux
 
