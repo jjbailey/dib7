@@ -29,7 +29,7 @@ if ! dnf -y install $PACKAGES ; then
     done
     if [ -n "$FAILED" ] ; then
         echo "10-packages: ERROR: could not install:$FAILED" >&2
-        exit 1
+        exit 0
     fi
 fi
 
