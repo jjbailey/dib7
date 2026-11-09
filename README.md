@@ -1,6 +1,6 @@
 # DIB7 - Disk Image Builder
 
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-GPL--3.0--or--later-blue.svg)](LICENSE)
 [![Ansible](https://img.shields.io/badge/Ansible-2.18.18-orange.svg)](https://ansible.com/)
 
 DIB7 is an automated pipeline for building and deploying virtual machine disk
@@ -691,7 +691,19 @@ Run playbooks with verbose output:
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+dib7: Ansible-based diskimage-builder
+
+Copyright (C) 2024-2026 Jack Bailey
+
+This program is free software: you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option)
+any later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE. See the [LICENSE](LICENSE) file for
+details.
 
 ## Support
 
