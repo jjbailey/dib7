@@ -170,7 +170,7 @@ azure_projects:
     resource_group: "my-resource-group" # must already exist
     location: "westus2"
     storage_account: "mystagingaccount" # 3-24 lowercase letters/digits; created if missing
-    storage_container: "dib7-images"    # optional; created if missing
+    storage_container: "dib7-images" # optional; created if missing
 ```
 
 Select an entry with `-e azure_target_project=<key-or-subscription-id>`. A
