@@ -182,7 +182,7 @@ to stderr (for example `AWS credentials: aws.yml aws_projects[lab]`):
    stop with a message naming what to set.
 
 The vault is opened only when steps 1 and 2 did not decide, and only with
-`VAULT_PASSWORD_FILE` or `~/.ssh/dib-vault-pass`; without either it is
+`VAULT_PASSWORD_FILE` or `~/.dib-vault-pass`; without either it is
 skipped instead of prompting. A vault that is present but will not decrypt is
 an error. Exported credentials override the vault for that shell, so an
 unexpected `environment` in the stderr line is the cue to look for a stale

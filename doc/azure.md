@@ -39,7 +39,7 @@ as an Azure **managed image**:
 
 ```bash
 ~/.dib7/bin/ansible-playbook playbooks/import-qcow2-azure.yml \
-  -e "run_id=$RUN_ID" -l <host-or-group> --vault-password-file ~/.ssh/dib-vault-pass
+  -e "run_id=$RUN_ID" -l <host-or-group> --vault-password-file ~/.dib-vault-pass
 # or, consuming an existing build:
 LIMIT=ubuntu26041 local/test-azure.sh
 ```
@@ -107,7 +107,7 @@ already marked `retired`. It chooses credentials in this order:
 2. The service principal in `vaults/azure.yml` whose `subscription_id` is the
    subscription being reconciled. Set `AZURE_TARGET_PROJECT` to a vault key
    when several entries share that subscription. The vault password comes
-   from `VAULT_PASSWORD_FILE` or `~/.ssh/dib-vault-pass`. Without either, this
+   from `VAULT_PASSWORD_FILE` or `~/.dib-vault-pass`. Without either, this
    step is skipped instead of prompting.
 3. `DefaultAzureCredential` (`az login`, managed identity). Entra ID security
    defaults can block `az login` for interactive users (`AADSTS530035`).
