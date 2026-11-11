@@ -160,7 +160,7 @@ echo "== vault schema =="
 # Optional: decrypt the vsphere/openstack vaults and check the multi-vcenter /
 # multi-project schema. Skipped silently when the vault password is missing so
 # the gate still runs on machines without credentials.
-vault_pass="${VAULT_PASSWORD_FILE:-$HOME/.ssh/dib-vault-pass}"
+vault_pass="${VAULT_PASSWORD_FILE:-$HOME/.dib-vault-pass}"
 if [ -s "$vault_pass" ] && [ -x "$venv_bin/ansible-vault" ] ; then
     if "$python_bin" - "$vault_pass" << 'PYTHON' ; then
 import json
