@@ -630,6 +630,11 @@ Run the local validation suite before committing changes:
 ./tests/validate.sh
 ```
 
+The same validation runs in GitHub Actions on pushes and pull requests. The CI
+job creates the project virtual environment, installs the pinned collections
+and Azure SDK dependencies, applies the DIB compatibility patches, and then
+runs this script without cloud credentials.
+
 This checks every actual playbook with Ansible syntax validation, wraps task
 files to parse them as tasks, and checks that `include_tasks` targets exist. It
 verifies the pinned Ansible collections and the Fedora and CentOS Stream 10 DIB

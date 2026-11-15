@@ -103,6 +103,36 @@ def authenticated_account(credentials=None):
                   credentials)
     return result.stdout.strip()
 
+def is_aws_account_id(value):
+    value = str(value or "")
+    return len(value) == 12 and value.isascii() and value.isdigit()
+
+def expected_aws_account(project, vault_file):
+    """Resolve the account represented by a catalog project value.
+
+    New catalog rows use the account ID directly. Older rows may contain the
+    selected vault key, so resolve that key to its configured account ID before
+    allowing a reconciliation lookup.
+    """
+    if is_aws_account_id(project):
+        return str(project)
+
+    document = read_vault(vault_file)
+    if document is None:
+        return None
+
+    legacy = (document if str(document.get("aws_region") or "").strip()
+              and "s3_bucket" in document and "vmimport_role_name" in document else None)
+    if legacy and str(project) == "legacy":
+        account = str(legacy.get("aws_account_id") or legacy.get("account_id") or "").strip()
+        return account if is_aws_account_id(account) else None
+
+    entry = vault_projects(document, "aws_projects").get(str(project))
+    if entry is None:
+        return None
+    account = str(entry.get("aws_account_id") or entry.get("account_id") or "").strip()
+    return account if is_aws_account_id(account) else None
+
 def live_ami_ids(region, ami_ids, credentials=None):
     live = set()
     for start in range(0, len(ami_ids), AMI_BATCH_SIZE):
@@ -133,14 +163,19 @@ def main():
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
     catalog = read_snapshot(args.catalog)
-    projects = {image.get("project") for image in catalog["images"]
-                if image.get("provider") == "aws" and image.get("project")}
+    aws_images = [image for image in catalog["images"] if image.get("provider") == "aws"]
+    projects = {image.get("project") for image in aws_images if image.get("project")}
     if args.project:
         project = str(args.project)
     elif len(projects) == 1:
         project = str(next(iter(projects)))
     elif len(projects) > 1:
         raise ValueError("catalog contains multiple AWS projects; provide --project")
+    elif any(image.get("status") == "published" and not image.get("project")
+             for image in aws_images):
+        raise ValueError(
+            "AWS catalog entries have no project/account ID; add the AWS account ID "
+            "before reconciling them")
     else:
         project = None
 
@@ -151,12 +186,6 @@ def main():
         if "credentials" not in resolved:
             resolved["credentials"] = aws_credentials(project, args.vault_file, args.profile)
         return resolved["credentials"]
-
-    if project and project.isdigit() and len(project) == 12:
-        actual_account = authenticated_account(credentials())
-        if actual_account != project:
-            raise ValueError(
-                f"authenticated AWS account {actual_account} does not match --project {project}")
 
     grouped = defaultdict(list)
     retired = []
@@ -178,6 +207,18 @@ def main():
         elif image.get("status") == "published":
             grouped[image["region"]].append(image)
     stale = []
+    if grouped:
+        expected_account = expected_aws_account(project, args.vault_file)
+        if not expected_account:
+            raise ValueError(
+                f"cannot verify the AWS account for catalog project {project!r}; "
+                "use a 12-digit account ID or add aws_account_id to its vault entry")
+        actual_account = authenticated_account(credentials())
+        if actual_account != expected_account:
+            raise ValueError(
+                f"authenticated AWS account {actual_account} does not match "
+                f"catalog project {project!r} (account {expected_account})")
+
     for region, images in grouped.items():
         live = live_ami_ids(region, [image["artifact_id"]
                             for image in images], credentials())
