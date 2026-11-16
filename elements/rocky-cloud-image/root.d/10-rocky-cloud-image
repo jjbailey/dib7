@@ -26,6 +26,10 @@ esac
 
 DIB_CLOUD_IMAGES=${DIB_CLOUD_IMAGES:-https://dl.rockylinux.org/pub/rocky/${DIB_RELEASE}/images/${ARCH}}
 DIB_LOCAL_IMAGE=${DIB_LOCAL_IMAGE:-}
+# DIB_RELEASE may be a major ("10", the newest point release) or a point
+# release ("10.2"). The directory uses it as given; image file names use
+# only the major number.
+DIB_RELEASE_MAJOR=${DIB_RELEASE%%.*}
 
 if [ -n "$DIB_LOCAL_IMAGE" ]; then
     IMAGE_LOCATION=$DIB_LOCAL_IMAGE
@@ -34,7 +38,7 @@ if [ -n "$DIB_LOCAL_IMAGE" ]; then
     BASE_IMAGE_TAR=$BASE_IMAGE_FILE.tgz
 else
     DIB_FLAVOR=${DIB_FLAVOR:-GenericCloud-Base}
-    BASE_IMAGE_FILE=${BASE_IMAGE_FILE:-Rocky-${DIB_RELEASE}-${DIB_FLAVOR}.latest.${ARCH}.qcow2}
+    BASE_IMAGE_FILE=${BASE_IMAGE_FILE:-Rocky-${DIB_RELEASE_MAJOR}-${DIB_FLAVOR}.latest.${ARCH}.qcow2}
     BASE_IMAGE_TAR=$BASE_IMAGE_FILE.tgz
     IMAGE_LOCATION=$DIB_CLOUD_IMAGES/$BASE_IMAGE_FILE
     CACHED_IMAGE=$DIB_IMAGE_CACHE/$BASE_IMAGE_FILE
