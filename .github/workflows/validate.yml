@@ -1,0 +1,47 @@
+name: Validate
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+
+      - name: Install the project environment
+        run: |
+          python -m venv "$HOME/.dib7"
+          "$HOME/.dib7/bin/python3" -m pip install --upgrade pip setuptools wheel
+          "$HOME/.dib7/bin/python3" -m pip install -r requirements.txt
+          "$HOME/.dib7/bin/ansible-galaxy" collection install -r requirements.yml
+          azure_requirements="$HOME/.ansible/collections/ansible_collections/azure/azcollection/requirements.txt"
+          test -f "$azure_requirements"
+          "$HOME/.dib7/bin/python3" -m pip install -r "$azure_requirements"
+
+      - name: Apply DIB compatibility patches
+        run: |
+          site_packages="$("$HOME/.dib7/bin/python3" -c 'import site; print(site.getsitepackages()[0])')"
+          fedora_element="$site_packages/diskimage_builder/elements/fedora/root.d/10-fedora-cloud-image"
+          if ! grep -q 'Fedora-Cloud-Base-Generic' "$fedora_element"; then
+            patch --forward -d "$(dirname "$fedora_element")" < patches/diskimage-builder-fedora-generic-image.patch
+          fi
+          centos_element="$site_packages/diskimage_builder/elements/centos/root.d/10-centos-cloud-image"
+          if ! grep -qF 'CentOS-Stream-${DIB_FLAVOR}-10-' "$centos_element"; then
+            patch --forward -d "$(dirname "$centos_element")" < patches/diskimage-builder-centos10-generic-image.patch
+          fi
+
+      - name: Run repository validation
+        run: ./tests/validate.sh

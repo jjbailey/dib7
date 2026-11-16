@@ -23,9 +23,11 @@
           - aws_region is defined and aws_region | length > 0
           - s3_bucket is defined and s3_bucket | length > 0
           - vmimport_role_name is defined and vmimport_role_name | length > 0
+          - (aws_account_id | default('') | string) is match('^[0-9]{12}$')
         fail_msg: >-
-          vaults/aws.yml must define aws_region, s3_bucket, and
-          vmimport_role_name before importing an OVA.
+          The selected AWS project must define aws_region, s3_bucket,
+          vmimport_role_name, and its 12-digit aws_account_id before importing
+          an OVA. The account ID is required for fail-closed catalog reconciliation.
 
     - name: Import OVA to AMI
       environment: "{{ aws_task_env | default({}) }}"
@@ -147,7 +149,7 @@
             catalog_artifact_type: ami
             catalog_region: "{{ aws_region }}"
             catalog_boot_mode: "{{ image_boot_mode }}"
-            catalog_project: "{{ aws_account_id if (aws_account_id | default('') | length > 0) else aws_target_project_name }}"
+            catalog_project: "{{ aws_account_id }}"
 
         - name: Remove OVA from S3 after successful import
           amazon.aws.s3_object:

@@ -14,8 +14,10 @@ Environment Variables
 DIB_RELEASE
   :Required: No
   :Default: 10
-  :Description: Rocky Linux major release. Selects the directory under
-      ``https://dl.rockylinux.org/pub/rocky/``.
+  :Description: Rocky Linux release. Selects the directory under
+      ``https://dl.rockylinux.org/pub/rocky/``. ``10`` is the newest 10.x
+      point release; ``10.2`` pins that point release (image file names
+      still use only the major number, ``Rocky-10-...``).
 
 DIB_FLAVOR
   :Required: No
@@ -25,7 +27,7 @@ DIB_FLAVOR
 
 BASE_IMAGE_FILE
   :Required: No
-  :Default: Rocky-$DIB_RELEASE-$DIB_FLAVOR.latest.$ARCH.qcow2
+  :Default: Rocky-<major>-$DIB_FLAVOR.latest.$ARCH.qcow2
   :Description: Image file to download. The default tracks Rocky's stable
       ``.latest`` name, so point releases need no change here. Set this to a
       dated build such as
