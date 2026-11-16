@@ -128,7 +128,7 @@ SLES 11 and 12 are EOL per AWS.
 | `debian1215`  | **Not listed**          | The rolling `bookworm` point release is not one of the listed 12.2 / 12.4 / 12.7       |
 | `debian1307`  | **Check point/kernel**  | AWS lists Debian 13.6 with kernel 6.12.0; verify the rolling `trixie` build matches    |
 | `fedora45`    | **Not listed**          | Upstream lists Fedora 41–43                                                            |
-| `rocky102`    | **Check point release** | AWS lists Rocky 10.0–10.1; this rolling target's exact point release must be confirmed |
+| `rocky103`    | **Check point release** | Built as Rocky 10.3; AWS lists only Rocky 10.0–10.1, so confirm before relying on it    |
 | `ubuntu24045` | Yes                     | Upstream lists Ubuntu 24.04                                                            |
 | `ubuntu26041` | Yes                     | Ubuntu 26.04 is listed with kernel 7.0.0; confirm the built kernel matches             |
 
