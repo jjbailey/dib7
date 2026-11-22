@@ -2,7 +2,7 @@
 
 Mirrors the Linux/Unix rows in the "Operating systems supported by VM
 Import/Export" table in the AWS docs. Last checked against upstream on
-2026-10-17. The table also contains Windows rows, which this page omits. Treat
+2026-11-21. The table also contains Windows rows, which this page omits. Treat
 DIB7 target releases not listed in the coverage table below as off-matrix for
 this pipeline, even if a local import happens to work.
 
@@ -124,7 +124,7 @@ SLES 11 and 12 are EOL per AWS.
 
 | Build         | AWS                     | Notes                                                                                |
 | ------------- | ----------------------- | ------------------------------------------------------------------------------------ |
-| `centos10s`   | **Not listed**          | Upstream lists CentOS Stream 9 only                                                  |
+| `centos10s`   | **Not listed**          | Upstream lists plain CentOS 9 only (no Stream 10 row)                                |
 | `debian1215`  | **Not listed**          | The rolling `bookworm` point release is not one of the listed 12.2 / 12.4 / 12.7     |
 | `debian1308`  | **Check point/kernel**  | AWS lists Debian 13.6 with kernel 6.12.0; verify the rolling `trixie` build matches  |
 | `fedora45`    | **Not listed**          | Upstream lists Fedora 41–43                                                          |
