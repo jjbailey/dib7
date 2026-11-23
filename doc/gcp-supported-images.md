@@ -2,7 +2,7 @@
 
 Mirrors the Linux distribution rows relevant to DIB7 and selected comparison
 families in the Migrate to Virtual Machines image-import table. Checked against
-upstream on 2026-10-17; the upstream page was last updated 2026-10-13. AlmaLinux,
+upstream on 2026-11-21 (no upstream "last updated" date was visible). AlmaLinux,
 RHEL, and Oracle Linux are included for reference even though DIB7 does not
 currently build them. The upstream table also includes SLES 12 SP5 / 15 SP5–SP7
 / 16 and Windows rows, which are omitted here.
@@ -95,7 +95,7 @@ images.
 | ------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------ |
 | `centos10s`   | Yes                     | CentOS Stream 10                                                                                             |
 | `debian1215`  | Yes                     | Debian 12.x                                                                                                  |
-| `debian1307`  | **Check point release** | DIB tracks rolling `trixie`; GCP lists Debian 13.0–13.2, so confirm the built point release before importing |
+| `debian1308`  | **Check point release** | DIB tracks rolling `trixie`; GCP lists Debian 13.0–13.2, so confirm the built point release before importing |
 | `fedora45`    | **Not listed**          | Fedora does not appear in the table at all                                                                   |
 | `rocky103`    | **Check point release** | Built as Rocky 10.3; GCP lists only 10.0–10.1, so confirm before importing                                   |
 | `ubuntu24045` | Yes                     | Known good, imports successfully                                                                             |

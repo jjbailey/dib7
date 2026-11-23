@@ -2,7 +2,7 @@
 
 Mirrors the Linux/Unix rows in the "Operating systems supported by VM
 Import/Export" table in the AWS docs. Last checked against upstream on
-2026-10-17. The table also contains Windows rows, which this page omits. Treat
+2026-11-21. The table also contains Windows rows, which this page omits. Treat
 DIB7 target releases not listed in the coverage table below as off-matrix for
 this pipeline, even if a local import happens to work.
 
@@ -47,7 +47,7 @@ CentOS 5–8 are EOL per AWS and are not recommended for new imports.
 
 Debian 6, 7, and 10 are EOL per AWS.
 
-AWS now lists Debian 13.6 with kernel 6.12.0. Check the built `debian1307`
+AWS now lists Debian 13.6 with kernel 6.12.0. Check the built `debian1308`
 image's point release and kernel against that row before importing.
 
 ## Fedora
@@ -122,15 +122,15 @@ SLES 11 and 12 are EOL per AWS.
 
 <!-- markdownlint-disable MD013 -->
 
-| Build         | AWS                     | Notes                                                                                  |
-| ------------- | ----------------------- | -------------------------------------------------------------------------------------- |
-| `centos10s`   | **Not listed**          | Upstream lists CentOS Stream 9 only                                                    |
-| `debian1215`  | **Not listed**          | The rolling `bookworm` point release is not one of the listed 12.2 / 12.4 / 12.7       |
-| `debian1307`  | **Check point/kernel**  | AWS lists Debian 13.6 with kernel 6.12.0; verify the rolling `trixie` build matches    |
-| `fedora45`    | **Not listed**          | Upstream lists Fedora 41–43                                                            |
-| `rocky103`    | **Check point release** | Built as Rocky 10.3; AWS lists only Rocky 10.0–10.1, so confirm before relying on it    |
-| `ubuntu24045` | Yes                     | Upstream lists Ubuntu 24.04                                                            |
-| `ubuntu26041` | Yes                     | Ubuntu 26.04 is listed with kernel 7.0.0; confirm the built kernel matches             |
+| Build         | AWS                     | Notes                                                                                |
+| ------------- | ----------------------- | ------------------------------------------------------------------------------------ |
+| `centos10s`   | **Not listed**          | Upstream lists plain CentOS 9 only (no Stream 10 row)                                |
+| `debian1215`  | **Not listed**          | The rolling `bookworm` point release is not one of the listed 12.2 / 12.4 / 12.7     |
+| `debian1308`  | **Check point/kernel**  | AWS lists Debian 13.6 with kernel 6.12.0; verify the rolling `trixie` build matches  |
+| `fedora45`    | **Not listed**          | Upstream lists Fedora 41–43                                                          |
+| `rocky103`    | **Check point release** | Built as Rocky 10.3; AWS lists only Rocky 10.0–10.1, so confirm before relying on it |
+| `ubuntu24045` | Yes                     | Upstream lists Ubuntu 24.04                                                          |
+| `ubuntu26041` | Yes                     | Ubuntu 26.04 is listed with kernel 7.0.0; confirm the built kernel matches           |
 
 <!-- markdownlint-enable MD013 -->
 
