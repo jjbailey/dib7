@@ -45,6 +45,10 @@ image_type: "qcow2"
 # catalog is copied to release storage.
 image_catalog_path: "{{ inventory_dir }}/catalogs/image-catalog.json"
 
+# Encrypted vaults are tracked in this repo by design. The name matches
+# migrate-v2v's vault_dir so the shared select-* task files stay identical.
+vault_dir: "{{ inventory_dir }}/vaults"
+
 # Safe site defaults; vaults/vsphere.yml may override these when configured.
 vsphere_content_library: "Content_Library"
 vsphere_template_name: "{{ inventory_hostname }}-base.tmpl"

@@ -32,7 +32,10 @@ class AnsibleRegressionTests(unittest.TestCase):
     def run_tasks(self, tasks, variables, hosts='localhost', serial=None):
         play = {
             'hosts': 'all', 'gather_facts': False, 'strategy': 'linear',
-            'vars': {'ansible_python_interpreter': sys.executable, **variables},
+            # The inline inventory loads no group_vars; vault_dir only
+            # appears in messages, since include_vars is stripped.
+            'vars': {'ansible_python_interpreter': sys.executable,
+                     'vault_dir': 'vaults', **variables},
             'tasks': tasks,
         }
         if serial:
